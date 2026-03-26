@@ -473,7 +473,7 @@ export default function About() {
             </h2>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {teamMembers.map((member, index) => (
               <motion.div
                 key={member.name}
@@ -481,7 +481,7 @@ export default function About() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1, duration: 0.5 }}
-                className="bg-background rounded-2xl p-8 text-center hover:shadow-xl hover:shadow-primary/10 transition-all"
+                className="bg-background rounded-2xl p-6 lg:p-8 text-center hover:shadow-xl hover:shadow-primary/10 transition-all"
               >
                 <div className="w-32 h-32 mx-auto mb-6 rounded-full overflow-hidden shadow-lg shadow-gray-200/50">
                   <img
