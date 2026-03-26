@@ -70,7 +70,7 @@ export default function CTA() {
           >
             <span className="flex items-center gap-2">
               <span className="w-2 h-2 bg-accent rounded-full" />
-              Free Project Assessment
+              Project Assessment
             </span>
             <span className="flex items-center gap-2">
               <span className="w-2 h-2 bg-accent rounded-full" />
