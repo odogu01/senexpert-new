@@ -9,12 +9,12 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | Senexpert Global',
-    default: 'Senexpert Global - Expert Business Consulting',
+    template: '%s | SenExpert Global',
+    default: 'SenExpert Global - Expert Business Consulting',
   },
-  description: 'Transform your business with Senexpert Global. Strategic consulting, digital transformation, and operational excellence solutions for enterprises worldwide.',
+  description: 'Transform your business with SenExpert Global. Strategic consulting, digital transformation, and operational excellence solutions for enterprises worldwide.',
   keywords: ['consulting', 'business', 'strategy', 'digital transformation', 'corporate'],
-  authors: [{ name: 'Senexpert Global' }],
+  authors: [{ name: 'SenExpert Global' }],
   icons: {
     icon: '/title-logo.png',
     shortcut: '/title-logo.png',
@@ -22,8 +22,8 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    siteName: 'Senexpert Global',
-    title: 'Senexpert Global - Expert Business Consulting',
+    siteName: 'SenExpert Global',
+    title: 'SenExpert Global - Expert Business Consulting',
     description: 'Transform your business with strategic consulting solutions',
   },
 };

@@ -7,6 +7,7 @@ const footerLinks = [
   { href: '/', label: 'Home' },
   { href: '/about', label: 'About' },
   { href: '/services', label: 'Services' },
+  { href: '/gallery', label: 'Gallery' },
   { href: '/contact', label: 'Contact' },
 ];
 
@@ -52,11 +53,11 @@ export default function Footer() {
           >
             <img 
               src="/logo.png" 
-              alt="Senexpert Global" 
+              alt="SenExpert Global" 
               className="w-full max-w-48 mb-4"
             />
             <p className="text-white/70 leading-relaxed">
-              SENEXPERT Global Energies is an innovative company that delivers engineering, maritime, and global procurement solutions. We are committed to providing reliable, high-quality services that meet and exceed client expectations.
+              SenExpert Global Energies is an innovative company that delivers engineering, maritime, and global procurement solutions. We are committed to providing reliable, high-quality services that meet and exceed client expectations.
             </p>
             <div className="flex gap-4">
               {socialLinks.map((social) => (
@@ -147,7 +148,7 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="py-6 border-t border-white/10">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-white/60">
-            <p>© 2026 Senexpert Global. All rights reserved.</p>
+            <p>© 2026 SenExpert Global. All rights reserved.</p>
             <div className="flex gap-6">
               <a href="#" className="hover:text-accent transition-colors">Privacy Policy</a>
               <a href="#" className="hover:text-accent transition-colors">Terms of Service</a>

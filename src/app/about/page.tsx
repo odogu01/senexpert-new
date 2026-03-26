@@ -140,7 +140,7 @@ export default function About() {
               <span className="text-accent">Energy Future</span>
             </h1>
             <p className="max-w-3xl mx-auto text-lg sm:text-xl text-white/80 leading-relaxed">
-              SenExpert Global Oilfield Service LLC is a fully Nigerian-owned oil tool and oilfield services firm committed to providing top-notch solutions for the oil and gas industry.
+              SenExpert Global Energies is a fully Nigerian-owned oil tool and oilfield services firm committed to providing top-notch solutions for the oil and gas industry.
             </p>
           </motion.div>
         </div>
@@ -166,7 +166,7 @@ export default function About() {
               </h2>
               <div className="space-y-4 text-text-muted leading-relaxed">
                 <p>
-                  SenExpert Global Oilfield Service LLC is a fully Nigerian-owned oil tool oilfield services and engineering firm committed to providing top-notch solutions for the oil and gas industry.
+                  SenExpert Global Energies is a fully Nigerian-owned oil tool oilfield services and engineering firm committed to providing top-notch solutions for the oil and gas industry.
                 </p>
                 <p>
                   Founded to offer integrated project management, well engineering, well completion, production optimization, Marine logistics services, and General procurement and supplies services.

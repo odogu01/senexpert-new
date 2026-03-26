@@ -108,7 +108,7 @@ export default function Hero() {
             transition={{ delay: 0.5, duration: 0.8 }}
             className="max-w-2xl mx-auto text-lg sm:text-xl text-white/80 leading-relaxed"
           >
-            Senexpert Global delivers world-class integrated services across Maritime, Oil & Gas, and Global Procurement with unmatched precision and safety.
+            SenExpert Global delivers world-class integrated services across Maritime, Oil & Gas, and Global Procurement with unmatched precision and safety.
           </motion.p>
 
           {/* CTA Buttons */}

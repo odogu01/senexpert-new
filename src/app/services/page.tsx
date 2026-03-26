@@ -188,8 +188,8 @@ const projects = [
     title: 'Seplat Amukpe-6 Lower Completion',
     client: 'Multi-Integral Limited',
     scope: '3-zones Lower completion Stand-alone screens',
-    date: 'Ongoing',
-    result: 'Currently in progress'
+    date: 'Completed',
+    result: 'Successfully completed all 3 zones'
   }
 ];
 

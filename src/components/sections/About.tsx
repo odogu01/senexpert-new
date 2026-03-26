@@ -32,7 +32,7 @@ export default function About() {
               <span className="text-gradient">On-Time Delivery</span>
             </h2>
             <p className="text-lg text-text-muted mb-10 leading-relaxed">
-              Senexpert Global (SEG) is dedicated to providing world-class integrated services. 
+              SenExpert Global Energies is dedicated to providing world-class integrated services. 
               We pride ourselves on our excellent work ethics and our ability to deliver complex 
               projects on time and on budget, utilizing smart technology and expert engineering.
             </p>
@@ -69,7 +69,7 @@ export default function About() {
             <div className="relative rounded-2xl overflow-hidden shadow-2xl shadow-primary/10">
               <img
                 src="/about-image.png"
-                alt="Senexpert Global operations"
+                alt="SenExpert Global operations"
                 className="w-full h-auto"
               />
               {/* Gradient Overlay */}

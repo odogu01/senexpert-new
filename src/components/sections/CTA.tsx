@@ -38,7 +38,7 @@ export default function CTA() {
             Next Project?
           </h2>
           <p className="text-lg sm:text-xl text-white/80 mb-10 max-w-2xl mx-auto">
-            Partner with Senexpert Global for world-class services in Maritime, Oil & Gas, 
+            Partner with SenExpert Global for world-class services in Maritime, Oil & Gas, 
             and Global Procurement. Let's discuss how we can support your operations.
           </p>
           

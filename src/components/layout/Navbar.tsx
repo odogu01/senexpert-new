@@ -12,6 +12,7 @@ const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/about', label: 'About' },
   { href: '/services', label: 'Services' },
+  { href: '/gallery', label: 'Gallery' },
   { href: '/contact', label: 'Contact' },
 ];
 
@@ -64,7 +65,7 @@ export default function Navbar({ transparent = true }: NavbarProps) {
             <a href="/" className="flex items-center gap-3 group">
               <motion.img 
                 src="/logo.png" 
-                alt="Senexpert Global" 
+                alt="SenExpert Global" 
                 className="h-12 sm:h-14 md:h-16 w-auto transition-all duration-300"
                 whileHover={{ scale: 1.05 }}
               />
@@ -160,7 +161,7 @@ export default function Navbar({ transparent = true }: NavbarProps) {
             {/* Mobile Logo */}
             <motion.img 
               src="/logo.png" 
-              alt="Senexpert Global" 
+              alt="SenExpert Global" 
               className="absolute top-4 left-1/2 -translate-x-1/2 h-16"
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
