@@ -6,41 +6,56 @@ import { X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 
+const categories = [
+  { id: 'all', label: 'All' },
+  { id: 'events', label: 'Events' },
+  { id: 'trainings', label: 'Trainings' },
+  { id: 'safety-meeting', label: 'Safety Meeting' },
+  { id: 'celebrations', label: 'Celebrations' },
+  { id: 'operations', label: 'Operations' },
+  { id: 'community-service', label: 'Community Service' },
+];
+
 const galleryImages = [
-  { id: 1, src: '/1.png', alt: 'Gallery Image 1' },
-  { id: 2, src: '/2.png', alt: 'Gallery Image 2' },
-  { id: 3, src: '/3.png', alt: 'Gallery Image 3' },
-  { id: 4, src: '/4.png', alt: 'Gallery Image 4' },
-  { id: 5, src: '/5.jpeg', alt: 'Gallery Image 5' },
-  { id: 6, src: '/6.png', alt: 'Gallery Image 6' },
-  { id: 7, src: '/7.png', alt: 'Gallery Image 7' },
-  { id: 8, src: '/8.png', alt: 'Gallery Image 8' },
-  { id: 9, src: '/9.png', alt: 'Gallery Image 9' },
-  { id: 10, src: '/10.png', alt: 'Gallery Image 10' },
+  { id: 1, src: '/1.png', alt: 'Event Image 1', category: 'events' },
+  { id: 2, src: '/2.png', alt: 'Training Image 1', category: 'trainings' },
+  { id: 3, src: '/3.png', alt: 'Safety Meeting Image 1', category: 'safety-meeting' },
+  { id: 4, src: '/4.png', alt: 'Celebration Image 1', category: 'celebrations' },
+  { id: 5, src: '/5.jpeg', alt: 'Operation Image 1', category: 'operations' },
+  { id: 6, src: '/6.png', alt: 'Event Image 2', category: 'events' },
+  { id: 7, src: '/7.png', alt: 'Community Service Image 1', category: 'community-service' },
+  { id: 8, src: '/8.png', alt: 'Training Image 2', category: 'trainings' },
+  { id: 9, src: '/9.png', alt: 'Safety Meeting Image 2', category: 'safety-meeting' },
+  { id: 10, src: '/10.png', alt: 'Celebration Image 2', category: 'celebrations' },
 ];
 
 export default function Gallery() {
-  const [selectedImage, setSelectedImage] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+
+  const filteredImages = selectedCategory === 'all'
+    ? galleryImages
+    : galleryImages.filter(img => img.category === selectedCategory);
 
   const openLightbox = (index: number) => {
-    setSelectedImage(index);
+    setSelectedImageIndex(index);
     document.body.style.overflow = 'hidden';
   };
 
   const closeLightbox = () => {
-    setSelectedImage(null);
+    setSelectedImageIndex(null);
     document.body.style.overflow = 'unset';
   };
 
   const goToPrevious = () => {
-    if (selectedImage !== null) {
-      setSelectedImage(selectedImage === 0 ? galleryImages.length - 1 : selectedImage - 1);
+    if (selectedImageIndex !== null) {
+      setSelectedImageIndex(selectedImageIndex === 0 ? filteredImages.length - 1 : selectedImageIndex - 1);
     }
   };
 
   const goToNext = () => {
-    if (selectedImage !== null) {
-      setSelectedImage(selectedImage === galleryImages.length - 1 ? 0 : selectedImage + 1);
+    if (selectedImageIndex !== null) {
+      setSelectedImageIndex(selectedImageIndex === filteredImages.length - 1 ? 0 : selectedImageIndex + 1);
     }
   };
 
@@ -83,43 +98,79 @@ export default function Gallery() {
         </div>
       </section>
 
-      {/* Gallery Grid */}
-      <section className="py-16 lg:py-24 bg-background">
+      {/* Category Tabs */}
+      <section className="py-8 bg-white border-b sticky top-20 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {galleryImages.map((image, index) => (
-              <motion.div
-                key={image.id}
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1, duration: 0.5 }}
-                className="group relative aspect-[4/3] rounded-2xl overflow-hidden cursor-pointer"
-                onClick={() => openLightbox(index)}
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                onClick={() => setSelectedCategory(category.id)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
+                  selectedCategory === category.id
+                    ? 'bg-primary text-white shadow-lg shadow-primary/25'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
               >
-                <img
-                  src={image.src}
-                  alt={image.alt}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transform scale-75 group-hover:scale-100 transition-all duration-300">
-                    <ZoomIn className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-                <div className="absolute bottom-4 left-4 right-4 transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
-                  <span className="text-white font-medium text-sm">View Image</span>
-                </div>
-              </motion.div>
+                {category.label}
+              </button>
             ))}
           </div>
         </div>
       </section>
 
+      {/* Gallery Grid */}
+      <section className="py-16 lg:py-24 bg-background">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={selectedCategory}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {filteredImages.length > 0 ? (
+                filteredImages.map((image, index) => (
+                  <motion.div
+                    key={image.id}
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1, duration: 0.5 }}
+                    className="group relative aspect-[4/3] rounded-2xl overflow-hidden cursor-pointer"
+                    onClick={() => openLightbox(index)}
+                  >
+                    <img
+                      src={image.src}
+                      alt={image.alt}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-primary/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transform scale-75 group-hover:scale-100 transition-all duration-300">
+                        <ZoomIn className="w-6 h-6 text-white" />
+                      </div>
+                    </div>
+                    <div className="absolute bottom-4 left-4 right-4 transform translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+                      <span className="text-white font-medium text-sm">View Image</span>
+                    </div>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="col-span-full text-center py-16">
+                  <p className="text-gray-500 text-lg">No images in this category yet.</p>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </section>
+
       {/* Lightbox Modal */}
       <AnimatePresence>
-        {selectedImage !== null && (
+        {selectedImageIndex !== null && filteredImages.length > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -154,13 +205,13 @@ export default function Gallery() {
             {/* Image Counter */}
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full">
               <span className="text-white font-medium">
-                {selectedImage + 1} / {galleryImages.length}
+                {selectedImageIndex + 1} / {filteredImages.length}
               </span>
             </div>
 
             {/* Main Image */}
             <motion.div
-              key={selectedImage}
+              key={selectedImageIndex}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
@@ -169,8 +220,8 @@ export default function Gallery() {
               onClick={(e) => e.stopPropagation()}
             >
               <img
-                src={galleryImages[selectedImage].src}
-                alt={galleryImages[selectedImage].alt}
+                src={filteredImages[selectedImageIndex].src}
+                alt={filteredImages[selectedImageIndex].alt}
                 className="max-w-full max-h-[80vh] object-contain rounded-lg"
               />
             </motion.div>
