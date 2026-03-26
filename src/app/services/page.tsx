@@ -223,16 +223,16 @@ function ProjectCard({ project, index }: { project: typeof projects[0]; index: n
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <h3 className="text-lg font-bold text-text mb-2">{project.title}</h3>
-            <div className="flex flex-wrap items-center gap-4 text-sm text-text-muted">
-              <span className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-text-muted">
+              <span className="flex items-center gap-1 flex-shrink-0">
                 <Building2 className="w-4 h-4 text-accent" />
                 {project.client}
               </span>
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1 flex-shrink-0">
                 <FileText className="w-4 h-4 text-accent" />
-                {project.scope}
+                <span className="truncate max-w-xs">{project.scope}</span>
               </span>
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1 flex-shrink-0">
                 <Calendar className="w-4 h-4 text-accent" />
                 {project.date}
               </span>
