@@ -230,7 +230,7 @@ function ProjectCard({ project, index }: { project: typeof projects[0]; index: n
               </span>
               <span className="flex items-center gap-1 flex-shrink-0">
                 <FileText className="w-4 h-4 text-accent" />
-                <span className="break-words">{project.scope}</span>
+                <span className={`${isExpanded ? '' : 'line-clamp-1'} max-w-xs`}>{project.scope}</span>
               </span>
               <span className="flex items-center gap-1 flex-shrink-0">
                 <Calendar className="w-4 h-4 text-accent" />
