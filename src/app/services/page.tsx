@@ -15,7 +15,7 @@ import {
   ArrowRight,
   ChevronDown,
   ChevronUp,
-  MapPin,
+  Building2,
   Calendar,
   FileText
 } from 'lucide-react';
@@ -218,7 +218,7 @@ function ProjectCard({ project, index }: { project: typeof projects[0]; index: n
             <h3 className="text-lg font-bold text-text mb-2">{project.title}</h3>
             <div className="flex flex-wrap items-center gap-4 text-sm text-text-muted">
               <span className="flex items-center gap-1">
-                <MapPin className="w-4 h-4 text-accent" />
+                <Building2 className="w-4 h-4 text-accent" />
                 {project.client}
               </span>
               <span className="flex items-center gap-1">

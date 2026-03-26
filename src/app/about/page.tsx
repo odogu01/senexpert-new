@@ -40,7 +40,7 @@ const values = [
   },
   {
     icon: Target,
-    title: 'Customer Focus',
+    title: 'Customer focus and satisfactory',
     description: 'Our clients are at the heart of everything we do. We tailor solutions to meet their unique needs.'
   },
   {
@@ -65,9 +65,15 @@ const teamMembers = [
   },
   {
     name: 'Tony Uzuazor Oboezi',
-    role: 'Field Service Manager',
+    role: 'Operations Director',
     image: '/Tony Uzuazor Oboezi.png',
-    description: 'A seasoned Field Service Manager with over 15 years experience as a High-Performing Wellsite lead completions supervisor.'
+    description: 'A seasoned Operations Director with over 15 years experience as a High-Performing Wellsite lead completions supervisor.'
+  },
+  {
+    name: 'Stanley Odhegba',
+    role: 'Executive Director',
+    image: '/Stanley Odhegba.png',
+    description: 'A seasoned Executive Director with over 25 years of leadership experience in the petroleum industry.'
   },
 ];
 
@@ -78,7 +84,7 @@ const equipmentCategories = [
   { name: 'Sand Control', description: 'Gravel pack screens, inflow control devices, and sand management solutions.', image: '/sand control.png' },
   { name: 'Intervention Tools', description: 'Slickline, E-line, and coiled tubing tools for well intervention operations.', image: '/Intervention Tools.png' },
   { name: 'Artificial Lift', description: 'Gas lift systems, ESP units, and hydraulic lift equipment for production optimization.', image: '/Artificial lift.png' },
-  { name: 'Welding', description: 'Professional welding services with precision and adherence to safety standards for industrial infrastructure.', image: '/welding.png' },
+  { name: 'Welding and Fabrication', description: 'Professional welding and fabrication services with precision and adherence to safety standards for industrial infrastructure.', image: '/welding.png' },
 ];
 
 export default function About() {
@@ -340,7 +346,7 @@ export default function About() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               {
-                title: 'OEM Support',
+                title: 'OEM support and excellent service delivery',
                 description: 'Full support from OEM and Technical partners for all Clients completions tools design, manufacturing and installations.',
                 icon: Cog
               },
