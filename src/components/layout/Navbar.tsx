@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ChevronDown, User } from 'lucide-react';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import Button from '@/components/ui/Button';
 import { usePathname } from 'next/navigation';
@@ -118,14 +119,12 @@ export default function Navbar({ transparent = true }: NavbarProps) {
               transition={{ delay: 0.5 }}
               className="hidden md:block"
             >
-              <Button 
-                variant="accent" 
-                size="sm"
-                onClick={() => document.querySelector('#contact')?.scrollIntoView({ behavior: 'smooth' })}
-              >
-                <User className="w-4 h-4" />
-                Login
-              </Button>
+              <Link href="/login">
+                <Button variant="accent" size="sm">
+                  <User className="w-4 h-4" />
+                  Login
+                </Button>
+              </Link>
             </motion.div>
 
             {/* Mobile Menu Button */}
@@ -199,10 +198,12 @@ export default function Navbar({ transparent = true }: NavbarProps) {
                 transition={{ delay: 0.4 }}
                 className="mt-4"
               >
-                <Button variant="accent" size="lg">
-                  <User className="w-5 h-5" />
-                  Login
-                </Button>
+                <Link href="/login">
+                  <Button variant="accent" size="lg">
+                    <User className="w-5 h-5" />
+                    Login
+                  </Button>
+                </Link>
               </motion.div>
             </div>
           </motion.div>
