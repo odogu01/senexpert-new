@@ -99,7 +99,7 @@ export default function Gallery() {
       </section>
 
       {/* Category Tabs */}
-      <section className="py-8 bg-white border-b sticky top-20 z-40">
+      <section className="py-8 bg-white border-b border-[#F3F3F3] sticky top-20 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
             {categories.map((category) => (
