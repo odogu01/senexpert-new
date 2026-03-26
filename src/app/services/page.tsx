@@ -108,6 +108,13 @@ const coreOfferings = [
 
 const projects = [
   {
+    title: 'OKOS-08 Well Completion Supervision Service',
+    client: 'Sahara Energy',
+    scope: 'Lower completion SAS, Perforation, Lower completion CHGP, dual string upper completion installation',
+    date: 'January 2026',
+    result: 'Successfully delivered well completion supervision service'
+  },
+  {
     title: 'Igbomotoru-3 (IGBN-3) Integrated Project Management',
     client: 'Eyrie Energy Limited',
     scope: 'Well re-entry & re-completion',
@@ -130,7 +137,7 @@ const projects = [
   },
   {
     title: 'Ogbanabou-2 Expandable Screens',
-    client: 'Kaim-Marine Petroleum Services',
+    client: 'Kal-Marine Petroleum Services',
     scope: 'Expandable screens installation',
     date: 'July 2024',
     result: 'Successfully installed expandable screens for Matpatson'
