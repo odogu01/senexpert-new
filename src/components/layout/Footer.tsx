@@ -56,7 +56,7 @@ export default function Footer() {
               className="w-full max-w-48 mb-4"
             />
             <p className="text-white/70 leading-relaxed">
-              SENEXPERT Global Integrated Services is an innovative company that delivers engineering, maritime, and global procurement solutions. We are committed to providing reliable, high-quality services that meet and exceed client expectations.
+              SENEXPERT Global Energies is an innovative company that delivers engineering, maritime, and global procurement solutions. We are committed to providing reliable, high-quality services that meet and exceed client expectations.
             </p>
             <div className="flex gap-4">
               {socialLinks.map((social) => (

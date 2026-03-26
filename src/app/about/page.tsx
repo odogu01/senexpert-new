@@ -74,7 +74,7 @@ const teamMembers = [
 const equipmentCategories = [
   { name: 'Completion Equipment', description: 'Bridge plugs, packers, subsurface safety valves, and completion accessories for wellbore operations.', image: '/Completion Equipment.png' },
   { name: 'Wellhead Equipment', description: 'Valves, chokes, BOP accessories, and pressure control equipment for surface operations.', image: '/wellhead Equipment.png' },
-  { name: 'Tubulars', description: 'Casing, tubing, pup joints, crossovers, and landing nipples for well construction.', image: '/Tubulars.png' },
+  { name: 'Tubulars', description: 'Casing, tubing, pup joints, crossovers, and landing nipples for well construction.', image: '/Tabulars.png' },
   { name: 'Sand Control', description: 'Gravel pack screens, inflow control devices, and sand management solutions.', image: '/sand control.png' },
   { name: 'Intervention Tools', description: 'Slickline, E-line, and coiled tubing tools for well intervention operations.', image: '/Intervention Tools.png' },
   { name: 'Artificial Lift', description: 'Gas lift systems, ESP units, and hydraulic lift equipment for production optimization.', image: '/Artificial lift.png' },

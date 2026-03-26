@@ -136,7 +136,7 @@ export default function Hero() {
             className="pt-16 grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto"
           >
             {[
-              { value: '20+', label: 'Years Experience' },
+              { value: '60+', label: 'Years Experience' },
               { value: '500+', label: 'Projects Completed' },
               { value: '98%', label: 'On-Time Delivery' },
               { value: '150+', label: 'Expert Personnel' },
