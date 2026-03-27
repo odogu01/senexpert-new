@@ -25,6 +25,22 @@ const clients = [
   },
 ];
 
+// Client logo item component
+function ClientLogoItem({ client, index }: { client: typeof clients[0]; index: number }) {
+  return (
+    <div
+      className="flex items-center justify-center px-6 py-4 bg-background rounded-xl flex-shrink-0"
+      style={{ width: '140px', height: '64px' }}
+    >
+      <img
+        src={client.logo}
+        alt={client.name}
+        className="max-w-full max-h-full object-contain"
+      />
+    </div>
+  );
+}
+
 export default function Clients() {
   return (
     <section className="py-20 lg:py-28 bg-white relative overflow-hidden">
@@ -81,51 +97,26 @@ export default function Clients() {
         </motion.div>
 
         {/* Mobile Marquee */}
-        <div className="lg:hidden overflow-hidden">
-          <style>{`
-            @keyframes marquee {
-              0% {
-                transform: translateX(0);
-              }
-              100% {
-                transform: translateX(-50%);
-              }
-            }
-            .animate-marquee {
-              animation: marquee 20s linear infinite;
-            }
-          `}</style>
-          <div className="flex animate-marquee">
-            {/* First set of logos */}
-            <div className="flex gap-6 pr-6">
-              {clients.map((client) => (
-                <div
-                  key={client.name}
-                  className="flex items-center justify-center px-6 py-4 bg-background rounded-xl flex-shrink-0"
-                >
-                  <img
-                    src={client.logo}
-                    alt={client.name}
-                    className="h-12 w-auto object-contain"
-                  />
-                </div>
-              ))}
-            </div>
-            {/* Duplicate set for seamless loop */}
-            <div className="flex gap-6 pr-6">
-              {clients.map((client) => (
-                <div
-                  key={`${client.name}-dup`}
-                  className="flex items-center justify-center px-6 py-4 bg-background rounded-xl flex-shrink-0"
-                >
-                  <img
-                    src={client.logo}
-                    alt={client.name}
-                    className="h-12 w-auto object-contain"
-                  />
-                </div>
-              ))}
-            </div>
+        <div className="lg:hidden overflow-hidden relative">
+          {/* Fade edges */}
+          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
+          
+          {/* Marquee track */}
+          <div 
+            className="flex gap-6"
+            style={{ 
+              animation: 'marquee 30s linear infinite',
+            }}
+          >
+            {/* First set */}
+            {clients.map((client, index) => (
+              <ClientLogoItem key={client.name} client={client} index={index} />
+            ))}
+            {/* Second set for seamless loop */}
+            {clients.map((client, index) => (
+              <ClientLogoItem key={`${client.name}-copy`} client={client} index={index} />
+            ))}
           </div>
         </div>
 
@@ -142,6 +133,18 @@ export default function Clients() {
           </p>
         </motion.div>
       </div>
+
+      {/* Global styles for marquee animation */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes marquee {
+          0% {
+            transform: translateX(0);
+          }
+          100% {
+            transform: translateX(-50%);
+          }
+        }
+      `}} />
     </section>
   );
 }
