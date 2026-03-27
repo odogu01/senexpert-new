@@ -335,7 +335,7 @@ export default function Hero() {
           >
             Powering the
             <br />
-            <span className="text-accent">Future of Industry</span>
+            <span className="text-accent">Future of the Oil and Gas Industry</span>
           </motion.h1>
 
           {/* Subtext */}
