@@ -25,22 +25,6 @@ const clients = [
   },
 ];
 
-// Client logo item component
-function ClientLogoItem({ client, index }: { client: typeof clients[0]; index: number }) {
-  return (
-    <div
-      className="flex items-center justify-center px-6 py-4 bg-background rounded-xl flex-shrink-0"
-      style={{ width: '140px', height: '64px' }}
-    >
-      <img
-        src={client.logo}
-        alt={client.name}
-        className="max-w-full max-h-full object-contain"
-      />
-    </div>
-  );
-}
-
 export default function Clients() {
   return (
     <section className="py-20 lg:py-28 bg-white relative overflow-hidden">
@@ -96,27 +80,51 @@ export default function Clients() {
           ))}
         </motion.div>
 
-        {/* Mobile Marquee */}
+        {/* Mobile Marquee - Infinite Scroll */}
         <div className="lg:hidden overflow-hidden relative">
           {/* Fade edges */}
-          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
+          <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-white to-transparent z-20 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent z-20 pointer-events-none" />
           
-          {/* Marquee track */}
-          <div 
-            className="flex gap-6"
-            style={{ 
-              animation: 'marquee 30s linear infinite',
-            }}
-          >
-            {/* First set */}
-            {clients.map((client, index) => (
-              <ClientLogoItem key={client.name} client={client} index={index} />
-            ))}
-            {/* Second set for seamless loop */}
-            {clients.map((client, index) => (
-              <ClientLogoItem key={`${client.name}-copy`} client={client} index={index} />
-            ))}
+          {/* Marquee wrapper */}
+          <div className="relative flex overflow-x-auto hide-scrollbar">
+            <style>{`
+              @keyframes scroll {
+                0% {
+                  transform: translateX(0);
+                }
+                100% {
+                  transform: translateX(-100%);
+                }
+              }
+              .marquee-content {
+                animation: scroll 40s linear infinite;
+              }
+              .hide-scrollbar::-webkit-scrollbar {
+                display: none;
+              }
+              .hide-scrollbar {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+              }
+            `}</style>
+            
+            {/* Single set of logos that will be duplicated by animation */}
+            <div className="marquee-content flex gap-4 flex-shrink-0">
+              {[...clients, ...clients, ...clients, ...clients].map((client, index) => (
+                <div
+                  key={`${client.name}-${index}`}
+                  className="flex items-center justify-center px-4 py-3 bg-background rounded-lg flex-shrink-0"
+                  style={{ width: '120px', height: '56px' }}
+                >
+                  <img
+                    src={client.logo}
+                    alt={client.name}
+                    className="max-w-full max-h-full object-contain"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -133,18 +141,6 @@ export default function Clients() {
           </p>
         </motion.div>
       </div>
-
-      {/* Global styles for marquee animation */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes marquee {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-      `}} />
     </section>
   );
 }
