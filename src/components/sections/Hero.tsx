@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, ChevronDown } from 'lucide-react';
 import Button from '@/components/ui/Button';
@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button';
 // Frame configuration
 const TOTAL_FRAMES = 150;
 const FRAME_BASE_PATH = '/hero-background/frame_';
+const FRAME_DURATION = 33; // ~30fps (33ms per frame)
 
 export default function Hero() {
   const scrollToAbout = () => {
@@ -17,11 +18,11 @@ export default function Hero() {
   const [currentFrame, setCurrentFrame] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
-  const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set([0]));
-  const heroRef = useRef<HTMLElement | null>(null);
-  const preloadedRangeRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
+  const animationRef = useRef<number | null>(null);
   const frameCacheRef = useRef<Map<number, HTMLImageElement>>(new Map());
-  const lastFrameRef = useRef(0);
+  const lastFrameTimeRef = useRef(0);
+  const directionRef = useRef(1); // 1 = forward, -1 = backward
+  const animationStartedRef = useRef(false);
 
   // Generate frame path
   const getFramePath = (frameIndex: number): string => {
@@ -30,7 +31,7 @@ export default function Hero() {
   };
 
   // Preload an image
-  const preloadImage = (frameIndex: number): Promise<void> => {
+  const preloadImage = useCallback((frameIndex: number): Promise<void> => {
     return new Promise((resolve) => {
       if (frameCacheRef.current.has(frameIndex)) {
         resolve();
@@ -40,17 +41,54 @@ export default function Hero() {
       const img = new Image();
       img.onload = () => {
         frameCacheRef.current.set(frameIndex, img);
-        setLoadedImages(prev => {
-          const newSet = new Set(prev);
-          newSet.add(frameIndex);
-          return newSet;
-        });
         resolve();
       };
       img.onerror = () => resolve();
       img.src = getFramePath(frameIndex);
     });
-  };
+  }, []);
+
+  // Animation loop - ping-pong effect
+  const animate = useCallback((timestamp: number) => {
+    if (!lastFrameTimeRef.current) {
+      lastFrameTimeRef.current = timestamp;
+    }
+
+    const elapsed = timestamp - lastFrameTimeRef.current;
+
+    if (elapsed >= FRAME_DURATION) {
+      lastFrameTimeRef.current = timestamp;
+
+      setCurrentFrame(prevFrame => {
+        let nextFrame = prevFrame + directionRef.current;
+
+        // Reverse direction at boundaries (ping-pong effect)
+        if (nextFrame >= TOTAL_FRAMES) {
+          nextFrame = TOTAL_FRAMES - 2; // Go back one frame
+          directionRef.current = -1;
+        } else if (nextFrame < 0) {
+          nextFrame = 1; // Go forward one frame
+          directionRef.current = 1;
+        }
+
+        // Preload next few frames ahead of current direction
+        const preloadStart = directionRef.current === 1 
+          ? Math.min(nextFrame, TOTAL_FRAMES - 5)
+          : Math.max(nextFrame - 4, 0);
+        
+        for (let i = 0; i < 5; i++) {
+          const preloadFrame = preloadStart + (i * directionRef.current);
+          if (preloadFrame >= 0 && preloadFrame < TOTAL_FRAMES) {
+            preloadImage(preloadFrame);
+          }
+        }
+
+        return nextFrame;
+      });
+    }
+
+    animationRef.current = requestAnimationFrame(animate);
+  }, [preloadImage]);
 
   // Check browser support
   useEffect(() => {
@@ -64,85 +102,37 @@ export default function Hero() {
     }
   }, []);
 
-  // Initialize hero ref
-  useEffect(() => {
-    heroRef.current = document.getElementById('home');
-  }, []);
-
-  // Preload initial frames
+  // Preload initial frames and start animation
   useEffect(() => {
     if (!isSupported) {
       setIsLoaded(true);
       return;
     }
 
-    const preloadInitialFrames = async () => {
-      const initialFrames = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const initAnimation = async () => {
+      // Preload first 20 frames
+      const initialFrames = Array.from({ length: 20 }, (_, i) => i);
       await Promise.all(initialFrames.map(preloadImage));
+      
       setIsLoaded(true);
-      preloadedRangeRef.current = { start: 0, end: 9 };
+      
+      // Start animation after a short delay for content to render
+      setTimeout(() => {
+        if (!animationStartedRef.current) {
+          animationStartedRef.current = true;
+          animationRef.current = requestAnimationFrame(animate);
+        }
+      }, 500);
     };
 
-    preloadInitialFrames();
-  }, [isSupported]);
+    initAnimation();
 
-  // Handle scroll with requestAnimationFrame for smooth performance
-  useEffect(() => {
-    if (!isSupported) return;
-
-    let ticking = false;
-    const scrollSensitivity = 2500; // Pixels to scroll through all frames
-
-    const handleScroll = () => {
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          if (!heroRef.current) {
-            heroRef.current = document.getElementById('home');
-          }
-
-          if (heroRef.current) {
-            const scrollY = window.scrollY;
-            const heroHeight = heroRef.current.offsetHeight;
-            
-            // Calculate frame based on scroll position
-            // When at top of page: frame 0, when scrolled past hero: frame 149
-            const scrollProgress = Math.min(scrollY / scrollSensitivity, 1);
-            const newFrame = Math.round(scrollProgress * (TOTAL_FRAMES - 1));
-
-            if (newFrame !== lastFrameRef.current) {
-              lastFrameRef.current = newFrame;
-              setCurrentFrame(newFrame);
-
-              // Preload nearby frames
-              const preloadStart = Math.max(0, newFrame - 3);
-              const preloadEnd = Math.min(TOTAL_FRAMES - 1, newFrame + 8);
-
-              // Only preload if range has changed significantly
-              if (
-                preloadStart < preloadedRangeRef.current.start ||
-                preloadEnd > preloadedRangeRef.current.end
-              ) {
-                preloadedRangeRef.current = { start: preloadStart, end: preloadEnd };
-                
-                // Preload frames in batches
-                for (let i = preloadStart; i <= preloadEnd; i++) {
-                  if (!frameCacheRef.current.has(i)) {
-                    preloadImage(i);
-                  }
-                }
-              }
-            }
-          }
-
-          ticking = false;
-        });
-        ticking = true;
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
       }
     };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isSupported]);
+  }, [isSupported, preloadImage, animate]);
 
   // Get current frame path
   const framePath = getFramePath(currentFrame);
@@ -259,7 +249,7 @@ export default function Hero() {
 
   return (
     <section id="home" className="relative min-h-screen overflow-hidden">
-      {/* Scroll-Driven Frame Animation Background */}
+      {/* Video-Style Frame Animation Background */}
       <div className="absolute inset-0">
         {/* Current Frame */}
         <img
@@ -269,7 +259,7 @@ export default function Hero() {
           className="absolute inset-0 w-full h-full object-cover scale-[1.3]"
           style={{ 
             opacity: isLoaded ? 1 : 0,
-            transition: 'opacity 0.3s ease-out'
+            transition: 'opacity 0.2s ease-out'
           }}
         />
         
