@@ -8,7 +8,7 @@ import Button from '@/components/ui/Button';
 // Frame configuration
 const TOTAL_FRAMES = 150;
 const FRAME_BASE_PATH = '/hero-background/frame_';
-const FRAME_DURATION = 33; // ~30fps (33ms per frame)
+const FRAME_DURATION = 46; // ~22fps (46ms per frame) - 40% slower than 30fps
 
 export default function Hero() {
   const scrollToAbout = () => {
