@@ -86,7 +86,7 @@ export default function About() {
             >
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-accent/10 rounded-full flex items-center justify-center">
-                  <span className="text-2xl font-bold text-accent">20+</span>
+                  <span className="text-2xl font-bold text-accent">60+</span>
                 </div>
                 <div>
                   <p className="font-bold text-text">Years of</p>
