@@ -52,13 +52,13 @@ export default function Clients() {
           </p>
         </motion.div>
 
-        {/* Clients Grid */}
+        {/* Desktop Clients Grid */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 items-center"
+          className="hidden lg:grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 items-center"
         >
           {clients.map((client, index) => (
             <motion.div
@@ -79,6 +79,55 @@ export default function Clients() {
             </motion.div>
           ))}
         </motion.div>
+
+        {/* Mobile Marquee */}
+        <div className="lg:hidden overflow-hidden">
+          <style>{`
+            @keyframes marquee {
+              0% {
+                transform: translateX(0);
+              }
+              100% {
+                transform: translateX(-50%);
+              }
+            }
+            .animate-marquee {
+              animation: marquee 20s linear infinite;
+            }
+          `}</style>
+          <div className="flex animate-marquee">
+            {/* First set of logos */}
+            <div className="flex gap-6 pr-6">
+              {clients.map((client) => (
+                <div
+                  key={client.name}
+                  className="flex items-center justify-center px-6 py-4 bg-background rounded-xl flex-shrink-0"
+                >
+                  <img
+                    src={client.logo}
+                    alt={client.name}
+                    className="h-12 w-auto object-contain"
+                  />
+                </div>
+              ))}
+            </div>
+            {/* Duplicate set for seamless loop */}
+            <div className="flex gap-6 pr-6">
+              {clients.map((client) => (
+                <div
+                  key={`${client.name}-dup`}
+                  className="flex items-center justify-center px-6 py-4 bg-background rounded-xl flex-shrink-0"
+                >
+                  <img
+                    src={client.logo}
+                    alt={client.name}
+                    className="h-12 w-auto object-contain"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
 
         {/* Trust Statement */}
         <motion.div
