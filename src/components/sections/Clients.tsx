@@ -67,13 +67,13 @@ export default function Clients() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: index * 0.1, duration: 0.5 }}
-              className="group flex items-center justify-center p-6 rounded-xl bg-background hover:bg-primary/5 transition-all duration-300"
+              className="group flex items-center justify-center p-6 rounded-xl bg-background hover:bg-primary/5 transition-all duration-300 hover:shadow-xl hover:shadow-primary/20"
             >
               <div className="relative w-full h-16 flex items-center justify-center">
                 <img
                   src={client.logo}
                   alt={client.name}
-                  className="max-w-full max-h-full object-contain transition-all duration-300 group-hover:shadow-lg group-hover:shadow-primary/20"
+                  className="max-w-full max-h-full object-contain"
                 />
               </div>
             </motion.div>
