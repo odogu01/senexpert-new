@@ -73,7 +73,7 @@ export default function Clients() {
                 <img
                   src={client.logo}
                   alt={client.name}
-                  className="max-w-full max-h-full object-contain grayscale group-hover:grayscale-0 transition-all duration-300 opacity-70 group-hover:opacity-100"
+                  className="max-w-full max-h-full object-contain transition-all duration-300 group-hover:shadow-lg group-hover:shadow-primary/20"
                 />
               </div>
             </motion.div>
