@@ -7,7 +7,6 @@ import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 
 const categories = [
-  { id: 'all', label: 'All' },
   { id: 'events', label: 'Events' },
   { id: 'trainings', label: 'Trainings' },
   { id: 'safety-meeting', label: 'Safety Meeting' },
@@ -17,25 +16,64 @@ const categories = [
 ];
 
 const galleryImages = [
-  { id: 1, src: '/1.png', alt: 'Event Image 1', category: 'events' },
-  { id: 2, src: '/2.png', alt: 'Training Image 1', category: 'trainings' },
-  { id: 3, src: '/3.png', alt: 'Safety Meeting Image 1', category: 'safety-meeting' },
-  { id: 4, src: '/4.png', alt: 'Celebration Image 1', category: 'celebrations' },
-  { id: 5, src: '/5.jpeg', alt: 'Operation Image 1', category: 'operations' },
-  { id: 6, src: '/6.png', alt: 'Event Image 2', category: 'events' },
-  { id: 7, src: '/7.png', alt: 'Community Service Image 1', category: 'community-service' },
-  { id: 8, src: '/8.png', alt: 'Training Image 2', category: 'trainings' },
-  { id: 9, src: '/9.png', alt: 'Safety Meeting Image 2', category: 'safety-meeting' },
-  { id: 10, src: '/10.png', alt: 'Celebration Image 2', category: 'celebrations' },
+  { id: 1, src: '/Events1.png', alt: 'Event Image 1', category: 'events' },
+  { id: 2, src: '/Events2.png', alt: 'Event Image 2', category: 'events' },
+  { id: 3, src: '/Events3.png', alt: 'Event Image 3', category: 'events' },
+  { id: 4, src: '/Trainings1.jpeg', alt: 'Training Image 1', category: 'trainings' },
+  { id: 5, src: '/Trainings2.jpeg', alt: 'Training Image 2', category: 'trainings' },
+  { id: 6, src: '/Trainings3.jpeg', alt: 'Training Image 3', category: 'trainings' },
+  { id: 7, src: '/Trainings4.jpeg', alt: 'Training Image 4', category: 'trainings' },
+  { id: 8, src: '/Trainings5.jpeg', alt: 'Training Image 5', category: 'trainings' },
+  { id: 9, src: '/Trainings6.jpeg', alt: 'Training Image 6', category: 'trainings' },
+  { id: 10, src: '/Trainings7.jpeg', alt: 'Training Image 7', category: 'trainings' },
+  { id: 11, src: '/Trainings8.jpeg', alt: 'Training Image 8', category: 'trainings' },
+  { id: 12, src: '/Trainings9.jpeg', alt: 'Training Image 9', category: 'trainings' },
+  { id: 13, src: '/Safety Meeting1.jpeg', alt: 'Safety Meeting Image 1', category: 'safety-meeting' },
+  { id: 14, src: '/Safety Meeting2.jpeg', alt: 'Safety Meeting Image 2', category: 'safety-meeting' },
+  { id: 15, src: '/Safety Meeting3.jpeg', alt: 'Safety Meeting Image 3', category: 'safety-meeting' },
+  { id: 16, src: '/Safety Meeting4.jpeg', alt: 'Safety Meeting Image 4', category: 'safety-meeting' },
+  { id: 17, src: '/Safety Meeting5.jpeg', alt: 'Safety Meeting Image 5', category: 'safety-meeting' },
+  { id: 18, src: '/Safety Meeting6.jpeg', alt: 'Safety Meeting Image 6', category: 'safety-meeting' },
+  { id: 19, src: '/Celebrations1.jpeg', alt: 'Celebration Image 1', category: 'celebrations' },
+  { id: 20, src: '/Celebrations2.jpeg', alt: 'Celebration Image 2', category: 'celebrations' },
+  { id: 21, src: '/Celebrations3.jpeg', alt: 'Celebration Image 3', category: 'celebrations' },
+  { id: 22, src: '/Celebrations4.jpeg', alt: 'Celebration Image 4', category: 'celebrations' },
+  { id: 23, src: '/Celebrations5.jpeg', alt: 'Celebration Image 5', category: 'celebrations' },
+  { id: 24, src: '/Celebrations6.jpeg', alt: 'Celebration Image 6', category: 'celebrations' },
+  { id: 25, src: '/Celebrations7.jpeg', alt: 'Celebration Image 7', category: 'celebrations' },
+  { id: 26, src: '/Celebrations8.jpeg', alt: 'Celebration Image 8', category: 'celebrations' },
+  { id: 27, src: '/Celebrations9.jpeg', alt: 'Celebration Image 9', category: 'celebrations' },
+  { id: 28, src: '/Celebrations10.jpeg', alt: 'Celebration Image 10', category: 'celebrations' },
+  { id: 29, src: '/Celebrations11.jpeg', alt: 'Celebration Image 11', category: 'celebrations' },
+  { id: 30, src: '/Celebrations12.jpeg', alt: 'Celebration Image 12', category: 'celebrations' },
+  { id: 31, src: '/Operations1.png', alt: 'Operation Image 1', category: 'operations' },
+  { id: 32, src: '/Operations2.png', alt: 'Operation Image 2', category: 'operations' },
+  { id: 33, src: '/Operations3.png', alt: 'Operation Image 3', category: 'operations' },
+  { id: 34, src: '/Operations4.jpeg', alt: 'Operation Image 4', category: 'operations' },
+  { id: 35, src: '/Operations5.png', alt: 'Operation Image 5', category: 'operations' },
+  { id: 36, src: '/Operations6.png', alt: 'Operation Image 6', category: 'operations' },
+  { id: 37, src: '/Operations7.png', alt: 'Operation Image 7', category: 'operations' },
+  { id: 38, src: '/Operations8.png', alt: 'Operation Image 8', category: 'operations' },
+  { id: 39, src: '/Operations9.png', alt: 'Operation Image 9', category: 'operations' },
+  { id: 40, src: '/Operations10.jpeg', alt: 'Operation Image 10', category: 'operations' },
+  { id: 41, src: '/Operations11.jpeg', alt: 'Operation Image 11', category: 'operations' },
+  { id: 42, src: '/Operations12.jpeg', alt: 'Operation Image 12', category: 'operations' },
+  { id: 43, src: '/Operations13.jpeg', alt: 'Operation Image 13', category: 'operations' },
+  { id: 44, src: '/Operations14.jpeg', alt: 'Operation Image 14', category: 'operations' },
+  { id: 45, src: '/Operations15.jpeg', alt: 'Operation Image 15', category: 'operations' },
+  { id: 46, src: '/Operations16.jpeg', alt: 'Operation Image 16', category: 'operations' },
+  { id: 47, src: '/Community Service1.jpeg', alt: 'Community Service Image 1', category: 'community-service' },
+  { id: 48, src: '/Community Service2.jpeg', alt: 'Community Service Image 2', category: 'community-service' },
+  { id: 49, src: '/Community Service3.jpeg', alt: 'Community Service Image 3', category: 'community-service' },
+  { id: 50, src: '/Community Service4.jpeg', alt: 'Community Service Image 4', category: 'community-service' },
+  { id: 51, src: '/Community Service5.jpeg', alt: 'Community Service Image 5', category: 'community-service' },
 ];
 
 export default function Gallery() {
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('events');
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
 
-  const filteredImages = selectedCategory === 'all'
-    ? galleryImages
-    : galleryImages.filter(img => img.category === selectedCategory);
+  const filteredImages = galleryImages.filter(img => img.category === selectedCategory);
 
   const openLightbox = (index: number) => {
     setSelectedImageIndex(index);

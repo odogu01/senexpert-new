@@ -44,7 +44,7 @@ export default function Services() {
       {/* Background Image with Gradient Overlay */}
       <div className="absolute inset-0">
         <img
-          src="/our service background.png"
+          src="/our-service-background.png"
           alt="Services background"
           className="w-full h-full object-cover"
         />
