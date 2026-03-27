@@ -249,6 +249,134 @@ export default function About() {
         </div>
       </section>
 
+      {/* Technical OEM Partners Section */}
+      <section className="py-20 lg:py-28 bg-white relative overflow-hidden">
+        {/* Background Decoration */}
+        <div className="absolute inset-0 bg-gradient-to-b from-background to-white" />
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+          {/* Section Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center max-w-3xl mx-auto mb-16"
+          >
+            <span className="inline-block px-4 py-1.5 bg-primary/10 text-primary rounded-full text-sm font-semibold mb-4">
+              Our Partners
+            </span>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-text mb-6">
+              Technical OEM <span className="text-gradient">Partners</span>
+            </h2>
+            <p className="text-lg text-text-muted">
+              We are proud to collaborate with leading Original Equipment Manufacturers (OEMs) globally, ensuring access to world-class technology and equipment for our clients.
+            </p>
+          </motion.div>
+
+          {/* Partners Grid */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="hidden lg:grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 items-center"
+          >
+            {[
+              { name: 'SLB', logo: '/partners/SLB.png' },
+              { name: 'Weatherford', logo: '/partners/Weatherford.png' },
+              { name: 'Baker Hughes', logo: '/partners/Baker Hughes.webp' },
+              { name: 'Giants Oil Tool', logo: '/partners/Giants Oil Tool.svg' },
+              { name: 'PetroForge Technology', logo: '/partners/petroForge Technology.jpg' },
+            ].map((partner, index) => (
+              <motion.div
+                key={partner.name}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1, duration: 0.5 }}
+                className="group flex items-center justify-center p-6 rounded-xl bg-background hover:bg-primary/5 transition-all duration-300"
+              >
+                <div className="relative w-full h-16 flex items-center justify-center">
+                  <img
+                    src={partner.logo}
+                    alt={partner.name}
+                    className="max-w-full max-h-full object-contain grayscale group-hover:grayscale-0 transition-all duration-300 opacity-70 group-hover:opacity-100"
+                  />
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          {/* Mobile Marquee - Infinite Scroll */}
+          <div className="lg:hidden overflow-hidden relative">
+            {/* Fade edges */}
+            <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-white to-transparent z-20 pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent z-20 pointer-events-none" />
+            
+            {/* Marquee wrapper */}
+            <div className="relative flex overflow-x-auto hide-scrollbar">
+              <style>{`
+                @keyframes partner-scroll {
+                  0% {
+                    transform: translateX(0);
+                  }
+                  100% {
+                    transform: translateX(-100%);
+                  }
+                }
+                .partner-marquee-content {
+                  animation: partner-scroll 40s linear infinite;
+                }
+                .hide-scrollbar::-webkit-scrollbar {
+                  display: none;
+                }
+                .hide-scrollbar {
+                  -ms-overflow-style: none;
+                  scrollbar-width: none;
+                }
+              `}</style>
+              
+              {/* Single set of logos that will be duplicated by animation */}
+              <div className="partner-marquee-content flex gap-4 flex-shrink-0">
+                {[
+                  { name: 'SLB', logo: '/partners/SLB.png' },
+                  { name: 'Weatherford', logo: '/partners/Weatherford.png' },
+                  { name: 'Baker Hughes', logo: '/partners/Baker Hughes.webp' },
+                  { name: 'Giants Oil Tool', logo: '/partners/Giants Oil Tool.svg' },
+                  { name: 'PetroForge Technology', logo: '/partners/petroForge Technology.jpg' },
+                ].map((partner, index) => (
+                  <div
+                    key={`${partner.name}-${index}`}
+                    className="flex items-center justify-center px-4 py-3 bg-background rounded-lg flex-shrink-0"
+                    style={{ width: '120px', height: '56px' }}
+                  >
+                    <img
+                      src={partner.logo}
+                      alt={partner.name}
+className="max-w-full max-h-full object-contain grayscale group-hover:grayscale-0 transition-all duration-300 opacity-70 group-hover:opacity-100"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Trust Statement */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.4, duration: 0.6 }}
+            className="text-center mt-12"
+          >
+            <p className="text-text-muted text-sm">
+              Strategic partnerships with industry leaders for quality, technology, and reliability
+            </p>
+          </motion.div>
+        </div>
+      </section>
+
       {/* Vision & Mission Section */}
       <section className="py-24 lg:py-32 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
