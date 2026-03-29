@@ -1,4 +1,4 @@
-# Senexpert Global - Corporate Consulting Homepage
+# Senexpert Global 
 
 A modern, responsive homepage built with Next.js 16, React 19, Tailwind CSS v4, and Framer Motion.
 
