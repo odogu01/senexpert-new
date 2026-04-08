@@ -315,6 +315,7 @@ export default function UsersPage() {
               <option value="admin">Admin</option>
               <option value="hr">HR</option>
               <option value="manager">Manager</option>
+              <option value="operator">Operator</option>
             </select>
           </div>
         </div>
@@ -538,6 +539,7 @@ export default function UsersPage() {
                     <option value="hr">HR</option>
                     <option value="admin">Admin</option>
                     <option value="super_admin">Super Admin</option>
+                    <option value="operator">Operator</option>
                   </select>
                 </div>
 
