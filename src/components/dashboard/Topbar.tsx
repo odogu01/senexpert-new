@@ -22,10 +22,14 @@ import type { Alert } from '@/lib/database.types';
 
 interface TopbarProps {
   userRole?: UserRole;
+  actualRole?: UserRole;
   sidebarCollapsed?: boolean;
   onMenuClick?: () => void;
   avatarUrl?: string;
   userName?: string;
+  isSuperAdmin?: boolean;
+  viewAsRole?: UserRole | null;
+  onViewAsChange?: (role: UserRole | null) => void;
 }
 
 const roleDisplayNames: Record<UserRole, string> = {
@@ -36,7 +40,17 @@ const roleDisplayNames: Record<UserRole, string> = {
   operator: 'Operator',
 };
 
-export default function Topbar({ userRole = 'manager', sidebarCollapsed = false, onMenuClick, avatarUrl, userName: propUserName }: TopbarProps) {
+export default function Topbar({ 
+  userRole = 'manager', 
+  actualRole,
+  sidebarCollapsed = false, 
+  onMenuClick, 
+  avatarUrl, 
+  userName: propUserName,
+  isSuperAdmin = false,
+  viewAsRole,
+  onViewAsChange,
+}: TopbarProps) {
   const router = useRouter();
   const [userName, setUserName] = useState(propUserName || 'User');
   const [avatar, setAvatar] = useState(avatarUrl || '');
@@ -49,6 +63,11 @@ export default function Topbar({ userRole = 'manager', sidebarCollapsed = false,
   const profileRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const quickActionsRef = useRef<HTMLDivElement>(null);
+
+  // For display - show viewAsRole if set, otherwise actualRole
+  const displayRole = viewAsRole || actualRole || userRole;
+  const isViewingAsAnother = viewAsRole && viewAsRole !== actualRole;
+  const actualRoleLabel = actualRole ? roleDisplayNames[actualRole] : roleDisplayNames[userRole];
 
   // Set initial values from props or fetch from database
   useEffect(() => {
@@ -252,7 +271,12 @@ export default function Topbar({ userRole = 'manager', sidebarCollapsed = false,
               >
                 <div className="px-4 py-2 border-b border-gray-100">
                   <p className="text-sm font-medium text-gray-800 capitalize">{userName}</p>
-                  <p className="text-xs text-gray-500">{roleDisplayNames[userRole]}</p>
+                  <p className="text-xs text-gray-500">{actualRoleLabel}</p>
+                  {isViewingAsAnother && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      (Viewing as {roleDisplayNames[viewAsRole]})
+                    </p>
+                  )}
                 </div>
                 <Link href="/dashboard/profile" className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                   <User className="w-4 h-4 text-gray-400" />
@@ -409,7 +433,12 @@ export default function Topbar({ userRole = 'manager', sidebarCollapsed = false,
                 )}
             <div className="text-left hidden sm:block">
               <p className="text-sm font-medium text-gray-800 capitalize">{userName}</p>
-              <p className="text-xs text-gray-500">{roleDisplayNames[userRole]}</p>
+              <div>
+                <p className="text-xs text-gray-500">{actualRoleLabel}</p>
+                {isViewingAsAnother && (
+                  <p className="text-xs text-blue-600">Viewing as {roleDisplayNames[viewAsRole]}</p>
+                )}
+              </div>
             </div>
             <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform hidden sm:block ${isProfileOpen ? 'rotate-180' : ''}`} />
           </button>

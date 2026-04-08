@@ -18,6 +18,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [viewAsRole, setViewAsRole] = useState<UserRole | null>(null);
 
   // Check for mobile viewport
   useEffect(() => {
@@ -75,6 +76,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     setIsMobileMenuOpen(false);
   };
 
+  const handleViewAsChange = (role: UserRole | null) => {
+    setViewAsRole(role);
+  };
+
+  // For display purposes - use viewAsRole if set, otherwise use actual role
+  const displayRole = viewAsRole || profile?.role || 'manager';
+  const isSuperAdmin = profile?.role === 'super_admin';
+
   // Show loading state
   if (isLoading || !profile) {
     return (
@@ -111,20 +120,28 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="min-h-screen bg-gray-50">
       {/* Sidebar - Hidden on mobile, shown as overlay when open */}
       <Sidebar 
-        userRole={profile.role} 
+        userRole={displayRole} 
+        actualRole={profile?.role}
         collapsed={isMobile ? false : sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         isMobileOpen={isMobileMenuOpen}
         onMobileClose={handleMobileMenuClose}
+        isSuperAdmin={isSuperAdmin}
+        viewAsRole={viewAsRole}
+        onViewAsChange={handleViewAsChange}
       />
       
       {/* Topbar - Always full width */}
       <Topbar 
-        userRole={profile.role}
+        userRole={displayRole}
+        actualRole={profile?.role}
         sidebarCollapsed={sidebarCollapsed}
         onMenuClick={handleMenuClick}
-        userName={profile.full_name}
+        userName={profile?.full_name}
         avatarUrl={(profile as unknown as { avatar_url?: string }).avatar_url}
+        isSuperAdmin={isSuperAdmin}
+        viewAsRole={viewAsRole}
+        onViewAsChange={handleViewAsChange}
       />
       
       {/* Main Content */}

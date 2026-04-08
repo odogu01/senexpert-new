@@ -24,10 +24,14 @@ import type { UserRole } from '@/lib/supabase';
 
 interface SidebarProps {
   userRole?: UserRole;
+  actualRole?: UserRole;
   collapsed?: boolean;
   onToggle?: () => void;
   isMobileOpen?: boolean;
   onMobileClose?: () => void;
+  isSuperAdmin?: boolean;
+  viewAsRole?: UserRole | null;
+  onViewAsChange?: (role: UserRole | null) => void;
 }
 
 // Navigation items with icons and labels
@@ -45,7 +49,17 @@ const navItems = [
   { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin', 'hr'] },
 ];
 
-export default function Sidebar({ userRole = 'manager', collapsed = false, onToggle, isMobileOpen = false, onMobileClose }: SidebarProps) {
+export default function Sidebar({ 
+  userRole = 'manager', 
+  actualRole,
+  collapsed = false, 
+  onToggle, 
+  isMobileOpen = false, 
+  onMobileClose,
+  isSuperAdmin = false,
+  viewAsRole,
+  onViewAsChange,
+}: SidebarProps) {
   const pathname = usePathname();
   const [isMobile, setIsMobile] = useState(false);
   
@@ -164,6 +178,35 @@ export default function Sidebar({ userRole = 'manager', collapsed = false, onTog
               <ChevronLeft className="w-5 h-5" />
             )}
           </button>
+        </div>
+      )}
+
+      {/* View As Dropdown - Only for Super Admin */}
+      {isSuperAdmin && showExpanded && (
+        <div className="p-3 border-t border-gray-200">
+          <label className="text-xs text-gray-500 block mb-2">View as role:</label>
+          <select
+            value={viewAsRole || ''}
+            onChange={(e) => {
+              const value = e.target.value;
+              onViewAsChange?.(value ? value as UserRole : null);
+            }}
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
+          >
+            <option value="">My Account</option>
+            <option value="admin">Admin</option>
+            <option value="hr">HR</option>
+            <option value="manager">Manager</option>
+            <option value="operator">Operator</option>
+          </select>
+          {viewAsRole && (
+            <button
+              onClick={() => onViewAsChange?.(null)}
+              className="mt-2 w-full text-xs text-[#0B3C6D] hover:underline"
+            >
+              ← Back to My Account
+            </button>
+          )}
         </div>
       )}
     </>
