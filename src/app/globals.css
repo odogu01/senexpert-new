@@ -84,6 +84,16 @@
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
   }
+  
+  /* Sidebar active state */
+  .sidebar-item.active {
+    background: linear-gradient(90deg, rgba(11, 60, 109, 0.1) 0%, rgba(0, 174, 239, 0.1) 100%);
+    color: #0B3C6D;
+  }
+  
+  .sidebar-item.active .sidebar-icon {
+    color: #0B3C6D;
+  }
 }
 
 /* Custom scrollbar */

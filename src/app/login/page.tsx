@@ -1,16 +1,40 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { login, getCurrentUser, getProfile, getDashboardRoute } from '@/services/authService';
+import { type Profile } from '@/lib/supabase';
 
 export default function Login() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     remember: false
   });
+
+  // Check if user is already logged in
+  useEffect(() => {
+    async function checkSession() {
+      const { user } = await getCurrentUser();
+      if (user) {
+        // Get profile and redirect to appropriate dashboard
+        const profileResponse = await getProfile(user.id);
+        if (profileResponse.success && profileResponse.data) {
+          const route = getDashboardRoute(profileResponse.data.role);
+          router.push(route);
+        } else {
+          // Default to main dashboard if no profile
+          router.push('/dashboard');
+        }
+      }
+    }
+    checkSession();
+  }, [router]);
 
   const handleTogglePassword = () => {
     setShowPassword(!showPassword);
@@ -22,17 +46,35 @@ export default function Login() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    // Clear error when user starts typing
+    if (error) setError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulate login
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setIsLoading(false);
-    alert('Login functionality will be connected to your backend');
+    setError(null);
+
+    try {
+      // Attempt login with Supabase
+      const response = await login({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (response.success && response.data) {
+        // Redirect to main dashboard (role-based UI is handled there)
+        router.push('/dashboard');
+      } else {
+        // Show error message
+        setError(response.error?.message || 'Login failed. Please try again.');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -508,6 +550,30 @@ export default function Login() {
           </div>
 
           <form onSubmit={handleSubmit} className="login-form">
+            {/* Error Message */}
+            {error && (
+              <div className="error-message" style={{
+                background: '#fee2e2',
+                border: '1px solid #ef4444',
+                borderRadius: '10px',
+                padding: '12px 16px',
+                marginBottom: '16px',
+                color: '#b91c1c',
+                fontSize: '14px',
+                fontWeight: 500,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                {error}
+              </div>
+            )}
+
             {/* Email Field */}
             <div className="form-group">
               <div className="neu-input">
