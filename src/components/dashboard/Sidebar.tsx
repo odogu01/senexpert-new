@@ -18,6 +18,7 @@ import {
   Settings,
   Users,
   X,
+  CheckCircle,
   DollarSign
 } from 'lucide-react';
 import type { UserRole } from '@/lib/supabase';
@@ -40,6 +41,7 @@ const navItems = [
   { label: 'Inventory', href: '/dashboard/inventory', icon: Package, roles: ['super_admin', 'admin'] },
   { label: 'Requests', href: '/dashboard/requests', icon: RotateCcw, roles: ['super_admin', 'admin', 'manager', 'operator'] },
   { label: 'Financial Requests', href: '/dashboard/financial-requests', icon: DollarSign, roles: ['super_admin', 'admin', 'manager'] },
+  { label: 'Approvals', href: '/dashboard/approvals', icon: CheckCircle, roles: ['super_admin', 'admin', 'hr'] },
   { label: 'Maintenance', href: '/dashboard/maintenance', icon: Wrench, roles: ['super_admin', 'admin', 'manager'] },
   { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, roles: ['super_admin', 'admin', 'hr', 'manager'] },
   { label: 'Calendar', href: '/dashboard/calendar', icon: Calendar, roles: ['super_admin', 'admin', 'hr', 'manager'] },
