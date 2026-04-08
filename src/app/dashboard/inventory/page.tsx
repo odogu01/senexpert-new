@@ -14,6 +14,7 @@ export default function InventoryPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [tools, setTools] = useState<Tool[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ToolStatus | 'all'>('all');
@@ -21,6 +22,7 @@ export default function InventoryPage() {
   const [locationFilter, setLocationFilter] = useState<string>('all');
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingTool, setEditingTool] = useState<Tool | null>(null);
   const [editForm, setEditForm] = useState<ToolInsert>({
     name: '',
@@ -43,6 +45,8 @@ export default function InventoryPage() {
       router.push('/login');
       return;
     }
+
+    setCurrentUserId(user.id);
 
     const profileResponse = await getProfile(user.id);
     if (profileResponse.success && profileResponse.data) {
@@ -73,41 +77,31 @@ export default function InventoryPage() {
   const canEditTool = userRole === 'super_admin' || userRole === 'admin';
   const canDeleteTool = userRole === 'super_admin' || userRole === 'admin';
 
-  // Redirect non-allowed users
-  useEffect(() => {
-    if (userRole && !canViewAllInventory) {
-      router.push('/dashboard');
-    }
-  }, [userRole, canViewAllInventory, router]);
+  // For operators - filter tools that were added by them in the last 4 hours
+  const operatorTools = useMemo(() => {
+    if (canViewAllInventory) return tools;
+    
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    return tools.filter(tool => {
+      const createdAt = tool.created_at ? new Date(tool.created_at) : null;
+      return createdAt && createdAt > fourHoursAgo && tool.created_by === currentUserId;
+    });
+  }, [tools, canViewAllInventory, currentUserId]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0B3C6D]"></div>
-      </div>
-    );
-  }
+  // Use filtered tools based on role
+  const displayTools = canViewAllInventory ? tools : operatorTools;
 
-  if (!canViewAllInventory) {
-    return (
-      <div className="p-8 flex flex-col items-center justify-center h-[60vh]">
-        <Lock className="w-16 h-16 text-gray-300 mb-4" />
-        <h2 className="text-xl font-semibold text-gray-900">Access Restricted</h2>
-        <p className="text-gray-500 mt-2">Only administrators can view the full inventory.</p>
-      </div>
-    );
-  }
-
+  // Categories and locations from display tools
   const categories = useMemo(() => {
-    return [...new Set(tools.map(tool => tool.category).filter(Boolean))];
-  }, [tools]);
+    return [...new Set(displayTools.map(tool => tool.category).filter(Boolean))];
+  }, [displayTools]);
 
   const locations = useMemo(() => {
-    return [...new Set(tools.map(tool => tool.location).filter(Boolean))];
-  }, [tools]);
+    return [...new Set(displayTools.map(tool => tool.location).filter(Boolean))];
+  }, [displayTools]);
 
   const filteredTools = useMemo(() => {
-    return tools.filter(tool => {
+    return displayTools.filter(tool => {
       const matchesSearch = 
         tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         tool.work_order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -119,7 +113,7 @@ export default function InventoryPage() {
       
       return matchesSearch && matchesStatus && matchesCategory && matchesLocation;
     });
-  }, [tools, searchQuery, statusFilter, categoryFilter, locationFilter]);
+  }, [displayTools, searchQuery, statusFilter, categoryFilter, locationFilter]);
 
   const totalPages = Math.ceil(filteredTools.length / itemsPerPage);
   const paginatedTools = filteredTools.slice(
@@ -162,6 +156,47 @@ export default function InventoryPage() {
       description: tool.description || '',
     });
     setIsEditModalOpen(true);
+  };
+
+  const handleAddNewTool = async () => {
+    if (!editForm.name || !editForm.work_order_number || !currentUserId) return;
+    
+    setSaving(true);
+    try {
+      const toolData = {
+        name: editForm.name,
+        work_order_number: editForm.work_order_number,
+        size_thread: editForm.size_thread,
+        material: editForm.material,
+        model: editForm.model,
+        part_number: editForm.part_number,
+        category: editForm.category || 'General',
+        quantity: editForm.quantity,
+        min_quantity: editForm.min_quantity,
+        status: editForm.status,
+        location: editForm.location,
+        description: editForm.description,
+        created_by: currentUserId,
+      };
+
+      const response = await createTool(toolData);
+      if (response.success && response.data) {
+        setTools([response.data, ...tools]);
+        setIsAddModalOpen(false);
+        // Reset form
+        setEditForm({
+          name: '',
+          work_order_number: '',
+          category: 'General',
+          quantity: 0,
+          status: 'available',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to add tool:', error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -217,10 +252,15 @@ export default function InventoryPage() {
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Export</span>
           </button>
-          <button className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] transition-colors text-sm lg:text-base">
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Add Tool</span>
-          </button>
+          {canAddTool && (
+            <button 
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] transition-colors text-sm lg:text-base"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add Tool</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -697,6 +737,185 @@ export default function InventoryPage() {
                       </>
                     ) : (
                       'Save Changes'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Add Tool Modal */}
+      <AnimatePresence>
+        {isAddModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setIsAddModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-gray-900">Add New Tool</h2>
+                  <button onClick={() => setIsAddModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tool Name *</label>
+                    <input
+                      type="text"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Work Order Number (W/O) *</label>
+                    <input
+                      type="text"
+                      value={editForm.work_order_number}
+                      onChange={(e) => setEditForm({ ...editForm, work_order_number: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Size/Thread</label>
+                    <input
+                      type="text"
+                      value={editForm.size_thread || ''}
+                      onChange={(e) => setEditForm({ ...editForm, size_thread: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Material</label>
+                    <input
+                      type="text"
+                      value={editForm.material || ''}
+                      onChange={(e) => setEditForm({ ...editForm, material: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                    <input
+                      type="text"
+                      value={editForm.model || ''}
+                      onChange={(e) => setEditForm({ ...editForm, model: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Part Number</label>
+                    <input
+                      type="text"
+                      value={editForm.part_number || ''}
+                      onChange={(e) => setEditForm({ ...editForm, part_number: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <select
+                      value={editForm.category}
+                      onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
+                    >
+                      {categories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                      <option value="General">General</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={editForm.quantity}
+                      onChange={(e) => setEditForm({ ...editForm, quantity: parseInt(e.target.value) || 0 })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Min Quantity</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editForm.min_quantity || 1}
+                      onChange={(e) => setEditForm({ ...editForm, min_quantity: parseInt(e.target.value) || 0 })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select
+                      value={editForm.status}
+                      onChange={(e) => setEditForm({ ...editForm, status: e.target.value as ToolStatus })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
+                    >
+                      <option value="available">Available</option>
+                      <option value="in_use">In Use</option>
+                      <option value="maintenance">Maintenance</option>
+                      <option value="rentals">Rentals</option>
+                      <option value="retired">Retired</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                    <input
+                      type="text"
+                      value={editForm.location || ''}
+                      onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
+                      placeholder="e.g., Warehouse A, PFT"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    value={editForm.description || ''}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddModalOpen(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddNewTool}
+                    disabled={saving || !editForm.name || !editForm.work_order_number}
+                    className="flex-1 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {saving ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        Adding...
+                      </>
+                    ) : (
+                      'Add Tool'
                     )}
                   </button>
                 </div>

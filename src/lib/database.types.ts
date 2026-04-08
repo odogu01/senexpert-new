@@ -47,6 +47,7 @@ export interface Tool {
   description?: string;
   purchase_date?: string;
   purchase_price?: number;
+  created_by?: string;
   created_at: string;
   updated_at: string;
 }
@@ -69,6 +70,7 @@ export interface ToolInsert {
   purchase_price?: number;
   packing_list_no?: string;
   packing_info?: string;
+  created_by?: string;
 }
 
 export interface ToolUpdate {
