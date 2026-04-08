@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 
-type Status = 'available' | 'in_use' | 'maintenance' | 'damaged' | 'lost' | 'retired' | 'rentals' | 'pending' | 'approved' | 'rejected' | 'scheduled' | 'repair' | 'inspection' | 'completed' | 'in_progress';
+type Status = 'available' | 'in_use' | 'maintenance' | 'damaged' | 'lost' | 'retired' | 'rentals' | 'pending' | 'approved' | 'rejected' | 'scheduled' | 'repair' | 'inspection' | 'completed' | 'in_progress' | 'cancelled';
 
 interface StatusBadgeProps {
   status: Status;
@@ -30,6 +30,7 @@ const statusConfig: Record<Status, { bg: string; text: string; label: string }> 
   inspection: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Inspection' },
   completed: { bg: 'bg-green-100', text: 'text-green-700', label: 'Completed' },
   in_progress: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'In Progress' },
+  cancelled: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Cancelled' },
 };
 
 const sizeClasses = {

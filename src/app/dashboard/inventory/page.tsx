@@ -1,15 +1,20 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Download, Plus, X, ChevronLeft, ChevronRight, Eye, Edit, Trash2, HelpCircle } from 'lucide-react';
+import { Search, Download, Plus, X, ChevronLeft, ChevronRight, Eye, Edit, Trash2, HelpCircle, Lock } from 'lucide-react';
 import { getTools, deleteTool, createTool, updateTool } from '@/services/toolsService';
+import { getCurrentUser, getProfile } from '@/services/authService';
 import StatusBadge from '@/components/dashboard/StatusBadge';
 import type { Tool, ToolStatus, ToolInsert, ToolUpdate } from '@/lib/database.types';
+import type { UserRole } from '@/lib/supabase';
 
 export default function InventoryPage() {
-  const [tools, setTools] = useState<Tool[]>([]);
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [tools, setTools] = useState<Tool[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ToolStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -29,8 +34,24 @@ export default function InventoryPage() {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    loadTools();
+    checkAuth();
   }, []);
+
+  async function checkAuth() {
+    const { user } = await getCurrentUser();
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    const profileResponse = await getProfile(user.id);
+    if (profileResponse.success && profileResponse.data) {
+      setUserRole(profileResponse.data.role);
+    }
+
+    await loadTools();
+    setLoading(false);
+  }
 
   async function loadTools() {
     setLoading(true);
@@ -44,6 +65,37 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Permission checks
+  const canViewAllInventory = userRole === 'super_admin' || userRole === 'admin';
+  const canAddTool = userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator';
+  const canEditTool = userRole === 'super_admin' || userRole === 'admin';
+  const canDeleteTool = userRole === 'super_admin' || userRole === 'admin';
+
+  // Redirect non-allowed users
+  useEffect(() => {
+    if (userRole && !canViewAllInventory) {
+      router.push('/dashboard');
+    }
+  }, [userRole, canViewAllInventory, router]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0B3C6D]"></div>
+      </div>
+    );
+  }
+
+  if (!canViewAllInventory) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center h-[60vh]">
+        <Lock className="w-16 h-16 text-gray-300 mb-4" />
+        <h2 className="text-xl font-semibold text-gray-900">Access Restricted</h2>
+        <p className="text-gray-500 mt-2">Only administrators can view the full inventory.</p>
+      </div>
+    );
   }
 
   const categories = useMemo(() => {

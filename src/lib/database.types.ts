@@ -3,7 +3,7 @@
  * Based on the Supabase database schema
  */
 
-export type UserRole = 'super_admin' | 'admin' | 'hr' | 'manager';
+export type UserRole = 'super_admin' | 'admin' | 'hr' | 'manager' | 'operator';
 
 export type ToolStatus = 'available' | 'in_use' | 'maintenance' | 'retired' | 'rentals';
 export type ToolRequestStatus = 'pending' | 'approved' | 'rejected' | 'completed';

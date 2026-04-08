@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getCurrentUser, getProfile, hasPermission, updateProfile } from '@/services/authService';
 import type { UserRole } from '@/lib/supabase';
 import type { Profile } from '@/lib/supabase';
-import { X, Plus, User, Camera, Loader2 } from 'lucide-react';
+import { X, Plus, User, Camera, Loader2, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 
@@ -19,6 +19,8 @@ export default function UsersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false); // deprecated
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [generatedPassword, setGeneratedPassword] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -105,11 +107,14 @@ export default function UsersPage() {
     setFormLoading(true);
     setFormError('');
     
+    // Generate a random password
+    const password = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + '!';
+    
     try {
       // Create user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: formData.email,
-        password: 'TempPass123!', // Temporary password - user should change it
+        password: password,
         email_confirm: true,
         user_metadata: {
           full_name: formData.name,
@@ -142,28 +147,13 @@ export default function UsersPage() {
           role: formData.role,
         });
       
-      if (profileError) {
-        setFormError('Failed to create user profile: ' + profileError.message);
-        setFormLoading(false);
-        return;
-      }
-      
-      // Log audit event
-      await supabase.from('audit_logs').insert({
-        user_id: currentUser.id,
-        action: 'INSERT',
-        table_name: 'profiles',
-        record_id: authData.user.id,
-        new_values: {
-          full_name: formData.name,
-          email: formData.email,
-          role: formData.role,
-        },
-      });
-      
-      // Reset form and close modal
-      setFormData({ name: '', email: '', role: 'manager' });
+      // Show password modal with generated password
+      setGeneratedPassword(password);
       setShowAddUserModal(false);
+      setShowPasswordModal(true);
+      
+      // Reset form
+      setFormData({ name: '', email: '', role: 'manager' });
       await loadUsers();
     } catch (error: unknown) {
       console.error('Failed to add user:', error);
@@ -583,6 +573,49 @@ export default function UsersPage() {
                     )}
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Password Modal */}
+      <AnimatePresence>
+        {showPasswordModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowPasswordModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              className="bg-white rounded-xl shadow-xl w-full max-w-md p-6"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Check className="w-8 h-8 text-green-600" />
+                </div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">User Created!</h2>
+                <p className="text-gray-500 mb-4">Copy the temporary password below:</p>
+                
+                <div className="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-4 mb-4">
+                  <p className="text-2xl font-mono font-bold text-gray-800 text-center select-all">{generatedPassword}</p>
+                </div>
+                
+                <p className="text-xs text-gray-400 mb-4">
+                  Share this password with the user. They should change it after first login.
+                </p>
+                
+                <button
+                  onClick={() => setShowPasswordModal(false)}
+                  className="w-full px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a]"
+                >
+                  Done
+                </button>
               </div>
             </motion.div>
           </motion.div>

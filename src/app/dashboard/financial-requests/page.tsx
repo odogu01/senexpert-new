@@ -68,7 +68,7 @@ export default function FinancialRequestsPage() {
     }
   }
 
-  const canRequest = currentUser?.role === 'manager' || currentUser?.role === 'super_admin';
+  const canRequest = currentUser?.role === 'manager' || currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
   const canApprove = currentUser?.role === 'hr' || currentUser?.role === 'admin' || currentUser?.role === 'super_admin';
 
   const filteredRequests = statusFilter

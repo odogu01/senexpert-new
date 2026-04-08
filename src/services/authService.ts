@@ -93,6 +93,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'view_team_dashboard',
     'view_reports',
   ],
+  operator: [
+    'add_inventory',
+    'view_own_inventory',
+    'make_tool_request',
+  ],
 };
 
 export const DASHBOARD_ROUTES: Record<UserRole, string> = {
@@ -100,6 +105,7 @@ export const DASHBOARD_ROUTES: Record<UserRole, string> = {
   admin: '/dashboard',
   hr: '/dashboard',
   manager: '/dashboard',
+  operator: '/dashboard',
 };
 
 // ============================================

@@ -142,6 +142,7 @@ export default function ProfilePage() {
       admin: 'Administrator',
       hr: 'HR Manager',
       manager: 'Team Manager',
+      operator: 'Operator',
     };
     return labels[role] || role;
   };
@@ -152,6 +153,7 @@ export default function ProfilePage() {
       admin: 'bg-red-100 text-red-800',
       hr: 'bg-blue-100 text-blue-800',
       manager: 'bg-green-100 text-green-800',
+      operator: 'bg-orange-100 text-orange-800',
     };
     return colors[role] || 'bg-gray-100 text-gray-800';
   };

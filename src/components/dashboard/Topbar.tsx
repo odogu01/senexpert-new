@@ -33,6 +33,7 @@ const roleDisplayNames: Record<UserRole, string> = {
   admin: 'Administrator',
   hr: 'HR Manager',
   manager: 'Team Manager',
+  operator: 'Operator',
 };
 
 export default function Topbar({ userRole = 'manager', sidebarCollapsed = false, onMenuClick, avatarUrl, userName: propUserName }: TopbarProps) {

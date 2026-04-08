@@ -1,17 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Check, Clock, AlertTriangle, Package, Filter } from 'lucide-react';
+import { Plus, X, Check, Clock, AlertTriangle, Package, Filter, Ban } from 'lucide-react';
 import { getToolRequests, createToolRequest, updateToolRequestStatus } from '@/services/toolsService';
 import { getTools } from '@/services/toolsService';
+import { getCurrentUser, getProfile } from '@/services/authService';
 import StatusBadge from '@/components/dashboard/StatusBadge';
 import type { ToolRequest, Tool, ToolStatus } from '@/lib/database.types';
+import type { UserRole } from '@/lib/supabase';
 
 export default function RequestsPage() {
+  const router = useRouter();
   const [requests, setRequests] = useState<ToolRequest[]>([]);
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [movementFilter, setMovementFilter] = useState<string>('all');
   const [showModal, setShowModal] = useState(false);
@@ -23,8 +28,28 @@ export default function RequestsPage() {
   });
 
   useEffect(() => {
-    loadData();
+    checkAuth();
   }, []);
+
+  async function checkAuth() {
+    const { user } = await getCurrentUser();
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    const profileResponse = await getProfile(user.id);
+    if (profileResponse.success && profileResponse.data) {
+      setUserRole(profileResponse.data.role);
+    }
+
+    await loadData();
+    setLoading(false);
+  }
+
+  // Permission checks
+  const canCreateRequest = userRole === 'super_admin' || userRole === 'admin' || userRole === 'manager' || userRole === 'operator';
+  const canApprove = userRole === 'super_admin' || userRole === 'admin' || userRole === 'hr';
 
   async function loadData() {
     setLoading(true);
@@ -104,13 +129,15 @@ export default function RequestsPage() {
           <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Tool Requests</h1>
           <p className="text-gray-500 mt-1 text-sm lg:text-base">Manage tool movement requests</p>
         </div>
-        <button 
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] transition-colors text-sm lg:text-base"
-        >
-          <Plus className="w-4 h-4" />
-          New Request
-        </button>
+        {canCreateRequest && (
+          <button 
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] transition-colors text-sm lg:text-base"
+          >
+            <Plus className="w-4 h-4" />
+            New Request
+          </button>
+        )}
       </div>
 
       {/* Stats Cards */}

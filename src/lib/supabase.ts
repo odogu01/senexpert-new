@@ -53,7 +53,7 @@ export const supabase = isConfigured
 /**
  * Type definitions for better TypeScript support
  */
-export type UserRole = 'super_admin' | 'admin' | 'hr' | 'manager';
+export type UserRole = 'super_admin' | 'admin' | 'hr' | 'manager' | 'operator';
 
 export interface Profile {
   id: string;
