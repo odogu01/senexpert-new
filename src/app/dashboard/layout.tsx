@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { logout, getCurrentUser, getProfile } from '@/services/authService';
-import { type Profile, type UserRole } from '@/lib/supabase';
+import { useAuth, getStoredUser, getStoredProfile } from '@/lib/authContext';
+import type { UserRole } from '@/lib/database.types';
 import Sidebar from '@/components/dashboard/Sidebar';
 import Topbar from '@/components/dashboard/Topbar';
 
@@ -13,14 +13,13 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const { user, profile, isLoading: authLoading, logout } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [viewAsRole, setViewAsRole] = useState<UserRole | null>(null);
 
-  // Check for mobile viewport
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 1024;
@@ -35,33 +34,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }, []);
 
   useEffect(() => {
-    async function checkAuth() {
-      try {
-        const { user } = await getCurrentUser();
-        
-        if (!user) {
-          router.push('/login');
-          return;
-        }
-
-        const profileResponse = await getProfile(user.id);
-        
-        if (!profileResponse.success || !profileResponse.data) {
-          router.push('/login');
-          return;
-        }
-
-        setProfile(profileResponse.data);
-      } catch (error) {
-        console.error('Auth check error:', error);
+    if (!authLoading) {
+      const storedUser = getStoredUser();
+      const storedProfile = getStoredProfile();
+      
+      if (!storedUser || !storedProfile) {
         router.push('/login');
-      } finally {
+      } else {
         setIsLoading(false);
       }
     }
-
-    checkAuth();
-  }, [router]);
+  }, [authLoading, router]);
 
   const handleLogout = async () => {
     await logout();
@@ -80,11 +63,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     setViewAsRole(role);
   };
 
-  // For display purposes - use viewAsRole if set, otherwise use actual role
   const displayRole = viewAsRole || profile?.role || 'manager';
   const isSuperAdmin = profile?.role === 'super_admin';
 
-  // Show loading state
   if (isLoading || !profile) {
     return (
       <div style={{
@@ -118,7 +99,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Sidebar - Hidden on mobile, shown as overlay when open */}
       <Sidebar 
         userRole={displayRole} 
         actualRole={profile?.role}
@@ -131,7 +111,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         onViewAsChange={handleViewAsChange}
       />
       
-      {/* Topbar - Always full width */}
       <Topbar 
         userRole={displayRole}
         actualRole={profile?.role}
@@ -144,7 +123,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         onViewAsChange={handleViewAsChange}
       />
       
-      {/* Main Content */}
       <main 
         className={`pt-20 pb-8 transition-all duration-300 ${
           isMobile ? 'pl-0' : (sidebarCollapsed ? 'pl-20' : 'pl-64')

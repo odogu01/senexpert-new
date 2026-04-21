@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser } from '@/services/authService';
+import { getStoredUser } from '@/lib/authContext';
+
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('senexpert_token');
+}
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -14,8 +19,8 @@ export default function SettingsPage() {
   }, []);
 
   async function checkAuth() {
-    const { user } = await getCurrentUser();
-    if (!user) {
+    const token = getToken();
+    if (!token) {
       router.push('/login');
     } else {
       setLoading(false);

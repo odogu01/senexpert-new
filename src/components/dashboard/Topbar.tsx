@@ -15,9 +15,9 @@ import {
   Menu,
   X
 } from 'lucide-react';
-import { logout, getCurrentUser, getProfile } from '@/services/authService';
+import { useAuth } from '@/lib/authContext';
 import { useRouter } from 'next/navigation';
-import type { UserRole, Profile } from '@/lib/supabase';
+import type { UserRole } from '@/lib/database.types';
 import type { Alert } from '@/lib/database.types';
 
 interface TopbarProps {
@@ -52,6 +52,7 @@ export default function Topbar({
   onViewAsChange,
 }: TopbarProps) {
   const router = useRouter();
+  const { logout } = useAuth();
   const [userName, setUserName] = useState(propUserName || 'User');
   const [avatar, setAvatar] = useState(avatarUrl || '');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -69,26 +70,14 @@ export default function Topbar({
   const isViewingAsAnother = viewAsRole && viewAsRole !== actualRole;
   const actualRoleLabel = actualRole ? roleDisplayNames[actualRole] : roleDisplayNames[userRole];
 
-  // Set initial values from props or fetch from database
+  // Set initial values from props
   useEffect(() => {
-    async function fetchUserData() {
-      // Use prop values first
-      if (propUserName) {
-        setUserName(propUserName);
-      }
-      if (avatarUrl) {
-        setAvatar(avatarUrl);
-      }
-      
-      // Also try to fetch from database as fallback
-      if (!propUserName) {
-        const { user } = await getCurrentUser();
-        if (user) {
-          setUserName(user.email?.split('@')[0] || 'User');
-        }
-      }
+    if (propUserName) {
+      setUserName(propUserName);
     }
-    fetchUserData();
+    if (avatarUrl) {
+      setAvatar(avatarUrl);
+    }
   }, []);
 
   // Close dropdowns when clicking outside
@@ -116,14 +105,17 @@ export default function Topbar({
     router.push('/login');
   };
 
-  // Load alerts from database
+  // Load alerts from API
   useEffect(() => {
     async function loadAlerts() {
       try {
-        const { getAlerts } = await import('@/services/toolsService');
-        const response = await getAlerts(false);
-        if (response.success && response.data) {
-          setAlerts(response.data);
+        const token = localStorage.getItem('senexpert_token');
+        const response = await fetch('/api/alerts', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data.success && data.data) {
+          setAlerts(data.data);
         }
       } catch (error) {
         console.error('Failed to load alerts:', error);
@@ -228,7 +220,7 @@ export default function Topbar({
                         <div>
                           <p className="text-sm font-medium text-gray-800">{alert.title}</p>
                           <p className="text-xs text-gray-500 mt-0.5">{alert.description}</p>
-                          <p className="text-xs text-gray-400 mt-1">{alert.created_at}</p>
+                          <p className="text-xs text-gray-400 mt-1">{alert.created_at ? new Date(alert.created_at).toLocaleDateString() : ''}</p>
                         </div>
                       </div>
                     </div>
@@ -401,7 +393,7 @@ export default function Topbar({
                         <div>
                           <p className="text-sm font-medium text-gray-800">{alert.title}</p>
                           <p className="text-xs text-gray-500 mt-0.5">{alert.description}</p>
-                          <p className="text-xs text-gray-400 mt-1">{alert.created_at}</p>
+                          <p className="text-xs text-gray-400 mt-1">{alert.created_at ? new Date(alert.created_at).toLocaleDateString() : ''}</p>
                         </div>
                       </div>
                     </div>

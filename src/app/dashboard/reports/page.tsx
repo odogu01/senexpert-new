@@ -4,10 +4,24 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { FileText, Download, Calendar, BarChart3, Package, Users, Ban } from 'lucide-react';
-import { getTools } from '@/services/toolsService';
-import { getMaintenanceRecords } from '@/services/toolsService';
-import { getCurrentUser, getProfile } from '@/services/authService';
-import type { UserRole } from '@/lib/supabase';
+import { getToolsApi, getMaintenanceApi, getProfileApi } from '@/lib/apiClient';
+import { getStoredUser } from '@/lib/authContext';
+import type { UserRole } from '@/lib/database.types';
+
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('senexpert_token');
+}
+
+function getCurrentUserFromStorage() {
+  const userStr = localStorage.getItem('senexpert_user');
+  if (!userStr) return null;
+  try {
+    return JSON.parse(userStr);
+  } catch {
+    return null;
+  }
+}
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -21,13 +35,19 @@ export default function ReportsPage() {
   }, []);
 
   async function checkAuth() {
-    const { user } = await getCurrentUser();
+    const token = getToken();
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+
+    const user = getCurrentUserFromStorage();
     if (!user) {
       router.push('/login');
       return;
     }
 
-    const profileResponse = await getProfile(user.id);
+    const profileResponse = await getProfileApi();
     if (profileResponse.success && profileResponse.data) {
       setUserRole(profileResponse.data.role);
     }
@@ -39,8 +59,8 @@ export default function ReportsPage() {
   async function loadData() {
     try {
       const [toolsRes, maintenanceRes] = await Promise.all([
-        getTools(),
-        getMaintenanceRecords(),
+        getToolsApi(),
+        getMaintenanceApi(),
       ]);
       if (toolsRes.success && toolsRes.data) {
         setToolCount(toolsRes.data.length);

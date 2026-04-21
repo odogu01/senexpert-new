@@ -1,35 +1,97 @@
-import { supabase, type Profile, type UserRole } from '@/lib/supabase';
-import type { User, Session, AuthError, LoginCredentials } from '@/lib/supabase';
-
 /**
- * Authentication Service
- * 
- * Provides functions for:
- * - Login with email/password
- * - Logout
- * - Session management
- * - Profile fetching
- * - Role-based access control
+ * Authentication Service for MongoDB
+ * Uses dynamic imports to avoid bundling Node.js modules in the browser
+ * WARNING: This file should ONLY be used in API routes or server components
  */
 
-// ============================================
-// Type Definitions
-// ============================================
+import type { Profile, User, UserRole } from '@/lib/database.types';
+
+// Prevent usage in client components
+if (typeof window !== 'undefined') {
+  console.warn('WARNING: authService should not be imported in client components. Use API routes instead.');
+}
+
+async function getDb() {
+  const { getCollection } = await import('@/lib/mongodb');
+  return { getCollection };
+}
+
+async function getJwtModule() {
+  return import('jsonwebtoken');
+}
+
+async function getBcryptModule() {
+  return import('bcryptjs');
+}
+
+async function getMongodbModule() {
+  return import('mongodb');
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || 'senexpert-jwt-secret-key-2024';
+const JWT_EXPIRES_IN = '7d';
+
+/**
+ * Authentication Service for MongoDB
+ */
 
 export interface AuthResponse {
   success: boolean;
   data?: {
     user: User;
-    session: Session;
+    token: string;
     profile: Profile;
   };
-  error?: AuthError;
+  error?: { message: string; status?: number };
 }
 
 export interface ProfileResponse {
   success: boolean;
   data?: Profile;
-  error?: AuthError;
+  error?: { message: string; status?: number };
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface AuthError {
+  message: string;
+  status?: number;
+}
+
+// ============================================
+// JWT Helpers
+// ============================================
+
+async function generateToken(user: User): Promise<string> {
+  const jwt = await getJwtModule();
+  return jwt.sign(
+    { 
+      userId: user._id.toString(), 
+      email: user.email, 
+      role: user.role 
+    },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN }
+  );
+}
+
+export async function verifyToken(token: string): Promise<{ userId: string; email: string; role: UserRole } | null> {
+  try {
+    const jwt = await getJwtModule();
+    return jwt.verify(token, JWT_SECRET) as { userId: string; email: string; role: UserRole };
+  } catch {
+    return null;
+  }
+}
+
+export function getTokenFromHeader(authHeader: string | null): string | null {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  return authHeader.substring(7);
 }
 
 // ============================================
@@ -46,9 +108,9 @@ async function logAuditEvent(params: {
   newValues?: Record<string, unknown>;
 }) {
   try {
-    if (!supabase) return;
-    
-    await supabase.from('audit_logs').insert({
+    const { getCollection } = await getDb();
+    const auditCollection = getCollection<unknown>('audit_logs');
+    await auditCollection.insertOne({
       user_id: params.userId,
       action: params.action,
       table_name: params.tableName,
@@ -58,6 +120,7 @@ async function logAuditEvent(params: {
         ...params.newValues,
       },
       old_values: params.oldValues,
+      created_at: new Date(),
     });
   } catch (error) {
     console.error('Failed to log audit event:', error);
@@ -109,96 +172,127 @@ export const DASHBOARD_ROUTES: Record<UserRole, string> = {
 };
 
 // ============================================
+// Collections
+// ============================================
+
+async function getUsersCollection() {
+  const { getCollection } = await getDb();
+  return getCollection<User>('users');
+}
+
+async function getProfilesCollection() {
+  const { getCollection } = await getDb();
+  return getCollection<Profile>('profiles');
+}
+
+// ============================================
 // Authentication Functions
 // ============================================
 
 /**
  * Login with email and password
- * @param credentials - Email and password
- * @returns AuthResponse with user data, session, and profile
  */
 export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
   try {
-    // Check if Supabase client is configured
-    if (!supabase) {
-      return {
-        success: false,
-        error: {
-          message: 'Supabase is not configured. Please update your .env.local file with valid Supabase credentials.',
-          status: 500,
-        },
-      };
-    }
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    
+    const usersCollection = await getUsersCollection();
+    const profilesCollection = await getProfilesCollection();
+    const bcrypt = await getBcryptModule();
+    const mongodb = await getMongodbModule();
 
-    // Attempt to sign in with Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email: credentials.email,
-      password: credentials.password,
-    });
+    // Find user by email
+    const user = await usersCollection.findOne({ email: credentials.email.toLowerCase() });
 
-    if (authError) {
-      // Log failed login attempt
+    if (!user) {
       await logAuditEvent({
         action: 'LOGIN_FAILED',
-        details: `Failed login attempt for email: ${credentials.email}. Error: ${authError.message}`,
+        details: `Failed login attempt for email: ${credentials.email}. User not found.`,
       });
       
       return {
         success: false,
         error: {
-          message: getAuthErrorMessage(authError.code || 'unknown'),
+          message: 'Invalid email or password. Please try again.',
           status: 401,
         },
       };
     }
 
-    if (!authData.user || !authData.session) {
+    // Check password
+    const isValidPassword = await bcrypt.compare(credentials.password, user.password_hash);
+
+    if (!isValidPassword) {
+      await logAuditEvent({
+        userId: user._id.toString(),
+        action: 'LOGIN_FAILED',
+        details: `Failed login attempt for email: ${credentials.email}. Invalid password.`,
+      });
+      
       return {
         success: false,
         error: {
-          message: 'Invalid response from authentication server',
-          status: 500,
+          message: 'Invalid email or password. Please try again.',
+          status: 401,
         },
       };
     }
 
-    // Fetch user profile
-    const profileResponse = await getProfile(authData.user.id);
-    
-    if (!profileResponse.success || !profileResponse.data) {
-      // If no profile exists, create one with default role
-      const createProfileResult = await createProfile(authData.user.id, {
-        full_name: authData.user.email?.split('@')[0] || 'User',
-        role: 'manager', // Default role
-      });
-
-      if (!createProfileResult.success) {
-        return {
-          success: false,
-          error: {
-            message: 'Failed to create user profile',
-            status: 500,
-          },
-        };
-      }
+    // Check if user is active
+    if (!user.is_active) {
+      return {
+        success: false,
+        error: {
+          message: 'This account has been suspended. Please contact support.',
+          status: 403,
+        },
+      };
     }
 
-    // Get the profile (either existing or newly created)
-    const finalProfileResponse = await getProfile(authData.user.id);
-    
+    // Generate JWT token
+    const token = await generateToken(user);
+
+    // Get profile
+    const profile = await profilesCollection.findOne({ _id: user._id });
+
     // Log successful login
     await logAuditEvent({
-      userId: authData.user.id,
+      userId: user._id.toString(),
       action: 'LOGIN',
-      details: `User logged in: ${authData.user.email}`,
+      details: `User logged in: ${user.email}`,
     });
-    
+
     return {
       success: true,
       data: {
-        user: authData.user as User,
-        session: authData.session as Session,
-        profile: finalProfileResponse.data as Profile,
+        user: {
+          id: user._id.toString(),
+          email: user.email,
+          full_name: user.full_name,
+          role: user.role,
+          is_active: user.is_active,
+          created_at: user.created_at,
+          updated_at: user.updated_at,
+        },
+        token,
+        profile: profile ? {
+          id: profile._id.toString(),
+          email: profile.email,
+          full_name: profile.full_name,
+          role: profile.role,
+          is_active: profile.is_active,
+          created_at: profile.created_at,
+          updated_at: profile.updated_at,
+          avatar_url: (profile as Record<string, unknown>).avatar_url as string | undefined,
+        } : {
+          id: user._id.toString(),
+          email: user.email,
+          full_name: user.full_name,
+          role: user.role,
+          is_active: user.is_active,
+          created_at: user.created_at,
+          updated_at: user.updated_at,
+        },
       },
     };
   } catch (error) {
@@ -218,28 +312,10 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
  */
 export async function logout(): Promise<{ success: boolean; error?: AuthError }> {
   try {
-    if (!supabase) {
-      return { success: true };
-    }
-    
-    const { error } = await supabase.auth.signOut();
-    
-    if (error) {
-      return {
-        success: false,
-        error: {
-          message: getAuthErrorMessage(error.code || 'unknown'),
-          status: 500,
-        },
-      };
-    }
-
-    // Log logout (we can't get user ID after sign out, so we log system event)
     await logAuditEvent({
       action: 'LOGOUT',
       details: 'User logged out',
     });
-
     return { success: true };
   } catch (error) {
     console.error('Logout error:', error);
@@ -254,32 +330,17 @@ export async function logout(): Promise<{ success: boolean; error?: AuthError }>
 }
 
 /**
- * Get the current authenticated user
+ * Get the current authenticated user from token
  */
 export async function getCurrentUser(): Promise<{
   user: User | null;
-  session: Session | null;
+  token: string | null;
 }> {
   try {
-    if (!supabase) {
-      return { user: null, session: null };
-    }
-    
-    const { data: { user }, error } = await supabase.auth.getUser();
-    
-    if (error || !user) {
-      return { user: null, session: null };
-    }
-
-    const { data: sessionData } = await supabase.auth.getSession();
-
-    return {
-      user: user as User,
-      session: sessionData.session as Session | null,
-    };
+    return { user: null, token: null };
   } catch (error) {
     console.error('Get current user error:', error);
-    return { user: null, session: null };
+    return { user: null, token: null };
   }
 }
 
@@ -288,27 +349,30 @@ export async function getCurrentUser(): Promise<{
  */
 export async function getProfile(userId: string): Promise<ProfileResponse> {
   try {
-    if (!supabase) {
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const profilesCollection = await getProfilesCollection();
+    const mongodb = await getMongodbModule();
+
+    let queryId: mongodb.ObjectId;
+    try {
+      queryId = new mongodb.ObjectId(userId);
+    } catch {
       return {
         success: false,
         error: {
-          message: 'Supabase is not configured',
-          status: 500,
+          message: 'Invalid user ID',
+          status: 400,
         },
       };
     }
-    
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
 
-    if (error) {
+    const profile = await profilesCollection.findOne({ _id: queryId });
+
+    if (!profile) {
       return {
         success: false,
         error: {
-          message: error.message,
+          message: 'Profile not found',
           status: 404,
         },
       };
@@ -316,7 +380,7 @@ export async function getProfile(userId: string): Promise<ProfileResponse> {
 
     return {
       success: true,
-      data: data as Profile,
+      data: profile,
     };
   } catch (error) {
     console.error('Get profile error:', error);
@@ -334,43 +398,41 @@ export async function getProfile(userId: string): Promise<ProfileResponse> {
  * Create a new user profile
  */
 export async function createProfile(
-  userId: string, 
+  userId: string,
   profileData: { full_name: string; role: UserRole }
 ): Promise<ProfileResponse> {
   try {
-    if (!supabase) {
-      return {
-        success: false,
-        error: {
-          message: 'Supabase is not configured',
-          status: 500,
-        },
-      };
-    }
-    
-    const { data, error } = await supabase
-      .from('profiles')
-      .insert({
-        id: userId,
-        full_name: profileData.full_name,
-        role: profileData.role,
-      })
-      .select()
-      .single();
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const profilesCollection = await getProfilesCollection();
+    const mongodb = await getMongodbModule();
 
-    if (error) {
+    let queryId: mongodb.ObjectId;
+    try {
+      queryId = new mongodb.ObjectId(userId);
+    } catch {
       return {
         success: false,
         error: {
-          message: error.message,
-          status: 500,
+          message: 'Invalid user ID',
+          status: 400,
         },
       };
     }
+
+    const profile: Profile = {
+      _id: queryId,
+      email: '',
+      full_name: profileData.full_name,
+      role: profileData.role,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+
+    await profilesCollection.insertOne(profile);
 
     return {
       success: true,
-      data: data as Profile,
+      data: profile,
     };
   } catch (error) {
     console.error('Create profile error:', error);
@@ -392,39 +454,47 @@ export async function updateProfile(
   updates: { full_name?: string; role?: UserRole }
 ): Promise<ProfileResponse> {
   try {
-    if (!supabase) {
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const profilesCollection = await getProfilesCollection();
+    const mongodb = await getMongodbModule();
+
+    let queryId: mongodb.ObjectId;
+    try {
+      queryId = new mongodb.ObjectId(userId);
+    } catch {
       return {
         success: false,
         error: {
-          message: 'Supabase is not configured',
-          status: 500,
+          message: 'Invalid user ID',
+          status: 400,
         },
       };
     }
-    
-    const { data, error } = await supabase
-      .from('profiles')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId)
-      .select()
-      .single();
 
-    if (error) {
+    const updateFields: Partial<Profile> = {
+      ...updates,
+      updated_at: new Date(),
+    };
+
+    const result = await profilesCollection.findOneAndUpdate(
+      { _id: queryId },
+      { $set: updateFields },
+      { returnDocument: 'after' }
+    );
+
+    if (!result) {
       return {
         success: false,
         error: {
-          message: error.message,
-          status: 500,
+          message: 'Profile not found',
+          status: 404,
         },
       };
     }
 
     return {
       success: true,
-      data: data as Profile,
+      data: result,
     };
   } catch (error) {
     console.error('Update profile error:', error);
@@ -435,6 +505,137 @@ export async function updateProfile(
         status: 500,
       },
     };
+  }
+}
+
+/**
+ * Get all users (for admin)
+ */
+export async function getUsers(): Promise<{
+  success: boolean;
+  data?: User[];
+  error?: string;
+}> {
+  try {
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const usersCollection = await getUsersCollection();
+    
+    const users = await usersCollection.find({}).toArray();
+    
+    return { success: true, data: users };
+  } catch (error) {
+    console.error('Get users error:', error);
+    return { success: false, error: 'Failed to fetch users' };
+  }
+}
+
+/**
+ * Create a new user (for admin)
+ */
+export async function createUser(userData: {
+  email: string;
+  password: string;
+  full_name: string;
+  role: UserRole;
+}): Promise<{
+  success: boolean;
+  data?: User;
+  error?: string;
+}> {
+  try {
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const usersCollection = await getUsersCollection();
+    const profilesCollection = await getProfilesCollection();
+    const bcrypt = await getBcryptModule();
+    const mongodb = await getMongodbModule();
+
+    // Check if user already exists
+    const existingUser = await usersCollection.findOne({ email: userData.email.toLowerCase() });
+    if (existingUser) {
+      return { success: false, error: 'User with this email already exists' };
+    }
+
+    // Hash password
+    const password_hash = await bcrypt.hash(userData.password, 12);
+
+    const user: User = {
+      _id: new mongodb.ObjectId(),
+      email: userData.email.toLowerCase(),
+      password_hash,
+      full_name: userData.full_name,
+      role: userData.role,
+      is_active: true,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+
+    await usersCollection.insertOne(user);
+
+    // Create profile
+    const profile: Profile = {
+      _id: user._id,
+      email: user.email,
+      full_name: user.full_name,
+      role: user.role,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+    await profilesCollection.insertOne(profile);
+
+    // Remove password_hash from returned user
+    const { password_hash: _, ...userWithoutPassword } = user;
+
+    return { success: true, data: userWithoutPassword };
+  } catch (error) {
+    console.error('Create user error:', error);
+    return { success: false, error: 'Failed to create user' };
+  }
+}
+
+/**
+ * Change user password
+ */
+export async function changePassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const usersCollection = await getUsersCollection();
+    const bcrypt = await getBcryptModule();
+    const mongodb = await getMongodbModule();
+
+    let queryId: mongodb.ObjectId;
+    try {
+      queryId = new mongodb.ObjectId(userId);
+    } catch {
+      return { success: false, error: 'Invalid user ID' };
+    }
+
+    const user = await usersCollection.findOne({ _id: queryId });
+    if (!user) {
+      return { success: false, error: 'User not found' };
+    }
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!isValidPassword) {
+      return { success: false, error: 'Current password is incorrect' };
+    }
+
+    // Hash new password
+    const newPasswordHash = await bcrypt.hash(newPassword, 12);
+
+    await usersCollection.updateOne(
+      { _id: queryId },
+      { $set: { password_hash: newPasswordHash, updated_at: new Date() } }
+    );
+
+    return { success: true };
+  } catch (error) {
+    console.error('Change password error:', error);
+    return { success: false, error: 'Failed to change password' };
   }
 }
 
@@ -460,54 +661,27 @@ export function getDashboardRoute(role: UserRole): string {
  * Validate role value
  */
 export function isValidRole(role: string): role is UserRole {
-  return ['super_admin', 'admin', 'hr', 'manager'].includes(role);
+  return ['super_admin', 'admin', 'hr', 'manager', 'operator'].includes(role);
 }
 
-// ============================================
-// Helper Functions
-// ============================================
-
 /**
- * Map Supabase auth error codes to user-friendly messages
+ * Get all roles
  */
-function getAuthErrorMessage(code: string): string {
-  const errorMessages: Record<string, string> = {
-    'invalid_credentials': 'Invalid email or password. Please try again.',
-    'user_not_found': 'No account found with this email address.',
-    'invalid_password': 'Incorrect password. Please try again.',
-    'email_not_confirmed': 'Please verify your email address first.',
-    'too_many_requests': 'Too many login attempts. Please try again later.',
-    'network_error': 'Network error. Please check your connection.',
-    'invalid_email': 'Please enter a valid email address.',
-    'user_banned': 'This account has been suspended.',
-    'user_deleted': 'This account has been deleted.',
-  };
-
-  return errorMessages[code] || 'Authentication failed. Please try again.';
+export function getAllRoles(): UserRole[] {
+  return ['super_admin', 'admin', 'hr', 'manager', 'operator'];
 }
 
 /**
- * Listen for auth state changes
+ * Listen for auth state changes (client-side simulation)
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function onAuthStateChange(callback: (event: any, session: Session | null) => void) {
-  if (!supabase) {
-    return { data: { subscription: { unsubscribe: () => {} } } };
-  }
-  return supabase.auth.onAuthStateChange(callback);
+export function onAuthStateChange(callback: (event: any, user: User | null) => void) {
+  return { data: { subscription: { unsubscribe: () => {} } } };
 }
 
 /**
  * Check if user is authenticated
  */
 export async function isAuthenticated(): Promise<boolean> {
-  try {
-    if (!supabase) {
-      return false;
-    }
-    const { data: { session } } = await supabase.auth.getSession();
-    return !!session;
-  } catch {
-    return false;
-  }
+  return false;
 }

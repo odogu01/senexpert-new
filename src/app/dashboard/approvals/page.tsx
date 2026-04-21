@@ -2,11 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, getProfile } from '@/services/authService';
-import { getToolRequests, updateToolRequestStatus } from '@/services/toolsService';
-import { getFinancialRequests, updateFinancialRequestStatus } from '@/services/toolsService';
-import { supabase } from '@/lib/supabase';
-import type { UserRole } from '@/lib/supabase';
+import { getStoredUser, getStoredProfile } from '@/lib/authContext';
+import { getToolRequestsApi, updateToolRequestStatusApi, getFinancialRequestsApi, updateFinancialRequestStatusApi, getProfileApi } from '@/lib/apiClient';
+import type { UserRole } from '@/lib/database.types';
 import type { ToolRequest, FinancialRequest } from '@/lib/database.types';
 import { CheckCircle, XCircle, Clock, DollarSign, Package, Loader2, Check, X } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -18,6 +16,21 @@ interface RequestWithDetails extends ToolRequest {
 
 interface FinancialWithDetails extends FinancialRequest {
   requester_name?: string;
+}
+
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('senexpert_token');
+}
+
+function getCurrentUserFromStorage() {
+  const userStr = localStorage.getItem('senexpert_user');
+  if (!userStr) return null;
+  try {
+    return JSON.parse(userStr);
+  } catch {
+    return null;
+  }
 }
 
 export default function ApprovalsPage() {
@@ -34,13 +47,19 @@ export default function ApprovalsPage() {
   }, []);
 
   async function checkAuth() {
-    const { user } = await getCurrentUser();
+    const token = getToken();
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+
+    const user = getCurrentUserFromStorage();
     if (!user) {
       router.push('/login');
       return;
     }
 
-    const profileResponse = await getProfile(user.id);
+    const profileResponse = await getProfileApi();
     if (profileResponse.success && profileResponse.data) {
       const role = profileResponse.data.role;
       // Only allow hr, admin, super_admin to view approvals
@@ -58,40 +77,15 @@ export default function ApprovalsPage() {
   async function loadData() {
     try {
       // Load tool requests
-      const toolRes = await getToolRequests();
+      const toolRes = await getToolRequestsApi();
       if (toolRes.success && toolRes.data) {
-        // Get user profiles for requester names
-        const userIds = [...new Set(toolRes.data.map(r => r.requested_by).filter(Boolean))];
-        const { data: profiles } = await supabase?.from('profiles').select('id, full_name').in('id', userIds);
-        const userMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
-        
-        // Get tool names
-        const toolIds = [...new Set(toolRes.data.map(r => r.tool_id).filter(Boolean))];
-        const { data: tools } = await supabase?.from('tools').select('id, name').in('id', toolIds);
-        const toolMap = new Map(tools?.map(t => [t.id, t.name]) || []);
-
-        const requestsWithDetails = toolRes.data.map(req => ({
-          ...req,
-          tool_name: req.tool_id ? toolMap.get(req.tool_id) : undefined,
-          requester_name: req.requested_by ? userMap.get(req.requested_by) : undefined,
-        }));
-        
-        setToolRequests(requestsWithDetails);
+        setToolRequests(toolRes.data);
       }
 
       // Load financial requests
-      const financialRes = await getFinancialRequests();
+      const financialRes = await getFinancialRequestsApi();
       if (financialRes.success && financialRes.data) {
-        const userIds = [...new Set(financialRes.data.map(r => r.requested_by).filter(Boolean))];
-        const { data: profiles } = await supabase?.from('profiles').select('id, full_name').in('id', userIds);
-        const userMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
-
-        const financialWithDetails = financialRes.data.map(req => ({
-          ...req,
-          requester_name: req.requested_by ? userMap.get(req.requested_by) : undefined,
-        }));
-        
-        setFinancialRequests(financialWithDetails);
+        setFinancialRequests(financialRes.data);
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -101,7 +95,8 @@ export default function ApprovalsPage() {
   const handleApproveToolRequest = async (id: string) => {
     setProcessingId(id);
     try {
-      await updateToolRequestStatus(id, 'approved', (await getCurrentUser()).user?.id);
+      const user = getCurrentUserFromStorage();
+      await updateToolRequestStatusApi(id, 'approved', user?.id);
       await loadData();
     } finally {
       setProcessingId(null);
@@ -111,7 +106,8 @@ export default function ApprovalsPage() {
   const handleRejectToolRequest = async (id: string) => {
     setProcessingId(id);
     try {
-      await updateToolRequestStatus(id, 'rejected', (await getCurrentUser()).user?.id);
+      const user = getCurrentUserFromStorage();
+      await updateToolRequestStatusApi(id, 'rejected', user?.id);
       await loadData();
     } finally {
       setProcessingId(null);
@@ -121,7 +117,8 @@ export default function ApprovalsPage() {
   const handleApproveFinancialRequest = async (id: string) => {
     setProcessingId(id);
     try {
-      await updateFinancialRequestStatus(id, 'approved', (await getCurrentUser()).user?.id);
+      const user = getCurrentUserFromStorage();
+      await updateFinancialRequestStatusApi(id, 'approved', user?.id);
       await loadData();
     } finally {
       setProcessingId(null);
@@ -131,7 +128,8 @@ export default function ApprovalsPage() {
   const handleRejectFinancialRequest = async (id: string) => {
     setProcessingId(id);
     try {
-      await updateFinancialRequestStatus(id, 'rejected', (await getCurrentUser()).user?.id);
+      const user = getCurrentUserFromStorage();
+      await updateFinancialRequestStatusApi(id, 'rejected', user?.id);
       await loadData();
     } finally {
       setProcessingId(null);

@@ -1,7 +1,9 @@
 /**
  * Database type definitions for SenExpert
- * Based on the Supabase database schema
+ * MongoDB schema with string IDs for API compatibility
  */
+
+import { ObjectId } from 'mongodb';
 
 export type UserRole = 'super_admin' | 'admin' | 'hr' | 'manager' | 'operator';
 
@@ -12,22 +14,27 @@ export type MaintenanceType = 'inspection' | 'repair' | 'calibration' | 'replace
 export type MaintenanceStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
 export type AlertType = 'info' | 'warning' | 'critical' | 'success';
 
-export interface FinancialRequest {
+export function toObjectId(id: string): ObjectId {
+  return new ObjectId(id);
+}
+
+export function isValidObjectId(id: string): boolean {
+  try {
+    return ObjectId.isValid(id) && new ObjectId(id).toString() === id;
+  } catch {
+    return false;
+  }
+}
+
+export interface Profile {
   id: string;
-  title: string;
-  description: string;
-  amount: number;
-  category: string;
-  requested_by?: string;
-  status: 'pending' | 'approved' | 'rejected';
-  approved_by?: string;
-  approved_at?: string;
-  notes?: string;
-  created_at: string;
-  updated_at?: string;
-  // Joined fields
-  requested_by_profile?: { full_name: string };
-  approved_by_profile?: { full_name: string };
+  email: string;
+  full_name: string;
+  role: UserRole;
+  created_at: Date;
+  updated_at?: Date;
+  is_active?: boolean;
+  avatar_url?: string;
 }
 
 export interface Tool {
@@ -48,8 +55,8 @@ export interface Tool {
   purchase_date?: string;
   purchase_price?: number;
   created_by?: string;
-  created_at: string;
-  updated_at: string;
+  created_at: Date;
+  updated_at?: Date;
 }
 
 export interface ToolInsert {
@@ -89,7 +96,7 @@ export interface ToolUpdate {
   description?: string;
   purchase_date?: string;
   purchase_price?: number;
-  updated_at?: string;
+  updated_at?: Date;
 }
 
 export interface ToolRequest {
@@ -103,11 +110,12 @@ export interface ToolRequest {
   notes?: string;
   request_date?: string;
   approved_by?: string;
-  approved_at?: string;
-  completed_at?: string;
-  created_at: string;
-  updated_at?: string;
-  // Joined fields
+  approved_at?: Date;
+  completed_at?: Date;
+  created_at: Date;
+  updated_at?: Date;
+  tool_name?: string;
+  requester_name?: string;
   tool?: Tool;
   requested_by_profile?: { full_name: string };
   assigned_to_profile?: { full_name: string };
@@ -124,9 +132,9 @@ export interface Maintenance {
   performed_by?: string;
   cost?: number;
   notes?: string;
-  created_at: string;
-  updated_at?: string;
-  // Joined fields
+  created_at: Date;
+  updated_at?: Date;
+  tool_name?: string;
   tool?: { name: string; serial_number: string };
   performed_by_profile?: { full_name: string };
 }
@@ -140,7 +148,26 @@ export interface Alert {
   tool_id?: string;
   is_read: boolean;
   created_by?: string;
-  created_at: string;
+  created_at: Date;
+  updated_at?: Date;
+}
+
+export interface FinancialRequest {
+  id: string;
+  title: string;
+  description: string;
+  amount: number;
+  category: string;
+  requested_by?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  approved_by?: string;
+  approved_at?: Date;
+  notes?: string;
+  created_at: Date;
+  updated_at?: Date;
+  requester_name?: string;
+  requested_by_profile?: { full_name: string };
+  approved_by_profile?: { full_name: string };
 }
 
 export interface AuditLog {
@@ -151,7 +178,35 @@ export interface AuditLog {
   record_id?: string;
   old_values?: Record<string, unknown>;
   new_values?: Record<string, unknown>;
-  ip_address?: unknown;
+  ip_address?: string;
   user_agent?: string;
-  created_at: string;
+  created_at: Date;
+  updated_at?: Date;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  is_active: boolean;
+  created_at: Date;
+  updated_at?: Date;
+}
+
+export interface AuthError {
+  message: string;
+  status?: number;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  profile: Profile | null;
+  loading: boolean;
+  error: AuthError | null;
 }

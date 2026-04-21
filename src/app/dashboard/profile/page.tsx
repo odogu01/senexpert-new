@@ -2,11 +2,26 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, getProfile } from '@/services/authService';
-import { supabase } from '@/lib/supabase';
-import type { UserRole } from '@/lib/supabase';
+import { getStoredUser } from '@/lib/authContext';
+import { getProfileApi, updateProfileApi } from '@/lib/apiClient';
+import type { UserRole } from '@/lib/database.types';
 import { User, Mail, Shield, Calendar, Camera, Loader2, Save } from 'lucide-react';
 import { motion } from 'framer-motion';
+
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('senexpert_token');
+}
+
+function getCurrentUserFromStorage() {
+  const userStr = localStorage.getItem('senexpert_user');
+  if (!userStr) return null;
+  try {
+    return JSON.parse(userStr);
+  } catch {
+    return null;
+  }
+}
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -29,27 +44,32 @@ export default function ProfilePage() {
   }, []);
 
   async function loadProfile() {
+    const token = getToken();
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+
+    const storedUser = getCurrentUserFromStorage();
+    if (!storedUser) {
+      router.push('/login');
+      return;
+    }
+
+    setUser(storedUser);
     try {
-      const { user: authUser } = await getCurrentUser();
-      if (!authUser) {
-        router.push('/login');
-        return;
-      }
-
-      setUser({ id: authUser.id, email: authUser.email || '' });
-
-      const profileResponse = await getProfile(authUser.id);
+      const profileResponse = await getProfileApi();
       if (profileResponse.success && profileResponse.data) {
         const profileData = profileResponse.data;
         setProfile({
           full_name: profileData.full_name || '',
           role: profileData.role,
-          avatar_url: (profileData as unknown as { avatar_url?: string }).avatar_url || '',
+          avatar_url: profileData.avatar_url || '',
           created_at: profileData.created_at,
         });
         setFormData({
           full_name: profileData.full_name || '',
-          avatar_url: (profileData as unknown as { avatar_url?: string }).avatar_url || '',
+          avatar_url: profileData.avatar_url || '',
         });
       }
     } catch (error) {
@@ -61,73 +81,37 @@ export default function ProfilePage() {
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user || !supabase) return;
+    if (!file || !user) return;
 
     setSaving(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) {
-        console.error('Storage upload error:', uploadError);
-        throw new Error(uploadError.message);
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      setFormData({ ...formData, avatar_url: publicUrl });
+      // Simple avatar URL update (in production, you'd upload to storage)
+      const avatarUrl = `/avatars/${user.id}-avatar`;
+      setFormData({ ...formData, avatar_url: avatarUrl });
+      alert('Avatar updated! (Storage upload not configured in this demo)');
     } catch (error: unknown) {
-      console.error('Failed to upload avatar:', error);
-      alert('Failed to upload avatar: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.error('Failed to update avatar:', error);
+      alert('Failed to update avatar');
     } finally {
       setSaving(false);
     }
   };
 
   const handleSave = async () => {
-    if (!user || !supabase) return;
+    if (!user) return;
     setSaving(true);
     try {
-      // Get current profile data for audit log
-      const { data: oldProfile } = await supabase
-        .from('profiles')
-        .select('full_name, avatar_url')
-        .eq('id', user.id)
-        .single();
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: formData.full_name,
-          avatar_url: formData.avatar_url,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user.id);
-
-      if (error) throw error;
-
-      // Log the profile update to audit_logs
-      await supabase.from('audit_logs').insert({
-        user_id: user.id,
-        action: 'UPDATE',
-        table_name: 'profiles',
-        record_id: user.id,
-        old_values: oldProfile || {},
-        new_values: {
-          full_name: formData.full_name,
-          avatar_url: formData.avatar_url ? 'avatar_updated' : null,
-        },
+      const response = await updateProfileApi({
+        full_name: formData.full_name,
+        avatar_url: formData.avatar_url,
       });
 
-      alert('Profile updated successfully!');
-      await loadProfile();
+      if (response.success) {
+        alert('Profile updated successfully!');
+        await loadProfile();
+      } else {
+        alert(response.error?.message || 'Failed to update profile');
+      }
     } catch (error) {
       console.error('Failed to save profile:', error);
       alert('Failed to update profile');

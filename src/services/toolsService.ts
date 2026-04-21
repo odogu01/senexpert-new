@@ -1,15 +1,64 @@
-import { supabase } from '@/lib/supabase';
-import type { Tool, ToolInsert, ToolUpdate, ToolRequest, Maintenance, Alert } from '@/lib/database.types';
-
 /**
- * Tools Service - Database operations for tool inventory
+ * Tools Service - MongoDB operations for tool inventory
+ * Uses dynamic imports to avoid bundling Node.js modules in the browser
  */
 
-function getClient() {
-  if (!supabase) {
-    throw new Error('Supabase client not initialized');
-  }
-  return supabase;
+import type { Tool, ToolInsert, ToolUpdate, ToolRequest, Maintenance, Alert, FinancialRequest, AuditLog, ToolStatus, ToolRequestStatus, MaintenanceStatus, AlertType } from '@/lib/database.types';
+
+// ============================================
+// Dynamic import helpers (for server-side only)
+// ============================================
+
+async function getDb() {
+  const { getCollection } = await import('@/lib/mongodb');
+  return { getCollection };
+}
+
+async function getMongodbModule() {
+  return import('mongodb');
+}
+
+/**
+ * Tools Service - MongoDB operations for tool inventory
+ */
+
+// ============================================
+// Collections
+// ============================================
+
+async function getToolsCollection() {
+  const { getCollection } = await getDb();
+  return getCollection<Tool>('tools');
+}
+
+async function getToolRequestsCollection() {
+  const { getCollection } = await getDb();
+  return getCollection<ToolRequest>('tool_requests');
+}
+
+async function getMaintenanceCollection() {
+  const { getCollection } = await getDb();
+  return getCollection<Maintenance>('maintenance');
+}
+
+async function getAlertsCollection() {
+  const { getCollection } = await getDb();
+  return getCollection<Alert>('alerts');
+}
+
+async function getFinancialRequestsCollection() {
+  const { getCollection } = await getDb();
+  return getCollection<FinancialRequest>('financial_requests');
+}
+
+async function getAuditLogsCollection() {
+  const { getCollection } = await getDb();
+  return getCollection<AuditLog>('audit_logs');
+}
+
+async function getProfilesCollection() {
+  const { getCollection } = await getDb();
+  return getCollection<{ _id: unknown; email: string; full_name: string }>('profiles');
 }
 
 // ============================================
@@ -25,17 +74,16 @@ async function logAuditEvent(params: {
   newValues?: Record<string, unknown>;
 }) {
   try {
-    const client = getClient();
-    // Try to get current user from auth
-    const { data: { user } } = await client.auth.getUser();
-    
-    await client.from('audit_logs').insert({
-      user_id: params.userId || user?.id,
+    const { getCollection } = await getDb();
+    const auditCollection = getCollection<AuditLog>('audit_logs');
+    await auditCollection.insertOne({
+      user_id: params.userId,
       action: params.action,
       table_name: params.tableName,
       record_id: params.recordId,
       old_values: params.oldValues,
       new_values: params.newValues,
+      created_at: new Date(),
     });
   } catch (error) {
     console.error('Failed to log audit event:', error);
@@ -55,26 +103,27 @@ export async function getTools(filters?: {
   search?: string;
 }): Promise<{ success: boolean; data?: Tool[]; error?: string }> {
   try {
-    const client = getClient();
-    let query = client.from('tools').select('*').order('name');
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getToolsCollection();
+
+    const query: Record<string, unknown> = {};
 
     if (filters?.category) {
-      query = query.eq('category', filters.category);
+      query.category = filters.category;
     }
     if (filters?.status) {
-      query = query.eq('status', filters.status);
+      query.status = filters.status;
     }
     if (filters?.search) {
-      query = query.or(`name.ilike.%${filters.search}%,work_order_number.ilike.%${filters.search}%,part_number.ilike.%${filters.search}%`);
+      query.$or = [
+        { name: { $regex: filters.search, $options: 'i' } },
+        { work_order_number: { $regex: filters.search, $options: 'i' } },
+        { part_number: { $regex: filters.search, $options: 'i' } },
+      ];
     }
 
-    const { data, error } = await query;
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, data: data as Tool[] };
+    const tools = await collection.find(query).sort({ name: 1 }).toArray();
+    return { success: true, data: tools };
   } catch (error) {
     console.error('Get tools error:', error);
     return { success: false, error: 'Failed to fetch tools' };
@@ -86,18 +135,24 @@ export async function getTools(filters?: {
  */
 export async function getToolById(id: string): Promise<{ success: boolean; data?: Tool; error?: string }> {
   try {
-    const client = getClient();
-    const { data, error } = await client
-      .from('tools')
-      .select('*')
-      .eq('id', id)
-      .single();
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getToolsCollection();
+    const mongodb = await getMongodbModule();
 
-    if (error) {
-      return { success: false, error: error.message };
+    let objectId: mongodb.ObjectId;
+    try {
+      objectId = new mongodb.ObjectId(id);
+    } catch {
+      return { success: false, error: 'Invalid tool ID' };
     }
 
-    return { success: true, data: data as Tool };
+    const tool = await collection.findOne({ _id: objectId });
+
+    if (!tool) {
+      return { success: false, error: 'Tool not found' };
+    }
+
+    return { success: true, data: tool };
   } catch (error) {
     console.error('Get tool error:', error);
     return { success: false, error: 'Failed to fetch tool' };
@@ -109,28 +164,43 @@ export async function getToolById(id: string): Promise<{ success: boolean; data?
  */
 export async function createTool(tool: ToolInsert): Promise<{ success: boolean; data?: Tool; error?: string }> {
   try {
-    const client = getClient();
-    const { data, error } = await client
-      .from('tools')
-      .insert(tool)
-      .select()
-      .single();
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getToolsCollection();
+    const mongodb = await getMongodbModule();
 
-    if (error) {
-      return { success: false, error: error.message };
-    }
+    const newTool: Tool = {
+      _id: new mongodb.ObjectId(),
+      name: tool.name,
+      work_order_number: tool.work_order_number,
+      size_thread: tool.size_thread,
+      material: tool.material,
+      model: tool.model,
+      part_number: tool.part_number,
+      category: tool.category || 'Uncategorized',
+      quantity: tool.quantity || 1,
+      min_quantity: tool.min_quantity,
+      status: tool.status || 'available',
+      location: tool.location,
+      image_url: tool.image_url,
+      description: tool.description,
+      purchase_date: tool.purchase_date,
+      purchase_price: tool.purchase_price,
+      created_by: tool.created_by,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+
+    await collection.insertOne(newTool);
 
     // Log audit event
-    if (data) {
-      await logAuditEvent({
-        action: 'INSERT',
-        tableName: 'tools',
-        recordId: data.id,
-        newValues: tool as unknown as Record<string, unknown>,
-      });
-    }
+    await logAuditEvent({
+      action: 'INSERT',
+      tableName: 'tools',
+      recordId: newTool._id.toString(),
+      newValues: tool as unknown as Record<string, unknown>,
+    });
 
-    return { success: true, data: data as Tool };
+    return { success: true, data: newTool };
   } catch (error) {
     console.error('Create tool error:', error);
     return { success: false, error: 'Failed to create tool' };
@@ -142,38 +212,45 @@ export async function createTool(tool: ToolInsert): Promise<{ success: boolean; 
  */
 export async function updateTool(id: string, updates: ToolUpdate): Promise<{ success: boolean; data?: Tool; error?: string }> {
   try {
-    const client = getClient();
-    
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getToolsCollection();
+    const mongodb = await getMongodbModule();
+
+    let objectId: mongodb.ObjectId;
+    try {
+      objectId = new mongodb.ObjectId(id);
+    } catch {
+      return { success: false, error: 'Invalid tool ID' };
+    }
+
     // Get old values for audit
-    const { data: oldTool } = await client
-      .from('tools')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const oldTool = await collection.findOne({ _id: objectId });
 
-    const { data, error } = await client
-      .from('tools')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
+    const updateFields = {
+      ...updates,
+      updated_at: new Date(),
+    };
 
-    if (error) {
-      return { success: false, error: error.message };
+    const result = await collection.findOneAndUpdate(
+      { _id: objectId },
+      { $set: updateFields },
+      { returnDocument: 'after' }
+    );
+
+    if (!result) {
+      return { success: false, error: 'Tool not found' };
     }
 
     // Log audit event
-    if (data) {
-      await logAuditEvent({
-        action: 'UPDATE',
-        tableName: 'tools',
-        recordId: id,
-        oldValues: oldTool as unknown as Record<string, unknown>,
-        newValues: updates as unknown as Record<string, unknown>,
-      });
-    }
+    await logAuditEvent({
+      action: 'UPDATE',
+      tableName: 'tools',
+      recordId: id,
+      oldValues: oldTool as unknown as Record<string, unknown>,
+      newValues: updates as unknown as Record<string, unknown>,
+    });
 
-    return { success: true, data: data as Tool };
+    return { success: true, data: result };
   } catch (error) {
     console.error('Update tool error:', error);
     return { success: false, error: 'Failed to update tool' };
@@ -185,22 +262,24 @@ export async function updateTool(id: string, updates: ToolUpdate): Promise<{ suc
  */
 export async function deleteTool(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const client = getClient();
-    
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getToolsCollection();
+    const mongodb = await getMongodbModule();
+
+    let objectId: mongodb.ObjectId;
+    try {
+      objectId = new mongodb.ObjectId(id);
+    } catch {
+      return { success: false, error: 'Invalid tool ID' };
+    }
+
     // Get old values for audit
-    const { data: oldTool } = await client
-      .from('tools')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const oldTool = await collection.findOne({ _id: objectId });
 
-    const { error } = await client
-      .from('tools')
-      .delete()
-      .eq('id', id);
+    const result = await collection.deleteOne({ _id: objectId });
 
-    if (error) {
-      return { success: false, error: error.message };
+    if (result.deletedCount === 0) {
+      return { success: false, error: 'Tool not found' };
     }
 
     // Log audit event
@@ -223,18 +302,11 @@ export async function deleteTool(id: string): Promise<{ success: boolean; error?
  */
 export async function getCategories(): Promise<{ success: boolean; data?: string[]; error?: string }> {
   try {
-    const client = getClient();
-    const { data, error } = await client
-      .from('tools')
-      .select('category')
-      .order('category');
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getToolsCollection();
 
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    const categories = [...new Set(data.map(t => t.category).filter(Boolean))] as string[];
-    return { success: true, data: categories };
+    const categories = await collection.distinct('category');
+    return { success: true, data: categories as string[] };
   } catch (error) {
     console.error('Get categories error:', error);
     return { success: false, error: 'Failed to fetch categories' };
@@ -253,26 +325,20 @@ export async function getToolRequests(filters?: {
   movement_type?: string;
 }): Promise<{ success: boolean; data?: ToolRequest[]; error?: string }> {
   try {
-    const client = getClient();
-    let query = client
-      .from('tool_requests')
-      .select('*')
-      .order('created_at', { ascending: false });
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getToolRequestsCollection();
+
+    const query: Record<string, unknown> = {};
 
     if (filters?.status) {
-      query = query.eq('status', filters.status);
+      query.status = filters.status;
     }
     if (filters?.movement_type) {
-      query = query.eq('movement_type', filters.movement_type);
+      query.movement_type = filters.movement_type;
     }
 
-    const { data, error } = await query;
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, data: data as ToolRequest[] };
+    const requests = await collection.find(query).sort({ created_at: -1 }).toArray();
+    return { success: true, data: requests };
   } catch (error) {
     console.error('Get tool requests error:', error);
     return { success: false, error: 'Failed to fetch tool requests' };
@@ -291,35 +357,35 @@ export async function createToolRequest(request: {
   notes?: string;
 }): Promise<{ success: boolean; data?: ToolRequest; error?: string }> {
   try {
-    const client = getClient();
-    const { data, error } = await client
-      .from('tool_requests')
-      .insert({
-        tool_id: request.tool_id,
-        movement_type: request.movement_type,
-        requested_by: request.requested_by,
-        assigned_to: request.assigned_to,
-        quantity: request.quantity,
-        notes: request.notes,
-      })
-      .select()
-      .single();
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getToolRequestsCollection();
+    const mongodb = await getMongodbModule();
 
-    if (error) {
-      return { success: false, error: error.message };
-    }
+    const newRequest: ToolRequest = {
+      _id: new mongodb.ObjectId(),
+      tool_id: request.tool_id,
+      movement_type: request.movement_type,
+      requested_by: request.requested_by,
+      assigned_to: request.assigned_to,
+      quantity: request.quantity,
+      status: 'pending',
+      notes: request.notes,
+      request_date: new Date().toISOString(),
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+
+    await collection.insertOne(newRequest);
 
     // Log audit event
-    if (data) {
-      await logAuditEvent({
-        action: 'INSERT',
-        tableName: 'tool_requests',
-        recordId: data.id,
-        newValues: request as unknown as Record<string, unknown>,
-      });
-    }
+    await logAuditEvent({
+      action: 'INSERT',
+      tableName: 'tool_requests',
+      recordId: newRequest._id.toString(),
+      newValues: request as unknown as Record<string, unknown>,
+    });
 
-    return { success: true, data: data as ToolRequest };
+    return { success: true, data: newRequest };
   } catch (error) {
     console.error('Create tool request error:', error);
     return { success: false, error: 'Failed to create tool request' };
@@ -335,34 +401,39 @@ export async function updateToolRequestStatus(
   approved_by?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const client = getClient();
-    
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getToolRequestsCollection();
+    const mongodb = await getMongodbModule();
+
+    let objectId: mongodb.ObjectId;
+    try {
+      objectId = new mongodb.ObjectId(id);
+    } catch {
+      return { success: false, error: 'Invalid request ID' };
+    }
+
     // Get old values for audit
-    const { data: oldRequest } = await client
-      .from('tool_requests')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const oldRequest = await collection.findOne({ _id: objectId });
 
     const updates: Record<string, unknown> = {
       status,
-      updated_at: new Date().toISOString(),
+      updated_at: new Date(),
     };
 
     if (status === 'approved') {
       updates.approved_by = approved_by;
-      updates.approved_at = new Date().toISOString();
+      updates.approved_at = new Date();
     } else if (status === 'completed') {
-      updates.completed_at = new Date().toISOString();
+      updates.completed_at = new Date();
     }
 
-    const { error } = await client
-      .from('tool_requests')
-      .update(updates)
-      .eq('id', id);
+    const result = await collection.updateOne(
+      { _id: objectId },
+      { $set: updates }
+    );
 
-    if (error) {
-      return { success: false, error: error.message };
+    if (result.matchedCount === 0) {
+      return { success: false, error: 'Request not found' };
     }
 
     // Log audit event
@@ -393,26 +464,20 @@ export async function getMaintenanceRecords(filters?: {
   tool_id?: string;
 }): Promise<{ success: boolean; data?: Maintenance[]; error?: string }> {
   try {
-    const client = getClient();
-    let query = client
-      .from('maintenance')
-      .select('*')
-      .order('scheduled_date', { ascending: true });
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getMaintenanceCollection();
+
+    const query: Record<string, unknown> = {};
 
     if (filters?.status) {
-      query = query.eq('status', filters.status);
+      query.status = filters.status;
     }
     if (filters?.tool_id) {
-      query = query.eq('tool_id', filters.tool_id);
+      query.tool_id = filters.tool_id;
     }
 
-    const { data, error } = await query;
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, data: data as Maintenance[] };
+    const records = await collection.find(query).sort({ scheduled_date: 1 }).toArray();
+    return { success: true, data: records };
   } catch (error) {
     console.error('Get maintenance error:', error);
     return { success: false, error: 'Failed to fetch maintenance records' };
@@ -431,28 +496,34 @@ export async function createMaintenanceRecord(record: {
   notes?: string;
 }): Promise<{ success: boolean; data?: Maintenance; error?: string }> {
   try {
-    const client = getClient();
-    const { data, error } = await client
-      .from('maintenance')
-      .insert(record)
-      .select()
-      .single();
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getMaintenanceCollection();
+    const mongodb = await getMongodbModule();
 
-    if (error) {
-      return { success: false, error: error.message };
-    }
+    const newRecord: Maintenance = {
+      _id: new mongodb.ObjectId(),
+      tool_id: record.tool_id,
+      maintenance_type: record.maintenance_type,
+      description: record.description,
+      status: 'scheduled',
+      scheduled_date: record.scheduled_date,
+      cost: record.cost,
+      notes: record.notes,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+
+    await collection.insertOne(newRecord);
 
     // Log audit event
-    if (data) {
-      await logAuditEvent({
-        action: 'INSERT',
-        tableName: 'maintenance',
-        recordId: data.id,
-        newValues: record as unknown as Record<string, unknown>,
-      });
-    }
+    await logAuditEvent({
+      action: 'INSERT',
+      tableName: 'maintenance',
+      recordId: newRecord._id.toString(),
+      newValues: record as unknown as Record<string, unknown>,
+    });
 
-    return { success: true, data: data as Maintenance };
+    return { success: true, data: newRecord };
   } catch (error) {
     console.error('Create maintenance error:', error);
     return { success: false, error: 'Failed to create maintenance record' };
@@ -468,32 +539,37 @@ export async function updateMaintenanceStatus(
   performed_by?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const client = getClient();
-    
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getMaintenanceCollection();
+    const mongodb = await getMongodbModule();
+
+    let objectId: mongodb.ObjectId;
+    try {
+      objectId = new mongodb.ObjectId(id);
+    } catch {
+      return { success: false, error: 'Invalid maintenance ID' };
+    }
+
     // Get old values for audit
-    const { data: oldMaintenance } = await client
-      .from('maintenance')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const oldMaintenance = await collection.findOne({ _id: objectId });
 
     const updates: Record<string, unknown> = {
       status,
-      updated_at: new Date().toISOString(),
+      updated_at: new Date(),
     };
 
     if (status === 'completed') {
-      updates.completed_at = new Date().toISOString();
+      updates.completed_date = new Date().toISOString();
       updates.performed_by = performed_by;
     }
 
-    const { error } = await client
-      .from('maintenance')
-      .update(updates)
-      .eq('id', id);
+    const result = await collection.updateOne(
+      { _id: objectId },
+      { $set: updates }
+    );
 
-    if (error) {
-      return { success: false, error: error.message };
+    if (result.matchedCount === 0) {
+      return { success: false, error: 'Maintenance record not found' };
     }
 
     // Log audit event
@@ -521,23 +597,16 @@ export async function updateMaintenanceStatus(
  */
 export async function getAlerts(unreadOnly = false): Promise<{ success: boolean; data?: Alert[]; error?: string }> {
   try {
-    const client = getClient();
-    let query = client
-      .from('alerts')
-      .select('*')
-      .order('created_at', { ascending: false });
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getAlertsCollection();
 
+    const query: Record<string, unknown> = {};
     if (unreadOnly) {
-      query = query.eq('is_read', false);
+      query.is_read = false;
     }
 
-    const { data, error } = await query;
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, data: data as Alert[] };
+    const alerts = await collection.find(query).sort({ created_at: -1 }).toArray();
+    return { success: true, data: alerts };
   } catch (error) {
     console.error('Get alerts error:', error);
     return { success: false, error: 'Failed to fetch alerts' };
@@ -549,20 +618,66 @@ export async function getAlerts(unreadOnly = false): Promise<{ success: boolean;
  */
 export async function markAlertAsRead(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const client = getClient();
-    const { error } = await client
-      .from('alerts')
-      .update({ is_read: true })
-      .eq('id', id);
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getAlertsCollection();
+    const mongodb = await getMongodbModule();
 
-    if (error) {
-      return { success: false, error: error.message };
+    let objectId: mongodb.ObjectId;
+    try {
+      objectId = new mongodb.ObjectId(id);
+    } catch {
+      return { success: false, error: 'Invalid alert ID' };
+    }
+
+    const result = await collection.updateOne(
+      { _id: objectId },
+      { $set: { is_read: true } }
+    );
+
+    if (result.matchedCount === 0) {
+      return { success: false, error: 'Alert not found' };
     }
 
     return { success: true };
   } catch (error) {
     console.error('Mark alert error:', error);
     return { success: false, error: 'Failed to mark alert as read' };
+  }
+}
+
+/**
+ * Create alert
+ */
+export async function createAlert(alert: {
+  title: string;
+  description?: string;
+  type: AlertType;
+  category?: string;
+  tool_id?: string;
+  created_by?: string;
+}): Promise<{ success: boolean; data?: Alert; error?: string }> {
+  try {
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getAlertsCollection();
+    const mongodb = await getMongodbModule();
+
+    const newAlert: Alert = {
+      _id: new mongodb.ObjectId(),
+      title: alert.title,
+      description: alert.description,
+      type: alert.type,
+      category: alert.category,
+      tool_id: alert.tool_id,
+      is_read: false,
+      created_by: alert.created_by,
+      created_at: new Date(),
+    };
+
+    await collection.insertOne(newAlert);
+    return { success: true, data: newAlert };
+  } catch (error) {
+    console.error('Create alert error:', error);
+    return { success: false, error: 'Failed to create alert' };
   }
 }
 
@@ -590,15 +705,16 @@ export async function getDashboardStats(): Promise<{
   error?: string;
 }> {
   try {
-    const client = getClient();
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
     
-    // Get tools counts
-    const { data: tools } = await client.from('tools').select('quantity, min_quantity, status');
-    
-    if (!tools) {
-      return { success: false, error: 'Failed to fetch stats' };
-    }
+    const toolsCollection = await getToolsCollection();
+    const toolRequestsCollection = await getToolRequestsCollection();
+    const maintenanceCollection = await getMaintenanceCollection();
+    const financialRequestsCollection = await getFinancialRequestsCollection();
 
+    // Get tools counts
+    const tools = await toolsCollection.find({}).toArray();
+    
     const totalTools = tools.reduce((sum, t) => sum + t.quantity, 0);
     const available = tools.filter(t => t.status === 'available').length;
     const inUse = tools.filter(t => t.status === 'in_use').length;
@@ -606,34 +722,26 @@ export async function getDashboardStats(): Promise<{
     const lowStock = tools.filter(t => t.quantity <= (t.min_quantity || 1)).length;
 
     // Get pending tool requests
-    const { count: pendingRequests } = await client
-      .from('tool_requests')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending');
+    const pendingRequests = await toolRequestsCollection.countDocuments({ status: 'pending' });
 
     // Get upcoming maintenance (next 7 days)
     const sevenDaysFromNow = new Date();
     sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
     
-    const { count: upcomingMaintenance } = await client
-      .from('maintenance')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'scheduled')
-      .lte('scheduled_date', sevenDaysFromNow.toISOString());
+    const upcomingMaintenance = await maintenanceCollection.countDocuments({
+      status: 'scheduled',
+      scheduled_date: { $lte: sevenDaysFromNow.toISOString() },
+    });
 
     // Get financial requests stats
-    const { count: pendingFinancialRequests } = await client
-      .from('financial_requests')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending');
+    const pendingFinancialRequests = await financialRequestsCollection.countDocuments({ status: 'pending' });
+    
+    const approvedFinancialRequestsData = await financialRequestsCollection
+      .find({ status: 'approved' })
+      .toArray();
 
-    const { data: approvedFinancialRequestsData } = await client
-      .from('financial_requests')
-      .select('amount')
-      .eq('status', 'approved');
-
-    const approvedFinancialRequests = approvedFinancialRequestsData?.length || 0;
-    const totalFinancialAmount = approvedFinancialRequestsData?.reduce((sum, r) => sum + Number(r.amount), 0) || 0;
+    const approvedFinancialRequests = approvedFinancialRequestsData.length;
+    const totalFinancialAmount = approvedFinancialRequestsData.reduce((sum, r) => sum + Number(r.amount), 0);
 
     return {
       success: true,
@@ -643,9 +751,9 @@ export async function getDashboardStats(): Promise<{
         inUse,
         maintenance,
         lowStock,
-        pendingRequests: pendingRequests || 0,
-        upcomingMaintenance: upcomingMaintenance || 0,
-        pendingFinancialRequests: pendingFinancialRequests || 0,
+        pendingRequests,
+        upcomingMaintenance,
+        pendingFinancialRequests,
         approvedFinancialRequests,
         totalFinancialAmount,
       },
@@ -666,28 +774,22 @@ export async function getDashboardStats(): Promise<{
 export async function getFinancialRequests(filters?: {
   status?: string;
   requested_by?: string;
-}): Promise<{ success: boolean; data?: import('@/lib/database.types').FinancialRequest[]; error?: string }> {
+}): Promise<{ success: boolean; data?: FinancialRequest[]; error?: string }> {
   try {
-    const client = getClient();
-    let query = client
-      .from('financial_requests')
-      .select('*')
-      .order('created_at', { ascending: false });
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getFinancialRequestsCollection();
+
+    const query: Record<string, unknown> = {};
 
     if (filters?.status) {
-      query = query.eq('status', filters.status);
+      query.status = filters.status;
     }
     if (filters?.requested_by) {
-      query = query.eq('requested_by', filters.requested_by);
+      query.requested_by = filters.requested_by;
     }
 
-    const { data, error } = await query;
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, data: data as import('@/lib/database.types').FinancialRequest[] };
+    const requests = await collection.find(query).sort({ created_at: -1 }).toArray();
+    return { success: true, data: requests };
   } catch (error) {
     console.error('Get financial requests error:', error);
     return { success: false, error: 'Failed to fetch financial requests' };
@@ -703,34 +805,35 @@ export async function createFinancialRequest(request: {
   amount: number;
   category: string;
   requested_by?: string;
-}): Promise<{ success: boolean; data?: import('@/lib/database.types').FinancialRequest; error?: string }> {
+}): Promise<{ success: boolean; data?: FinancialRequest; error?: string }> {
   try {
-    const client = getClient();
-    const { data, error } = await client
-      .from('financial_requests')
-      .insert({
-        title: request.title,
-        description: request.description,
-        amount: request.amount,
-        category: request.category,
-        requested_by: request.requested_by,
-      })
-      .select()
-      .single();
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getFinancialRequestsCollection();
+    const mongodb = await getMongodbModule();
 
-    if (error) {
-      return { success: false, error: error.message };
-    }
+    const newRequest: FinancialRequest = {
+      _id: new mongodb.ObjectId(),
+      title: request.title,
+      description: request.description,
+      amount: request.amount,
+      category: request.category,
+      requested_by: request.requested_by,
+      status: 'pending',
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+
+    await collection.insertOne(newRequest);
 
     // Log audit event
     await logAuditEvent({
       action: 'INSERT',
       tableName: 'financial_requests',
-      recordId: data.id,
+      recordId: newRequest._id.toString(),
       newValues: request as unknown as Record<string, unknown>,
     });
 
-    return { success: true, data: data as import('@/lib/database.types').FinancialRequest };
+    return { success: true, data: newRequest };
   } catch (error) {
     console.error('Create financial request error:', error);
     return { success: false, error: 'Failed to create financial request' };
@@ -747,33 +850,38 @@ export async function updateFinancialRequestStatus(
   notes?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const client = getClient();
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getFinancialRequestsCollection();
+    const mongodb = await getMongodbModule();
+
+    let objectId: mongodb.ObjectId;
+    try {
+      objectId = new mongodb.ObjectId(id);
+    } catch {
+      return { success: false, error: 'Invalid request ID' };
+    }
 
     // Get old values for audit
-    const { data: oldRequest } = await client
-      .from('financial_requests')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const oldRequest = await collection.findOne({ _id: objectId });
 
     const updates: Record<string, unknown> = {
       status,
-      updated_at: new Date().toISOString(),
+      updated_at: new Date(),
       notes,
     };
 
     if (status === 'approved') {
       updates.approved_by = approved_by;
-      updates.approved_at = new Date().toISOString();
+      updates.approved_at = new Date();
     }
 
-    const { error } = await client
-      .from('financial_requests')
-      .update(updates)
-      .eq('id', id);
+    const result = await collection.updateOne(
+      { _id: objectId },
+      { $set: updates }
+    );
 
-    if (error) {
-      return { success: false, error: error.message };
+    if (result.matchedCount === 0) {
+      return { success: false, error: 'Request not found' };
     }
 
     // Log audit event
@@ -790,5 +898,89 @@ export async function updateFinancialRequestStatus(
   } catch (error) {
     console.error('Update financial request error:', error);
     return { success: false, error: 'Failed to update financial request' };
+  }
+}
+
+// ============================================
+// Activity Feed
+// ============================================
+
+/**
+ * Get recent audit logs for activity feed
+ */
+export async function getRecentActivity(limit = 10): Promise<{
+  success: boolean;
+  data?: AuditLog[];
+  error?: string;
+}> {
+  try {
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getAuditLogsCollection();
+
+    const logs = await collection
+      .find({})
+      .sort({ created_at: -1 })
+      .limit(limit)
+      .toArray();
+
+    return { success: true, data: logs };
+  } catch (error) {
+    console.error('Get recent activity error:', error);
+    return { success: false, error: 'Failed to fetch activity' };
+  }
+}
+
+/**
+ * Get audit logs with optional filters
+ */
+export async function getAuditLogs(filters?: {
+  userId?: string;
+  action?: string;
+  tableName?: string;
+  startDate?: Date;
+  endDate?: Date;
+  limit?: number;
+  skip?: number;
+}): Promise<{
+  success: boolean;
+  data?: AuditLog[];
+  error?: string;
+}> {
+  try {
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const collection = await getAuditLogsCollection();
+
+    const query: Record<string, unknown> = {};
+
+    if (filters?.userId) {
+      query.user_id = filters.userId;
+    }
+    if (filters?.action) {
+      query.action = filters.action;
+    }
+    if (filters?.tableName) {
+      query.table_name = filters.tableName;
+    }
+    if (filters?.startDate || filters?.endDate) {
+      query.created_at = {};
+      if (filters?.startDate) {
+        (query.created_at as Record<string, Date>).$gte = filters.startDate;
+      }
+      if (filters?.endDate) {
+        (query.created_at as Record<string, Date>).$lte = filters.endDate;
+      }
+    }
+
+    const logs = await collection
+      .find(query)
+      .sort({ created_at: -1 })
+      .limit(filters?.limit || 50)
+      .skip(filters?.skip || 0)
+      .toArray();
+
+    return { success: true, data: logs };
+  } catch (error) {
+    console.error('Get audit logs error:', error);
+    return { success: false, error: 'Failed to fetch audit logs' };
   }
 }

@@ -4,11 +4,17 @@ import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Download, Plus, X, ChevronLeft, ChevronRight, Eye, Edit, Trash2, HelpCircle, Lock } from 'lucide-react';
-import { getTools, deleteTool, createTool, updateTool } from '@/services/toolsService';
-import { getCurrentUser, getProfile } from '@/services/authService';
+import { getToolsApi, createToolApi, updateToolApi, deleteToolApi, getCategoriesApi } from '@/lib/apiClient';
+import { getProfileApi } from '@/lib/apiClient';
+import { getStoredUser } from '@/lib/authContext';
 import StatusBadge from '@/components/dashboard/StatusBadge';
 import type { Tool, ToolStatus, ToolInsert, ToolUpdate } from '@/lib/database.types';
-import type { UserRole } from '@/lib/supabase';
+import type { UserRole } from '@/lib/database.types';
+
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('senexpert_token');
+}
 
 export default function InventoryPage() {
   const router = useRouter();
@@ -40,7 +46,13 @@ export default function InventoryPage() {
   }, []);
 
   async function checkAuth() {
-    const { user } = await getCurrentUser();
+    const token = getToken();
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+
+    const user = getStoredUser();
     if (!user) {
       router.push('/login');
       return;
@@ -48,7 +60,7 @@ export default function InventoryPage() {
 
     setCurrentUserId(user.id);
 
-    const profileResponse = await getProfile(user.id);
+    const profileResponse = await getProfileApi();
     if (profileResponse.success && profileResponse.data) {
       setUserRole(profileResponse.data.role);
     }
@@ -60,7 +72,7 @@ export default function InventoryPage() {
   async function loadTools() {
     setLoading(true);
     try {
-      const response = await getTools();
+      const response = await getToolsApi();
       if (response.success && response.data) {
         setTools(response.data);
       }
@@ -132,7 +144,7 @@ export default function InventoryPage() {
 
   const handleDeleteTool = async (id: string) => {
     if (confirm('Are you sure you want to delete this tool?')) {
-      const response = await deleteTool(id);
+      const response = await deleteToolApi(id);
       if (response.success) {
         setTools(tools.filter(t => t.id !== id));
       }
@@ -179,7 +191,7 @@ export default function InventoryPage() {
         created_by: currentUserId,
       };
 
-      const response = await createTool(toolData);
+      const response = await createToolApi(toolData);
       if (response.success && response.data) {
         setTools([response.data, ...tools]);
         setIsAddModalOpen(false);
@@ -218,7 +230,7 @@ export default function InventoryPage() {
         description: editForm.description,
       };
 
-      const response = await updateTool(editingTool.id, updates);
+      const response = await updateToolApi(editingTool.id, updates);
       if (response.success) {
         setTools(tools.map(t => t.id === editingTool.id ? { ...t, ...updates } : t));
         setIsEditModalOpen(false);

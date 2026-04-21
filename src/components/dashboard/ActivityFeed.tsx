@@ -33,7 +33,7 @@ const activityColors: Record<string, string> = {
   transfer: 'bg-yellow-100 text-yellow-600',
 };
 
-function formatTimestamp(timestamp: string): string {
+function formatTimestamp(timestamp: Date | string): string {
   const date = new Date(timestamp);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -57,17 +57,16 @@ export default function ActivityFeed({ maxItems = 10 }: ActivityFeedProps) {
 
   async function loadActivities() {
     try {
-      const { supabase } = await import('@/lib/supabase');
-      if (!supabase) return;
+      const token = localStorage.getItem('senexpert_token');
+      if (!token) return;
 
-      const { data, error } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(maxItems);
-
-      if (error) throw error;
-      setActivities(data || []);
+      const response = await fetch('/api/audit-logs', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success && data.data) {
+        setActivities(data.data.slice(0, maxItems));
+      }
     } catch (error) {
       console.error('Failed to load activities:', error);
     } finally {

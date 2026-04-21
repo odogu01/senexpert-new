@@ -21,7 +21,7 @@ import {
   CheckCircle,
   DollarSign
 } from 'lucide-react';
-import type { UserRole } from '@/lib/supabase';
+import type { UserRole } from '@/lib/database.types';
 
 interface SidebarProps {
   userRole?: UserRole;

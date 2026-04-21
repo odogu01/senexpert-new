@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, getProfile } from '@/services/authService';
-import { supabase } from '@/lib/supabase';
-import type { UserRole } from '@/lib/supabase';
+import { getStoredUser } from '@/lib/authContext';
+import { getProfileApi, getAuditLogsApi } from '@/lib/apiClient';
+import type { UserRole } from '@/lib/database.types';
 import { Search, Filter, Eye, User as UserIcon, Wrench, Package, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface AuditLogEntry {
   id: string;
@@ -18,6 +18,21 @@ interface AuditLogEntry {
   new_values?: Record<string, unknown>;
   created_at: string;
   user_name?: string;
+}
+
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('senexpert_token');
+}
+
+function getCurrentUserFromStorage() {
+  const userStr = localStorage.getItem('senexpert_user');
+  if (!userStr) return null;
+  try {
+    return JSON.parse(userStr);
+  } catch {
+    return null;
+  }
 }
 
 export default function AuditLogsPage() {
@@ -36,16 +51,21 @@ export default function AuditLogsPage() {
   }, []);
 
   async function checkAuth() {
-    const { user } = await getCurrentUser();
+    const token = getToken();
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+
+    const user = getCurrentUserFromStorage();
     if (!user) {
       router.push('/login');
       return;
     }
 
-    const profileResponse = await getProfile(user.id);
+    const profileResponse = await getProfileApi();
     if (profileResponse.success && profileResponse.data) {
       setCurrentUserRole(profileResponse.data.role);
-      // Only super_admin can see all logs
       if (profileResponse.data.role !== 'super_admin' && profileResponse.data.role !== 'admin') {
         router.push('/dashboard');
         return;
@@ -58,323 +78,163 @@ export default function AuditLogsPage() {
 
   async function loadLogs() {
     try {
-      if (!supabase) return;
-
-      // Fetch logs with user info
-      const { data: logsData, error } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(200);
-
-      if (error) throw error;
-
-      if (logsData && logsData.length > 0) {
-        // Get unique user IDs
-        const userIds = [...new Set(logsData.map(l => l.user_id).filter(Boolean))];
-        
-        // Fetch user profiles
-        let userProfiles: Record<string, string> = {};
-        if (userIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('id, full_name')
-            .in('id', userIds);
-          
-          if (profiles) {
-            profiles.forEach(p => {
-              userProfiles[p.id] = p.full_name;
-            });
-          }
-        }
-
-        // Map logs with user names
-        const logsWithUsers = logsData.map(log => ({
-          ...log,
-          user_name: log.user_id ? userProfiles[log.user_id] || 'Unknown User' : 'System',
-        }));
-
-        setLogs(logsWithUsers);
-        setFilteredLogs(logsWithUsers);
-      } else {
-        setLogs([]);
-        setFilteredLogs([]);
+      const response = await getAuditLogsApi(100);
+      if (response.success && response.data) {
+        setLogs(response.data);
+        setFilteredLogs(response.data);
       }
     } catch (error) {
-      console.error('Failed to load logs:', error);
+      console.error('Failed to load audit logs:', error);
     }
   }
 
-  useEffect(() => {
-    let filtered = logs;
-
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(log => 
-        log.action.toLowerCase().includes(search) ||
-        log.table_name?.toLowerCase().includes(search) ||
-        log.user_name?.toLowerCase().includes(search) ||
-        log.record_id?.toLowerCase().includes(search)
-      );
-    }
-
-    if (actionFilter) {
-      filtered = filtered.filter(log => log.action === actionFilter);
-    }
-
-    if (userFilter) {
-      filtered = filtered.filter(log => 
-        log.user_name?.toLowerCase().includes(userFilter.toLowerCase())
-      );
-    }
-
-    setFilteredLogs(filtered);
-  }, [searchTerm, actionFilter, userFilter, logs]);
-
-  const getActionBadge = (action: string) => {
-    const badges: Record<string, { bg: string; text: string }> = {
-      INSERT: { bg: 'bg-green-100', text: 'text-green-800' },
-      UPDATE: { bg: 'bg-yellow-100', text: 'text-yellow-800' },
-      DELETE: { bg: 'bg-red-100', text: 'text-red-800' },
-      LOGIN: { bg: 'bg-blue-100', text: 'text-blue-800' },
-    };
-    return badges[action] || { bg: 'bg-gray-100', text: 'text-gray-800' };
-  };
-
-  const getResourceIcon = (tableName: string) => {
-    const icons: Record<string, typeof Package> = {
-      tools: Package,
-      tool_requests: ArrowDownToLine,
-      maintenance: Wrench,
-      profiles: UserIcon,
-    };
-    return icons[tableName || ''] || Package;
-  };
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  // Get unique users for filter
-  const uniqueUsers = [...new Set(logs.map(l => l.user_name).filter(Boolean))];
+  // Filter logs based on search term
+  const searchFiltered = logs.filter(log => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      log.action.toLowerCase().includes(search) ||
+      log.table_name?.toLowerCase().includes(search) ||
+      log.user_name?.toLowerCase().includes(search)
+    );
+  });
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0B3C6D]"></div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 lg:p-8">
-      <div className="mb-4 lg:mb-8">
-        <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Audit Logs</h1>
-        <p className="text-gray-600 mt-1 text-sm lg:text-base">Track all system activities and changes</p>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        {/* Filters */}
-        <div className="p-4 lg:p-6 border-b border-gray-200">
-          <div className="flex flex-col lg:flex-row gap-3 lg:gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search logs..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20 focus:border-[#0B3C6D] text-sm"
-              />
-            </div>
-            <select
-              value={actionFilter}
-              onChange={(e) => setActionFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20 focus:border-[#0B3C6D] text-sm"
-            >
-              <option value="">All Actions</option>
-              <option value="INSERT">Create</option>
-              <option value="UPDATE">Update</option>
-              <option value="DELETE">Delete</option>
-            </select>
-            <select
-              value={userFilter}
-              onChange={(e) => setUserFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20 focus:border-[#0B3C6D] text-sm"
-            >
-              <option value="">All Users</option>
-              {uniqueUsers.map(user => (
-                <option key={user} value={user}>{user}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
-                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resource</th>
-                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Record ID</th>
-                <th className="px-4 lg:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                    <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                    <p>No audit logs found</p>
-                  </td>
-                </tr>
-              ) : (
-                filteredLogs.map((log, index) => {
-                  const badge = getActionBadge(log.action);
-                  const Icon = getResourceIcon(log.table_name || '');
-                  
-                  return (
-                    <motion.tr
-                      key={log.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: index * 0.02 }}
-                      className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => setSelectedLog(log)}
-                    >
-                      <td className="px-4 lg:px-6 py-3 lg:py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatDate(log.created_at)}
-                      </td>
-                      <td className="px-4 lg:px-6 py-3 lg:py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <div className="h-6 w-6 rounded-full bg-[#0B3C6D]/10 flex items-center justify-center">
-                            <UserIcon className="w-3 h-3 text-[#0B3C6D]" />
-                          </div>
-                          <span className="text-sm text-gray-600">{log.user_name || 'System'}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 lg:px-6 py-3 lg:py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${badge.bg} ${badge.text}`}>
-                          {log.action}
-                        </span>
-                      </td>
-                      <td className="px-4 lg:px-6 py-3 lg:py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <Icon className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600 capitalize">{log.table_name || 'Unknown'}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 lg:px-6 py-3 lg:py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
-                        {log.record_id ? log.record_id.slice(0, 8) + '...' : '-'}
-                      </td>
-                      <td className="px-4 lg:px-6 py-3 lg:py-4 whitespace-nowrap text-right">
-                        <button className="text-[#0B3C6D] hover:underline text-sm">
-                          <Eye className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </motion.tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="px-4 lg:px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-          <span className="text-sm text-gray-600">Showing {filteredLogs.length} of {logs.length} entries</span>
-          <div className="flex gap-2">
-            <button className="px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50" disabled>
-              Previous
-            </button>
-            <button className="px-3 py-1 border border-gray-300 rounded-md text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50" disabled>
-              Next
-            </button>
-          </div>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold text-[#0B3C6D] mb-6">Audit Logs</h1>
+      
+      {/* Search and Filters */}
+      <div className="flex gap-4 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="text"
+            placeholder="Search logs..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D] focus:border-transparent"
+          />
         </div>
       </div>
 
-      {/* Details Modal */}
-      {selectedLog && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-          onClick={() => setSelectedLog(null)}
-        >
+      {/* Logs Table */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Action</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Table</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">User</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Date</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {searchFiltered.slice(0, 50).map((log) => (
+              <motion.tr
+                key={log.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="border-t border-gray-100 hover:bg-gray-50"
+              >
+                <td className="px-4 py-3 text-sm">{log.action}</td>
+                <td className="px-4 py-3 text-sm">{log.table_name || '-'}</td>
+                <td className="px-4 py-3 text-sm">{log.user_name || 'System'}</td>
+                <td className="px-4 py-3 text-sm">
+                  {log.created_at ? new Date(log.created_at).toLocaleString() : '-'}
+                </td>
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => setSelectedLog(log)}
+                    className="text-[#0B3C6D] hover:text-[#0B3C6D]/80"
+                  >
+                    <Eye className="w-5 h-5" />
+                  </button>
+                </td>
+              </motion.tr>
+            ))}
+          </tbody>
+        </table>
+        
+        {searchFiltered.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            No audit logs found.
+          </div>
+        )}
+      </div>
+
+      {/* Detail Modal */}
+      <AnimatePresence>
+        {selectedLog && (
           <motion.div
-            initial={{ scale: 0.95 }}
-            animate={{ scale: 1 }}
-            className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto"
-            onClick={e => e.stopPropagation()}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            onClick={() => setSelectedLog(null)}
           >
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900">Audit Log Details</h2>
-                <button 
-                  onClick={() => setSelectedLog(null)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-lg font-semibold">Audit Log Details</h3>
+                <button onClick={() => setSelectedLog(null)} className="text-gray-400 hover:text-gray-600">
                   ×
                 </button>
               </div>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              
+              <div className="space-y-4">
                 <div>
-                  <label className="text-sm text-gray-500">Timestamp</label>
-                  <p className="font-medium text-gray-900">{formatDate(selectedLog.created_at)}</p>
-                </div>
-                <div>
-                  <label className="text-sm text-gray-500">User</label>
-                  <p className="font-medium text-gray-900">{selectedLog.user_name || 'System'}</p>
+                  <label className="text-sm font-medium text-gray-500">Action</label>
+                  <p className="text-gray-900">{selectedLog.action}</p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500">Action</label>
-                  <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getActionBadge(selectedLog.action).bg} ${getActionBadge(selectedLog.action).text}`}>
-                    {selectedLog.action}
-                  </span>
+                  <label className="text-sm font-medium text-gray-500">Table</label>
+                  <p className="text-gray-900">{selectedLog.table_name || '-'}</p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500">Resource</label>
-                  <p className="font-medium text-gray-900 capitalize">{selectedLog.table_name || 'Unknown'}</p>
+                  <label className="text-sm font-medium text-gray-500">User ID</label>
+                  <p className="text-gray-900">{selectedLog.user_id || 'System'}</p>
                 </div>
-                <div className="col-span-2">
-                  <label className="text-sm text-gray-500">Record ID</label>
-                  <p className="font-medium text-gray-900 text-sm break-all">{selectedLog.record_id || '-'}</p>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Date</label>
+                  <p className="text-gray-900">
+                    {selectedLog.created_at ? new Date(selectedLog.created_at).toLocaleString() : '-'}
+                  </p>
                 </div>
+                {selectedLog.old_values && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Old Values</label>
+                    <pre className="bg-gray-50 p-3 rounded text-sm overflow-x-auto">
+                      {JSON.stringify(selectedLog.old_values, null, 2)}
+                    </pre>
+                  </div>
+                )}
+                {selectedLog.new_values && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">New Values</label>
+                    <pre className="bg-gray-50 p-3 rounded text-sm overflow-x-auto">
+                      {JSON.stringify(selectedLog.new_values, null, 2)}
+                    </pre>
+                  </div>
+                )}
               </div>
-
-              {selectedLog.old_values && Object.keys(selectedLog.old_values).length > 0 && (
-                <div>
-                  <label className="text-sm text-gray-500 block mb-2">Previous Values</label>
-                  <pre className="bg-gray-50 p-3 rounded-lg text-xs overflow-x-auto">
-                    {JSON.stringify(selectedLog.old_values, null, 2)}
-                  </pre>
-                </div>
-              )}
-
-              {selectedLog.new_values && Object.keys(selectedLog.new_values).length > 0 && (
-                <div>
-                  <label className="text-sm text-gray-500 block mb-2">New Values</label>
-                  <pre className="bg-gray-50 p-3 rounded-lg text-xs overflow-x-auto">
-                    {JSON.stringify(selectedLog.new_values, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }

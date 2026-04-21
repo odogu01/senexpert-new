@@ -4,12 +4,16 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Wrench, Clock, CheckCircle, AlertTriangle, Calendar, User, Plus, Ban } from 'lucide-react';
-import { getMaintenanceRecords, createMaintenanceRecord, updateMaintenanceStatus } from '@/services/toolsService';
-import { getCurrentUser, getProfile } from '@/services/authService';
-import { getTools } from '@/services/toolsService';
+import { getMaintenanceApi, createMaintenanceApi, updateMaintenanceStatusApi, getToolsApi, getProfileApi } from '@/lib/apiClient';
+import { getStoredUser } from '@/lib/authContext';
 import StatusBadge from '@/components/dashboard/StatusBadge';
 import type { Maintenance, Tool } from '@/lib/database.types';
-import type { UserRole } from '@/lib/supabase';
+import type { UserRole } from '@/lib/database.types';
+
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('senexpert_token');
+}
 
 export default function MaintenancePage() {
   const router = useRouter();
@@ -32,13 +36,19 @@ export default function MaintenancePage() {
   }, []);
 
   async function checkAuth() {
-    const { user } = await getCurrentUser();
+    const token = getToken();
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+
+    const user = getStoredUser();
     if (!user) {
       router.push('/login');
       return;
     }
 
-    const profileResponse = await getProfile(user.id);
+    const profileResponse = await getProfileApi();
     if (profileResponse.success && profileResponse.data) {
       setUserRole(profileResponse.data.role);
     }
@@ -53,8 +63,8 @@ export default function MaintenancePage() {
   async function loadData() {
     try {
       const [recordsRes, toolsRes] = await Promise.all([
-        getMaintenanceRecords(),
-        getTools(),
+        getMaintenanceApi(),
+        getToolsApi(),
       ]);
       if (recordsRes.success && recordsRes.data) {
         setRecords(recordsRes.data);

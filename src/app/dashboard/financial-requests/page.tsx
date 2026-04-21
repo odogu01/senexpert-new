@@ -2,13 +2,27 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, getProfile } from '@/services/authService';
-import { getFinancialRequests, createFinancialRequest, updateFinancialRequestStatus } from '@/services/toolsService';
-import { supabase } from '@/lib/supabase';
-import type { UserRole } from '@/lib/supabase';
+import { getStoredUser } from '@/lib/authContext';
+import { getFinancialRequestsApi, createFinancialRequestApi, updateFinancialRequestStatusApi, getProfileApi } from '@/lib/apiClient';
+import type { UserRole } from '@/lib/database.types';
 import type { FinancialRequest } from '@/lib/database.types';
 import { Plus, DollarSign, Clock, CheckCircle, XCircle, FileText, Download, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('senexpert_token');
+}
+
+function getCurrentUserFromStorage() {
+  const userStr = localStorage.getItem('senexpert_user');
+  if (!userStr) return null;
+  try {
+    return JSON.parse(userStr);
+  } catch {
+    return null;
+  }
+}
 
 const CATEGORIES = [
   'Equipment Purchase',
@@ -42,13 +56,19 @@ export default function FinancialRequestsPage() {
   }, []);
 
   async function checkAuth() {
-    const { user } = await getCurrentUser();
+    const token = getToken();
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+
+    const user = getCurrentUserFromStorage();
     if (!user) {
       router.push('/login');
       return;
     }
 
-    const profileResponse = await getProfile(user.id);
+    const profileResponse = await getProfileApi();
     if (profileResponse.success && profileResponse.data) {
       setCurrentUser({
         id: user.id,
@@ -62,7 +82,7 @@ export default function FinancialRequestsPage() {
   }
 
   async function loadRequests() {
-    const response = await getFinancialRequests();
+    const response = await getFinancialRequestsApi();
     if (response.success && response.data) {
       setRequests(response.data);
     }
@@ -87,7 +107,7 @@ export default function FinancialRequestsPage() {
     setFormError('');
 
     try {
-      const response = await createFinancialRequest({
+      const response = await createFinancialRequestApi({
         title: formData.title,
         description: formData.description,
         amount: parseFloat(formData.amount),
@@ -113,7 +133,7 @@ export default function FinancialRequestsPage() {
     if (!currentUser) return;
 
     try {
-      const response = await updateFinancialRequestStatus(
+      const response = await updateFinancialRequestStatusApi(
         id,
         approved ? 'approved' : 'rejected',
         currentUser.id
@@ -143,8 +163,9 @@ export default function FinancialRequestsPage() {
     }).format(amount);
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
+  const formatDate = (date: Date | string) => {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return dateObj.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

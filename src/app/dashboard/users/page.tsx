@@ -2,12 +2,26 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, getProfile, hasPermission, updateProfile } from '@/services/authService';
-import type { UserRole } from '@/lib/supabase';
-import type { Profile } from '@/lib/supabase';
+import { getStoredUser, getStoredProfile } from '@/lib/authContext';
+import { getUsersApi, createUserApi, getProfileApi, updateProfileApi } from '@/lib/apiClient';
+import type { UserRole, Profile } from '@/lib/database.types';
 import { X, Plus, User, Camera, Loader2, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/lib/supabase';
+
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('senexpert_token');
+}
+
+function getCurrentUserFromStorage() {
+  const userStr = localStorage.getItem('senexpert_user');
+  if (!userStr) return null;
+  try {
+    return JSON.parse(userStr);
+  } catch {
+    return null;
+  }
+}
 
 export default function UsersPage() {
   const router = useRouter();
@@ -39,11 +53,20 @@ export default function UsersPage() {
   }, []);
 
   async function checkAuth() {
-    const { user } = await getCurrentUser();
+    const token = getToken();
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+    
+    const user = getCurrentUserFromStorage();
     if (!user) {
       router.push('/login');
-    } else {
-      const profileResponse = await getProfile(user.id);
+      return;
+    }
+    
+    try {
+      const profileResponse = await getProfileApi();
       if (profileResponse.success && profileResponse.data) {
         setCurrentUser({
           id: user.id,
@@ -51,27 +74,24 @@ export default function UsersPage() {
         });
         setProfileForm({
           full_name: profileResponse.data.full_name || '',
-          avatar_url: (profileResponse.data as unknown as { avatar_url?: string }).avatar_url || '',
+          avatar_url: profileResponse.data.avatar_url || '',
         });
       }
       await loadUsers();
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      router.push('/login');
+    } finally {
       setLoading(false);
     }
   }
 
   async function loadUsers() {
     try {
-      if (!supabase) {
-        console.error('Supabase not configured');
-        return;
+      const response = await getUsersApi();
+      if (response.success && response.data) {
+        setProfiles(response.data);
       }
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('full_name');
-
-      if (error) throw error;
-      setProfiles(data || []);
     } catch (error) {
       console.error('Failed to load users:', error);
     }
@@ -102,7 +122,7 @@ export default function UsersPage() {
       return;
     }
     
-    if (!currentUser || !supabase) return;
+    if (!currentUser) return;
     
     setFormLoading(true);
     setFormError('');
@@ -111,50 +131,22 @@ export default function UsersPage() {
     const password = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + '!';
     
     try {
-      // Create user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      const response = await createUserApi({
         email: formData.email,
         password: password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: formData.name,
-        },
+        full_name: formData.name,
+        role: formData.role,
       });
       
-      if (authError) {
-        // Check if user already exists
-        if (authError.message.includes('already been registered')) {
-          setFormError('A user with this email already exists');
-        } else {
-          setFormError(authError.message);
-        }
-        setFormLoading(false);
-        return;
+      if (response.success) {
+        setGeneratedPassword(password);
+        setShowAddUserModal(false);
+        setShowPasswordModal(true);
+        setFormData({ name: '', email: '', role: 'manager' });
+        await loadUsers();
+      } else {
+        setFormError(response.error?.message || 'Failed to create user');
       }
-      
-      if (!authData.user) {
-        setFormError('Failed to create user');
-        setFormLoading(false);
-        return;
-      }
-      
-      // Create profile with role
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: authData.user.id,
-          full_name: formData.name,
-          role: formData.role,
-        });
-      
-      // Show password modal with generated password
-      setGeneratedPassword(password);
-      setShowAddUserModal(false);
-      setShowPasswordModal(true);
-      
-      // Reset form
-      setFormData({ name: '', email: '', role: 'manager' });
-      await loadUsers();
     } catch (error: unknown) {
       console.error('Failed to add user:', error);
       setFormError(error instanceof Error ? error.message : 'Failed to add user');
@@ -167,82 +159,36 @@ export default function UsersPage() {
     const file = e.target.files?.[0];
     if (!file || !currentUser) return;
 
-    if (!supabase) {
-      setFormError('Storage not configured');
-      setUploadingAvatar(false);
-      return;
-    }
-
     setUploadingAvatar(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${currentUser.id}-${Math.random()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
-
-      const { error: uploadError } = await supabase
-        .storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) {
-        console.error('Storage upload error:', uploadError);
-        throw new Error(uploadError.message);
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      setProfileForm({ ...profileForm, avatar_url: publicUrl });
+      // Simple placeholder - storage not configured
+      setProfileForm({ ...profileForm, avatar_url: `/placeholder-avatar.jpg` });
     } catch (error: unknown) {
-      console.error('Failed to upload avatar:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setFormError('Failed to upload avatar: ' + errorMessage);
+      console.error('Failed to update avatar:', error);
+      setFormError('Failed to update avatar');
     } finally {
       setUploadingAvatar(false);
     }
   };
 
   const handleSaveProfile = async () => {
-    if (!currentUser || !supabase) return;
+    if (!currentUser) return;
     setFormLoading(true);
     try {
-      // Get current profile data for audit log
-      const { data: oldProfile } = await supabase
-        .from('profiles')
-        .select('full_name, avatar_url')
-        .eq('id', currentUser.id)
-        .single();
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          full_name: profileForm.full_name,
-          avatar_url: profileForm.avatar_url,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', currentUser.id);
-
-      if (error) throw error;
-
-      // Log the profile update to audit_logs
-      await supabase.from('audit_logs').insert({
-        user_id: currentUser.id,
-        action: 'UPDATE',
-        table_name: 'profiles',
-        record_id: currentUser.id,
-        old_values: oldProfile || {},
-        new_values: {
-          full_name: profileForm.full_name,
-          avatar_url: profileForm.avatar_url ? 'avatar_updated' : null,
-        },
+      const response = await updateProfileApi({
+        full_name: profileForm.full_name,
+        avatar_url: profileForm.avatar_url,
       });
 
-      setIsProfileModalOpen(false);
-      // Reload to get updated data
-      await checkAuth();
-    } catch (error) {
-      console.error('Failed to update profile:', error);
+      if (response.success) {
+        alert('Profile updated successfully!');
+        setIsProfileModalOpen(false);
+        await checkAuth();
+      } else {
+        setFormError(response.error?.message || 'Failed to update profile');
+      }
+    } catch (error: unknown) {
+      console.error('Failed to save profile:', error);
       setFormError('Failed to update profile');
     } finally {
       setFormLoading(false);

@@ -8,7 +8,7 @@ import StatCard from '@/components/dashboard/StatCard';
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import AlertsPanel from '@/components/dashboard/AlertsPanel';
 import StatusBadge, { ProgressBar } from '@/components/dashboard/StatusBadge';
-import { getDashboardStats, getAlerts } from '@/services/toolsService';
+import { useAuth } from '@/lib/authContext';
 import type { Alert } from '@/lib/database.types';
 
 interface DashboardStats {
@@ -51,48 +51,43 @@ export default function DashboardPage() {
   async function loadDashboardData() {
     setLoading(true);
     try {
-      // Fetch stats from database
-      const statsResponse = await getDashboardStats();
-      if (statsResponse.success && statsResponse.data) {
-        setStats(statsResponse.data);
+      const token = localStorage.getItem('senexpert_token');
+      
+      // Fetch stats from API
+      const statsRes = await fetch('/api/tools/stats', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const statsData = await statsRes.json();
+      if (statsData.success && statsData.data) {
+        setStats(statsData.data);
         
-        // Calculate status distribution percentages
-        const totalToolItems = statsResponse.data.available + statsResponse.data.inUse + statsResponse.data.maintenance;
+        const totalToolItems = statsData.data.available + statsData.data.inUse + statsData.data.maintenance;
         if (totalToolItems > 0) {
           setStatusDistribution([
-            { 
-              name: 'Available', 
-              value: Math.round((statsResponse.data.available / totalToolItems) * 100), 
-              count: statsResponse.data.available 
-            },
-            { 
-              name: 'In Use', 
-              value: Math.round((statsResponse.data.inUse / totalToolItems) * 100), 
-              count: statsResponse.data.inUse 
-            },
-            { 
-              name: 'Maintenance', 
-              value: Math.round((statsResponse.data.maintenance / totalToolItems) * 100), 
-              count: statsResponse.data.maintenance 
-            },
+            { name: 'Available', value: Math.round((statsData.data.available / totalToolItems) * 100), count: statsData.data.available },
+            { name: 'In Use', value: Math.round((statsData.data.inUse / totalToolItems) * 100), count: statsData.data.inUse },
+            { name: 'Maintenance', value: Math.round((statsData.data.maintenance / totalToolItems) * 100), count: statsData.data.maintenance },
           ]);
         }
       }
 
       // Fetch alerts
-      const { getAlerts } = await import('@/services/toolsService');
-      const alertsResponse = await getAlerts(false);
-      if (alertsResponse.success && alertsResponse.data) {
-        setAlerts(alertsResponse.data);
+      const alertsRes = await fetch('/api/alerts', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const alertsData = await alertsRes.json();
+      if (alertsData.success && alertsData.data) {
+        setAlerts(alertsData.data);
       }
 
       // Fetch tools for category distribution
-      const { getTools } = await import('@/services/toolsService');
-      const toolsResponse = await getTools();
-      if (toolsResponse.success && toolsResponse.data) {
-        // Calculate category distribution
+      const toolsRes = await fetch('/api/tools', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const toolsData = await toolsRes.json();
+      if (toolsData.success && toolsData.data) {
         const categoryMap = new Map<string, number>();
-        toolsResponse.data.forEach(tool => {
+        toolsData.data.forEach((tool: { category: string; quantity: number }) => {
           const current = categoryMap.get(tool.category) || 0;
           categoryMap.set(tool.category, current + tool.quantity);
         });

@@ -58,10 +58,13 @@ export default function AlertsPanel({ maxItems = 5 }: AlertsPanelProps) {
 
   async function loadAlerts() {
     try {
-      const { getAlerts } = await import('@/services/toolsService');
-      const response = await getAlerts(false);
-      if (response.success && response.data) {
-        setAlerts(response.data);
+      const token = localStorage.getItem('senexpert_token');
+      const response = await fetch('/api/alerts', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success && data.data) {
+        setAlerts(data.data);
       }
     } catch (error) {
       console.error('Failed to load alerts:', error);

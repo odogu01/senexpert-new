@@ -6,16 +6,23 @@ npm install
 npm run dev     # http://localhost:3000
 npm run build   # Production build
 npm run lint    # ESLint check
+
+# Seed test users (first time only)
+npx tsx src/scripts/seedUsers.ts
 ```
 
 ## Tech Stack
 - Next.js 16 (App Router) + Turbopack
 - React 19 + Tailwind CSS v4 (CSS-first config in `globals.css`)
 - Framer Motion (sidebar active indicator animation)
-- Supabase (Auth + Database + Storage)
+- MongoDB (Atlas) - Database & Authentication
+- JWT Authentication (custom implementation)
 - Lucide React (Icons)
 
-## Database Tables
+## Database (MongoDB)
+
+### Collections
+- `users` - User accounts with password hashing
 - `profiles` - User profiles with roles (super_admin, admin, hr, manager, operator)
 - `tools` - Inventory with `created_by` column for operator tracking
 - `tool_requests` - Tool movement requests (incoming/outgoing)
@@ -23,6 +30,13 @@ npm run lint    # ESLint check
 - `maintenance` - Tool maintenance scheduling
 - `alerts` - System alerts (linked to tools)
 - `audit_logs` - All CRUD operations logged
+
+### Environment Variables (.env.local)
+```
+MONGODB_URI=mongodb+srv://testuser:Test1234@emma1.tmb1awh.mongodb.net/?appName=Emma1
+JWT_SECRET=senexpert-jwt-secret-key-2024-change-in-production
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
 
 ## Role-Based Access Control
 
@@ -58,8 +72,8 @@ npm run lint    # ESLint check
 - PDF export available in requests page
 
 ## Common Issues
-- **Login failing**: Check RLS policies on `profiles` table in Supabase dashboard
-- **Profile creation error**: May need to disable/re-enable RLS or check for policy recursion
+- **Login failing**: Check MongoDB connection and user exists in database
+- **Profile creation error**: Check MongoDB connection and network
 - **TypeScript errors**: Run `npx tsc --noEmit` to check
 
 ## Workflow
@@ -67,10 +81,15 @@ npm run lint    # ESLint check
 - Branch: `main`
 
 ## Test Users
-- `superadmin@test.com`, `admin@test.com`, `hr@test.com`, `manager@test.com`
+- `superadmin@test.com`, `admin@test.com`, `hr@test.com`, `manager@test.com`, `operator@test.com`
 - Password: `Test@123`
 
-## Supabase
-- Project URL: `https://racothutguedvekxmxqc.supabase.co`
-- Config in `.env.local` - DO NOT commit
-- Storage bucket: `avatars` with RLS policies
+## MongoDB
+- Connection string: `mongodb+srv://testuser:Test1234@emma1.tmb1awh.mongodb.net/?appName=Emma1`
+- Database name: `senexpert`
+
+## Authentication
+- JWT-based authentication with 7-day expiry
+- Passwords hashed with bcrypt (12 rounds)
+- Token stored in localStorage
+- Automatic token refresh handled client-side
