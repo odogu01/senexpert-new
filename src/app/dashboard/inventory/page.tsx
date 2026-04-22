@@ -33,8 +33,8 @@ export default function InventoryPage() {
   const [editForm, setEditForm] = useState<ToolInsert>({
     name: '',
     work_order_number: '',
-    category: 'General',
-    quantity: 0,
+    category: 'Saleable',
+    quantity: 1,
     status: 'available',
   });
   const [currentPage, setCurrentPage] = useState(1);
@@ -199,8 +199,8 @@ export default function InventoryPage() {
         setEditForm({
           name: '',
           work_order_number: '',
-          category: 'General',
-          quantity: 0,
+          category: 'Saleable',
+          quantity: 1,
           status: 'available',
         });
       }
@@ -345,12 +345,12 @@ export default function InventoryPage() {
             <thead className="bg-gray-50 border-b border-gray-200 hidden lg:table-header-group">
               <tr>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Tool Name</th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">
                   <span className="flex items-center gap-1">
                     W/O
                     <div className="group relative">
                       <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
-                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-10">
+                      <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 whitespace-nowrap z-[100] pointer-events-none transition-opacity">
                         Work Order Number
                       </span>
                     </div>
@@ -359,6 +359,7 @@ export default function InventoryPage() {
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Size/Thread</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Material</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Model</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Material No</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Part Number</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Category</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Quantity</th>
@@ -414,9 +415,10 @@ export default function InventoryPage() {
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.size_thread || '-'}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.material || '-'}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.model || '-'}</td>
+                  <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{(tool as Record<string, unknown>).material_no as string || '-'}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.part_number || '-'}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4">
-                    <span className="inline-flex px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full capitalize">
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full capitalize ${tool.category === 'Saleable' ? 'bg-green-100 text-green-700' : tool.category === 'Rental' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
                       {tool.category}
                     </span>
                   </td>
@@ -614,7 +616,7 @@ export default function InventoryPage() {
                         Work Order Number (W/O)
                         <div className="group relative">
                           <HelpCircle className="w-3 h-3 text-gray-400 cursor-help" />
-                          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap z-10">
+                          <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 whitespace-nowrap z-[100] pointer-events-none transition-opacity">
                             Work Order Number
                           </span>
                         </div>
@@ -671,10 +673,8 @@ export default function InventoryPage() {
                       onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
                     >
-                      {categories.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                      <option value="Other">Other</option>
+                      <option value="Saleable">Saleable</option>
+                      <option value="Rental">Rental</option>
                     </select>
                   </div>
                   <div>
@@ -832,6 +832,15 @@ export default function InventoryPage() {
                     />
                   </div>
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Material No</label>
+                    <input
+                      type="text"
+                      value={(editForm as Record<string, unknown>).material_no as string || ''}
+                      onChange={(e) => setEditForm({ ...editForm, material_no: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
+                    />
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Part Number</label>
                     <input
                       type="text"
@@ -841,16 +850,14 @@ export default function InventoryPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
                     <select
                       value={editForm.category}
                       onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
                     >
-                      {categories.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                      <option value="General">General</option>
+                      <option value="Saleable">Saleable</option>
+                      <option value="Rental">Rental</option>
                     </select>
                   </div>
                   <div>

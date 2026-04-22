@@ -1,17 +1,56 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar as CalendarIcon, Plus, X, Clock, MapPin, Users, ChevronLeft, ChevronRight } from 'lucide-react';
-import { mockMeetings } from '@/data/mockData';
+import { getMaintenanceApi } from '@/lib/apiClient';
+import type { Maintenance } from '@/lib/database.types';
+
+interface Meeting {
+  id: string;
+  title: string;
+  date: string;
+  time: string;
+  location: string;
+  status: string;
+}
 
 export default function CalendarPage() {
-  const [currentDate, setCurrentDate] = useState(new Date(2024, 2, 1)); // March 2024
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [view, setView] = useState<'month' | 'week'>('month');
+  const [maintenanceData, setMaintenanceData] = useState<Maintenance[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const upcomingMeetings = mockMeetings.filter(m => m.status === 'upcoming');
+  useEffect(() => {
+    loadMaintenanceData();
+  }, []);
+
+  async function loadMaintenanceData() {
+    try {
+      const response = await getMaintenanceApi();
+      if (response.success && response.data) {
+        setMaintenanceData(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load maintenance:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Convert maintenance records to meetings for the calendar
+  const mockMeetings: Meeting[] = maintenanceData.map(m => ({
+    id: m.id || '',
+    title: `${m.maintenance_type.charAt(0).toUpperCase() + m.maintenance_type.slice(1)} - ${m.description.slice(0, 20)}`,
+    date: m.scheduled_date?.split('T')[0] || '',
+    time: '09:00',
+    location: m.tool_name || 'Workshop',
+    status: m.status,
+  }));
+
+  const upcomingMeetings = mockMeetings.filter(m => m.status === 'scheduled' || m.status === 'in_progress');
   const completedMeetings = mockMeetings.filter(m => m.status === 'completed');
 
   const getDaysInMonth = (date: Date) => {

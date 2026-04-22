@@ -522,7 +522,13 @@ export async function getUsers(): Promise<{
     
     const users = await usersCollection.find({}).toArray();
     
-    return { success: true, data: users };
+    // Add id field for frontend compatibility
+    const usersWithId = users.map(u => ({
+      ...u,
+      id: u._id?.toString() || '',
+    }));
+    
+    return { success: true, data: usersWithId };
   } catch (error) {
     console.error('Get users error:', error);
     return { success: false, error: 'Failed to fetch users' };
@@ -636,6 +642,85 @@ export async function changePassword(
   } catch (error) {
     console.error('Change password error:', error);
     return { success: false, error: 'Failed to change password' };
+  }
+}
+
+/**
+ * Delete a user (admin only)
+ */
+export async function deleteUser(userId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const usersCollection = await getUsersCollection();
+    const profilesCollection = await getProfilesCollection();
+    const mongodb = await getMongodbModule();
+
+    let queryId: mongodb.ObjectId;
+    try {
+      queryId = new mongodb.ObjectId(userId);
+    } catch {
+      return { success: false, error: 'Invalid user ID' };
+    }
+
+    // Check if user exists
+    const user = await usersCollection.findOne({ _id: queryId });
+    if (!user) {
+      return { success: false, error: 'User not found' };
+    }
+
+    // Prevent deleting yourself
+    if (user.email === 'superadmin@test.com') {
+      return { success: false, error: 'Cannot delete the super admin account' };
+    }
+
+    // Delete from both collections
+    await usersCollection.deleteOne({ _id: queryId });
+    await profilesCollection.deleteOne({ _id: queryId });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Delete user error:', error);
+    return { success: false, error: 'Failed to delete user' };
+  }
+}
+
+/**
+ * Reset user password (admin only - sets new password without knowing current)
+ */
+export async function resetUserPassword(
+  userId: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await import('@/lib/mongodb').then(m => m.connectToDatabase());
+    const usersCollection = await getUsersCollection();
+    const bcrypt = await getBcryptModule();
+    const mongodb = await getMongodbModule();
+
+    let queryId: mongodb.ObjectId;
+    try {
+      queryId = new mongodb.ObjectId(userId);
+    } catch {
+      return { success: false, error: 'Invalid user ID' };
+    }
+
+    const user = await usersCollection.findOne({ _id: queryId });
+    if (!user) {
+      return { success: false, error: 'User not found' };
+    }
+
+    // Hash new password
+    const newPasswordHash = await bcrypt.hash(newPassword, 12);
+
+    await usersCollection.updateOne(
+      { _id: queryId },
+      { $set: { password_hash: newPasswordHash, updated_at: new Date() } }
+    );
+
+    return { success: true };
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return { success: false, error: 'Failed to reset password' };
   }
 }
 

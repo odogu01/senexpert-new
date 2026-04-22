@@ -28,6 +28,7 @@ export default function RequestsPage() {
     toolId: '',
     quantity: '1',
     movementType: 'outgoing' as 'incoming' | 'outgoing',
+    location: 'Warehouse A',
     notes: '',
   });
 
@@ -99,6 +100,7 @@ export default function RequestsPage() {
         tool_id: formData.toolId,
         movement_type: formData.movementType,
         quantity: parseInt(formData.quantity),
+        location: formData.location,
         notes: formData.notes || undefined,
       });
 
@@ -222,6 +224,8 @@ export default function RequestsPage() {
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">ID</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Movement</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Tool</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Location</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Quantity</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Notes</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
@@ -258,6 +262,12 @@ export default function RequestsPage() {
                     </td>
                     <td className="px-4 lg:px-6 py-4">
                       <StatusBadge status={request.status} size="sm" />
+                    </td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">
+                      {request.tool_name || 'Tool'}
+                    </td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">
+                      {(request as Record<string, unknown>).location as string || '-'}
                     </td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">
                       {request.quantity}
@@ -350,9 +360,21 @@ export default function RequestsPage() {
                     <option value="">Select a tool...</option>
                     {tools.map(tool => (
                       <option key={tool.id} value={tool.id}>
-                        {tool.name} - {tool.work_order_number}
+                        {tool.name} | {tool.size_thread || '-'} | {tool.material || '-'} | {tool.model || '-'}
                       </option>
                     ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <select
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                    required
+                  >
+                    <option value="Warehouse A">Warehouse A</option>
+                    <option value="Warehouse B">Warehouse B</option>
                   </select>
                 </div>
                 <div>

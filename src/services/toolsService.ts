@@ -123,7 +123,14 @@ export async function getTools(filters?: {
     }
 
     const tools = await collection.find(query).sort({ name: 1 }).toArray();
-    return { success: true, data: tools };
+    
+    // Add id field for frontend compatibility
+    const toolsWithId = tools.map(tool => ({
+      ...tool,
+      id: tool._id?.toString() || '',
+    }));
+    
+    return { success: true, data: toolsWithId };
   } catch (error) {
     console.error('Get tools error:', error);
     return { success: false, error: 'Failed to fetch tools' };
@@ -152,7 +159,7 @@ export async function getToolById(id: string): Promise<{ success: boolean; data?
       return { success: false, error: 'Tool not found' };
     }
 
-    return { success: true, data: tool };
+    return { success: true, data: { ...tool, id: tool._id?.toString() || '' } };
   } catch (error) {
     console.error('Get tool error:', error);
     return { success: false, error: 'Failed to fetch tool' };
@@ -175,8 +182,9 @@ export async function createTool(tool: ToolInsert): Promise<{ success: boolean; 
       size_thread: tool.size_thread,
       material: tool.material,
       model: tool.model,
+      material_no: tool.material_no,
       part_number: tool.part_number,
-      category: tool.category || 'Uncategorized',
+      category: tool.category || 'Saleable',
       quantity: tool.quantity || 1,
       min_quantity: tool.min_quantity,
       status: tool.status || 'available',
@@ -200,7 +208,7 @@ export async function createTool(tool: ToolInsert): Promise<{ success: boolean; 
       newValues: tool as unknown as Record<string, unknown>,
     });
 
-    return { success: true, data: newTool };
+    return { success: true, data: { ...newTool, id: newTool._id.toString() } };
   } catch (error) {
     console.error('Create tool error:', error);
     return { success: false, error: 'Failed to create tool' };
@@ -250,7 +258,7 @@ export async function updateTool(id: string, updates: ToolUpdate): Promise<{ suc
       newValues: updates as unknown as Record<string, unknown>,
     });
 
-    return { success: true, data: result };
+    return { success: true, data: { ...result, id: result._id?.toString() || id } };
   } catch (error) {
     console.error('Update tool error:', error);
     return { success: false, error: 'Failed to update tool' };
@@ -338,7 +346,13 @@ export async function getToolRequests(filters?: {
     }
 
     const requests = await collection.find(query).sort({ created_at: -1 }).toArray();
-    return { success: true, data: requests };
+    
+    const requestsWithId = requests.map(req => ({
+      ...req,
+      id: req._id?.toString() || '',
+    }));
+    
+    return { success: true, data: requestsWithId };
   } catch (error) {
     console.error('Get tool requests error:', error);
     return { success: false, error: 'Failed to fetch tool requests' };
@@ -385,7 +399,7 @@ export async function createToolRequest(request: {
       newValues: request as unknown as Record<string, unknown>,
     });
 
-    return { success: true, data: newRequest };
+    return { success: true, data: { ...newRequest, id: newRequest._id.toString() } };
   } catch (error) {
     console.error('Create tool request error:', error);
     return { success: false, error: 'Failed to create tool request' };
@@ -477,7 +491,13 @@ export async function getMaintenanceRecords(filters?: {
     }
 
     const records = await collection.find(query).sort({ scheduled_date: 1 }).toArray();
-    return { success: true, data: records };
+    
+    const recordsWithId = records.map(rec => ({
+      ...rec,
+      id: rec._id?.toString() || '',
+    }));
+    
+    return { success: true, data: recordsWithId };
   } catch (error) {
     console.error('Get maintenance error:', error);
     return { success: false, error: 'Failed to fetch maintenance records' };
@@ -523,7 +543,7 @@ export async function createMaintenanceRecord(record: {
       newValues: record as unknown as Record<string, unknown>,
     });
 
-    return { success: true, data: newRecord };
+    return { success: true, data: { ...newRecord, id: newRecord._id.toString() } };
   } catch (error) {
     console.error('Create maintenance error:', error);
     return { success: false, error: 'Failed to create maintenance record' };
@@ -606,7 +626,13 @@ export async function getAlerts(unreadOnly = false): Promise<{ success: boolean;
     }
 
     const alerts = await collection.find(query).sort({ created_at: -1 }).toArray();
-    return { success: true, data: alerts };
+    
+    const alertsWithId = alerts.map(alert => ({
+      ...alert,
+      id: alert._id?.toString() || '',
+    }));
+    
+    return { success: true, data: alertsWithId };
   } catch (error) {
     console.error('Get alerts error:', error);
     return { success: false, error: 'Failed to fetch alerts' };
@@ -674,7 +700,7 @@ export async function createAlert(alert: {
     };
 
     await collection.insertOne(newAlert);
-    return { success: true, data: newAlert };
+    return { success: true, data: { ...newAlert, id: newAlert._id.toString() } };
   } catch (error) {
     console.error('Create alert error:', error);
     return { success: false, error: 'Failed to create alert' };
@@ -789,7 +815,13 @@ export async function getFinancialRequests(filters?: {
     }
 
     const requests = await collection.find(query).sort({ created_at: -1 }).toArray();
-    return { success: true, data: requests };
+    
+    const requestsWithId = requests.map(req => ({
+      ...req,
+      id: req._id?.toString() || '',
+    }));
+    
+    return { success: true, data: requestsWithId };
   } catch (error) {
     console.error('Get financial requests error:', error);
     return { success: false, error: 'Failed to fetch financial requests' };
@@ -833,7 +865,7 @@ export async function createFinancialRequest(request: {
       newValues: request as unknown as Record<string, unknown>,
     });
 
-    return { success: true, data: newRequest };
+    return { success: true, data: { ...newRequest, id: newRequest._id.toString() } };
   } catch (error) {
     console.error('Create financial request error:', error);
     return { success: false, error: 'Failed to create financial request' };
@@ -923,7 +955,13 @@ export async function getRecentActivity(limit = 10): Promise<{
       .limit(limit)
       .toArray();
 
-    return { success: true, data: logs };
+    // Add id field for frontend compatibility
+    const logsWithId = logs.map(log => ({
+      ...log,
+      id: log._id?.toString() || '',
+    }));
+
+    return { success: true, data: logsWithId };
   } catch (error) {
     console.error('Get recent activity error:', error);
     return { success: false, error: 'Failed to fetch activity' };
@@ -978,7 +1016,13 @@ export async function getAuditLogs(filters?: {
       .skip(filters?.skip || 0)
       .toArray();
 
-    return { success: true, data: logs };
+    // Add id field for frontend compatibility
+    const logsWithId = logs.map(log => ({
+      ...log,
+      id: log._id?.toString() || '',
+    }));
+
+    return { success: true, data: logsWithId };
   } catch (error) {
     console.error('Get audit logs error:', error);
     return { success: false, error: 'Failed to fetch audit logs' };

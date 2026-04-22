@@ -3,9 +3,9 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getStoredUser, getStoredProfile } from '@/lib/authContext';
-import { getUsersApi, createUserApi, getProfileApi, updateProfileApi } from '@/lib/apiClient';
+import { getUsersApi, createUserApi, getProfileApi, updateProfileApi, deleteUserApi, resetUserPasswordApi } from '@/lib/apiClient';
 import type { UserRole, Profile } from '@/lib/database.types';
-import { X, Plus, User, Camera, Loader2, Check } from 'lucide-react';
+import { X, Plus, User, Camera, Loader2, Check, Edit, Trash2, Key } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 function getToken(): string | null {
@@ -47,6 +47,10 @@ export default function UsersPage() {
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<{ id: string; name: string; email: string; role: UserRole } | null>(null);
+  const [resetPassword, setResetPassword] = useState('');
 
   useEffect(() => {
     checkAuth();
@@ -171,7 +175,7 @@ export default function UsersPage() {
     }
   };
 
-  const handleSaveProfile = async () => {
+const handleSaveProfile = async () => {
     if (!currentUser) return;
     setFormLoading(true);
     try {
@@ -188,8 +192,47 @@ export default function UsersPage() {
         setFormError(response.error?.message || 'Failed to update profile');
       }
     } catch (error: unknown) {
-      console.error('Failed to save profile:', error);
+      console.error('Failed to update profile:', error);
       setFormError('Failed to update profile');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  // Delete user function
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      const response = await deleteUserApi(userId);
+      if (response.success) {
+        alert('User deleted successfully');
+        await loadUsers();
+      } else {
+        alert(response.error?.message || 'Failed to delete user');
+      }
+    } catch (error) {
+      console.error('Failed to delete user:', error);
+      alert('Failed to delete user');
+    }
+  };
+
+  // Reset password function
+  const handleResetPassword = async () => {
+    if (!selectedUser || !resetPassword) return;
+    
+    setFormLoading(true);
+    try {
+      const response = await resetUserPasswordApi(selectedUser.id, resetPassword);
+      if (response.success) {
+        alert(`Password for ${selectedUser.name} has been reset successfully`);
+        setShowResetPasswordModal(false);
+        setResetPassword('');
+        setSelectedUser(null);
+      } else {
+        setFormError(response.error?.message || 'Failed to reset password');
+      }
+    } catch (error) {
+      console.error('Failed to reset password:', error);
+      setFormError('Failed to reset password');
     } finally {
       setFormLoading(false);
     }
@@ -273,13 +316,14 @@ export default function UsersPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredUsers.map((user) => (
                 <React.Fragment key={user.id}>
                   <tr className="lg:hidden hover:bg-gray-50">
-                    <td colSpan={3}>
+                    <td colSpan={4}>
                       <div className="p-4 space-y-3">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold">
@@ -289,6 +333,22 @@ export default function UsersPage() {
                             <p className="font-medium text-gray-900">{user.name}</p>
                             <p className="text-xs text-gray-500 capitalize">{user.role.replace('_', ' ')}</p>
                           </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => { setSelectedUser(user); setShowResetPasswordModal(true); }}
+                            className="flex items-center gap-1 px-2 py-1 text-xs bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200"
+                          >
+                            <Key className="w-3 h-3" />
+                            Reset
+                          </button>
+                          <button
+                            onClick={() => { if (confirm('Are you sure you want to delete this user?')) handleDeleteUser(user.id); }}
+                            className="flex items-center gap-1 px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Delete
+                          </button>
                         </div>
                       </div>
                     </td>
@@ -309,6 +369,24 @@ export default function UsersPage() {
                     </td>
                     <td className="px-4 lg:px-6 py-3 lg:py-4 whitespace-nowrap text-sm text-gray-600">
                       {new Date(user.lastLogin).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 lg:px-6 py-3 lg:py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => { setSelectedUser(user); setShowResetPasswordModal(true); }}
+                          className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded-lg"
+                          title="Reset Password"
+                        >
+                          <Key className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => { if (confirm('Are you sure you want to delete this user?')) handleDeleteUser(user.id); }}
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg"
+                          title="Delete User"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 </React.Fragment>
@@ -563,6 +641,80 @@ export default function UsersPage() {
                   className="w-full px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a]"
                 >
                   Done
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Reset Password Modal */}
+      <AnimatePresence>
+        {showResetPasswordModal && selectedUser && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => { setShowResetPasswordModal(false); setSelectedUser(null); setResetPassword(''); }}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              className="bg-white rounded-xl shadow-xl w-full max-w-md p-6"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">Reset Password</h2>
+                <button onClick={() => { setShowResetPasswordModal(false); setSelectedUser(null); setResetPassword(''); }} className="p-1 hover:bg-gray-100 rounded">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <p className="text-gray-500 mb-4">
+                Enter a new password for <span className="font-medium text-gray-900">{selectedUser.name}</span>
+              </p>
+              
+              {formError && (
+                <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg">
+                  {formError}
+                </div>
+              )}
+              
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                <input
+                  type="password"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20 focus:border-[#0B3C6D]"
+                />
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowResetPasswordModal(false); setSelectedUser(null); setResetPassword(''); setFormError(''); }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleResetPassword}
+                  disabled={formLoading || !resetPassword}
+                  className="flex-1 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {formLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Resetting...
+                    </>
+                  ) : (
+                    <>
+                      <Key className="w-4 h-4" />
+                      Reset Password
+                    </>
+                  )}
                 </button>
               </div>
             </motion.div>

@@ -66,6 +66,23 @@ export async function createUserApi(data: { email: string; password: string; ful
   return res.json();
 }
 
+export async function deleteUserApi(id: string) {
+  const res = await fetch(`${API_BASE}/users?id=${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: getHeaders(),
+  });
+  return res.json();
+}
+
+export async function resetUserPasswordApi(id: string, newPassword: string) {
+  const res = await fetch(`${API_BASE}/users?id=${encodeURIComponent(id)}&action=reset-password`, {
+    method: 'PATCH',
+    headers: getHeaders(),
+    body: JSON.stringify({ newPassword }),
+  });
+  return res.json();
+}
+
 // Tools API
 export async function getToolsApi(filters?: { category?: string; status?: string; search?: string }) {
   const params = new URLSearchParams();
@@ -78,7 +95,7 @@ export async function getToolsApi(filters?: { category?: string; status?: string
 }
 
 export async function getToolByIdApi(id: string) {
-  const res = await fetch(`${API_BASE}/tools/${id}`, { headers: getHeaders() });
+  const res = await fetch(`${API_BASE}/tools?id=${encodeURIComponent(id)}`, { headers: getHeaders() });
   return res.json();
 }
 
@@ -92,7 +109,7 @@ export async function createToolApi(data: unknown) {
 }
 
 export async function updateToolApi(id: string, data: unknown) {
-  const res = await fetch(`${API_BASE}/tools/${id}`, {
+  const res = await fetch(`${API_BASE}/tools?id=${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: getHeaders(),
     body: JSON.stringify(data),
@@ -101,7 +118,7 @@ export async function updateToolApi(id: string, data: unknown) {
 }
 
 export async function deleteToolApi(id: string) {
-  const res = await fetch(`${API_BASE}/tools/${id}`, {
+  const res = await fetch(`${API_BASE}/tools?id=${encodeURIComponent(id)}`, {
     method: 'DELETE',
     headers: getHeaders(),
   });
@@ -126,7 +143,7 @@ export async function getAlertsApi(unreadOnly = false) {
 }
 
 export async function markAlertAsReadApi(id: string) {
-  const res = await fetch(`${API_BASE}/alerts/${id}`, {
+  const res = await fetch(`${API_BASE}/alerts?id=${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: getHeaders(),
     body: JSON.stringify({ is_read: true }),
@@ -160,7 +177,7 @@ export async function createToolRequestApi(data: unknown) {
 }
 
 export async function updateToolRequestStatusApi(id: string, status: string, approved_by?: string) {
-  const res = await fetch(`${API_BASE}/tool-requests/${id}`, {
+  const res = await fetch(`${API_BASE}/tool-requests?id=${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: getHeaders(),
     body: JSON.stringify({ status, approved_by }),
@@ -188,7 +205,7 @@ export async function createMaintenanceApi(data: unknown) {
 }
 
 export async function updateMaintenanceStatusApi(id: string, status: string, performed_by?: string) {
-  const res = await fetch(`${API_BASE}/maintenance/${id}`, {
+  const res = await fetch(`${API_BASE}/maintenance?id=${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: getHeaders(),
     body: JSON.stringify({ status, performed_by }),
@@ -216,7 +233,7 @@ export async function createFinancialRequestApi(data: unknown) {
 }
 
 export async function updateFinancialRequestStatusApi(id: string, status: string, approved_by?: string, notes?: string) {
-  const res = await fetch(`${API_BASE}/financial-requests/${id}`, {
+  const res = await fetch(`${API_BASE}/financial-requests?id=${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: getHeaders(),
     body: JSON.stringify({ status, approved_by, notes }),

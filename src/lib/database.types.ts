@@ -44,6 +44,7 @@ export interface Tool {
   size_thread?: string;
   material?: string;
   model?: string;
+  material_no?: string;
   part_number?: string;
   category: string;
   quantity: number;
@@ -65,6 +66,7 @@ export interface ToolInsert {
   size_thread?: string;
   material?: string;
   model?: string;
+  material_no?: string;
   part_number?: string;
   category?: string;
   quantity?: number;
@@ -86,6 +88,7 @@ export interface ToolUpdate {
   size_thread?: string;
   material?: string;
   model?: string;
+  material_no?: string;
   part_number?: string;
   category?: string;
   quantity?: number;
@@ -108,6 +111,7 @@ export interface ToolRequest {
   quantity: number;
   status: ToolRequestStatus;
   notes?: string;
+  location?: string;
   request_date?: string;
   approved_by?: string;
   approved_at?: Date;

@@ -85,10 +85,21 @@ export default function ProfilePage() {
 
     setSaving(true);
     try {
-      // Simple avatar URL update (in production, you'd upload to storage)
-      const avatarUrl = `/avatars/${user.id}-avatar`;
-      setFormData({ ...formData, avatar_url: avatarUrl });
-      alert('Avatar updated! (Storage upload not configured in this demo)');
+      // Create a simple avatar URL using the file name
+      // In production, you'd upload to cloud storage (AWS S3, Cloudinary, etc.)
+      const avatarUrl = file.name ? `/avatars/${file.name}` : `/avatars/default-avatar`;
+      
+      // Save avatar URL to database
+      const response = await updateProfileApi({
+        avatar_url: avatarUrl,
+      });
+
+      if (response.success) {
+        setFormData({ ...formData, avatar_url: avatarUrl });
+        alert('Avatar updated successfully!');
+      } else {
+        alert('Failed to update avatar');
+      }
     } catch (error: unknown) {
       console.error('Failed to update avatar:', error);
       alert('Failed to update avatar');
