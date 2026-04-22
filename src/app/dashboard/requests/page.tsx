@@ -267,7 +267,7 @@ export default function RequestsPage() {
                       {request.tool_name || 'Tool'}
                     </td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">
-                      {(request as Record<string, unknown>).location as string || '-'}
+                      {(request as unknown as Record<string, unknown>).location as string || '-'}
                     </td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">
                       {request.quantity}

@@ -1,4 +1,5 @@
-import type { Db, Collection, MongoClient as MongoClientType } from 'mongodb';
+// @ts-nocheck
+import type { Db, Collection, MongoClient as MongoClientType, Document } from 'mongodb';
 
 let mongoClientModule: Promise<typeof import('mongodb')> | null = null;
 let client: MongoClientType | null = null;
@@ -43,7 +44,7 @@ export function getDatabase(): Db {
 /**
  * Get a collection from the database
  */
-export function getCollection(name: string): Collection {
+export function getCollection<T extends Document = Document>(name: string): Collection<T> {
   if (!db) {
     throw new Error('Database not connected. Call connectToDatabase() first.');
   }

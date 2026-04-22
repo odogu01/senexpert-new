@@ -36,6 +36,7 @@ export default function InventoryPage() {
     category: 'Saleable',
     quantity: 1,
     status: 'available',
+    material_no: '',
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -202,6 +203,7 @@ export default function InventoryPage() {
           category: 'Saleable',
           quantity: 1,
           status: 'available',
+          material_no: '',
         });
       }
     } catch (error) {
@@ -415,7 +417,7 @@ export default function InventoryPage() {
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.size_thread || '-'}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.material || '-'}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.model || '-'}</td>
-                  <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{(tool as Record<string, unknown>).material_no as string || '-'}</td>
+                  <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.material_no || '-'}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.part_number || '-'}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4">
                     <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full capitalize ${tool.category === 'Saleable' ? 'bg-green-100 text-green-700' : tool.category === 'Rental' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
@@ -835,7 +837,7 @@ export default function InventoryPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Material No</label>
                     <input
                       type="text"
-                      value={(editForm as Record<string, unknown>).material_no as string || ''}
+                      value={editForm.material_no || ''}
                       onChange={(e) => setEditForm({ ...editForm, material_no: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
                     />
