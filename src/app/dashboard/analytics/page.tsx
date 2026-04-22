@@ -82,10 +82,12 @@ export default function AnalyticsPage() {
     categoryMap.set(tool.category, current + tool.quantity);
   });
   const total = Array.from(categoryMap.values()).reduce((a, b) => a + b, 0);
-  const categoryDistribution = Array.from(categoryMap.entries()).map(([name, value]) => ({
+  
+  const colors = ['#0B3C6D', '#00AEEF', '#FF6B35', '#4CAF50', '#9C27B0'];
+  const categoryDistribution: { name: string; value: number; color: string }[] = Array.from(categoryMap.entries()).map(([name, value], index) => ({
     name,
     value: total > 0 ? Math.round((value / total) * 100) : 0,
-    color: ['#0B3C6D', '#00AEEF', '#FF6B35', '#4CAF50', '#9C27B0'][categoryDistribution.length % 5]
+    color: colors[index % colors.length]
   }));
 
   if (loading) {
