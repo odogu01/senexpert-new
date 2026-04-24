@@ -85,25 +85,32 @@ export default function ProfilePage() {
 
     setSaving(true);
     try {
-      // Create a simple avatar URL using the file name
-      // In production, you'd upload to cloud storage (AWS S3, Cloudinary, etc.)
-      const avatarUrl = file.name ? `/avatars/${file.name}` : `/avatars/default-avatar`;
-      
-      // Save avatar URL to database
-      const response = await updateProfileApi({
-        avatar_url: avatarUrl,
-      });
+      // Convert image to base64 data URL for immediate display
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64Avatar = event.target?.result as string;
+        
+        // Save base64 avatar URL to database
+        const response = await updateProfileApi({
+          avatar_url: base64Avatar,
+        });
 
-      if (response.success) {
-        setFormData({ ...formData, avatar_url: avatarUrl });
-        alert('Avatar updated successfully!');
-      } else {
-        alert('Failed to update avatar');
-      }
+        if (response.success) {
+          setFormData({ ...formData, avatar_url: base64Avatar });
+          alert('Avatar updated successfully!');
+        } else {
+          alert('Failed to update avatar');
+        }
+        setSaving(false);
+      };
+      reader.onerror = () => {
+        alert('Failed to read image file');
+        setSaving(false);
+      };
+      reader.readAsDataURL(file);
     } catch (error: unknown) {
       console.error('Failed to update avatar:', error);
       alert('Failed to update avatar');
-    } finally {
       setSaving(false);
     }
   };
@@ -118,8 +125,20 @@ export default function ProfilePage() {
       });
 
       if (response.success) {
+        // Update localStorage with new profile data including avatar
+        const storedProfile = localStorage.getItem('senexpert_profile');
+        if (storedProfile) {
+          const profileData = JSON.parse(storedProfile);
+          profileData.full_name = formData.full_name;
+          profileData.avatar_url = formData.avatar_url;
+          localStorage.setItem('senexpert_profile', JSON.stringify(profileData));
+        }
+        
         alert('Profile updated successfully!');
         await loadProfile();
+        
+        // Dispatch auth-change event to update topbar immediately
+        window.dispatchEvent(new Event('auth-change'));
       } else {
         alert(response.error?.message || 'Failed to update profile');
       }
