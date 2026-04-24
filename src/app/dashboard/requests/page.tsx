@@ -30,10 +30,19 @@ export default function RequestsPage() {
     movementType: 'outgoing' as 'incoming' | 'outgoing',
     location: 'Warehouse A',
     notes: '',
+    vehicleNo: '',
+    deliveredTo: '',
+    deliveredBy: '',
+    receivedBy: '',
+    receivedFrom: '',
   });
 
   useEffect(() => {
-    checkAuth();
+    // Wait a bit for auth context to initialize
+    const timer = setTimeout(() => {
+      checkAuth();
+    }, 100);
+    return () => clearTimeout(timer);
   }, []);
 
   async function checkAuth() {
@@ -96,17 +105,43 @@ export default function RequestsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await createToolRequestApi({
+      const requestData: any = {
         tool_id: formData.toolId,
         movement_type: formData.movementType,
         quantity: parseInt(formData.quantity),
         location: formData.location,
         notes: formData.notes || undefined,
-      });
+      };
+
+      // Add fields based on movement type
+      if (formData.movementType === 'outgoing') {
+        requestData.vehicle_no = formData.vehicleNo;
+        requestData.delivered_to = formData.deliveredTo;
+        requestData.delivered_by = formData.deliveredBy;
+      } else {
+        requestData.vehicle_no = formData.vehicleNo;
+        requestData.received_by = formData.receivedBy;
+        requestData.received_from = formData.receivedFrom;
+      }
+
+      const response = await createToolRequestApi(requestData);
 
       if (response.success) {
         alert('Request submitted successfully!');
         setShowModal(false);
+        // Reset form
+        setFormData({
+          toolId: '',
+          quantity: '1',
+          movementType: 'outgoing',
+          location: 'Warehouse A',
+          notes: '',
+          vehicleNo: '',
+          deliveredTo: '',
+          deliveredBy: '',
+          receivedBy: '',
+          receivedFrom: '',
+        });
         loadData();
       }
     } catch (error) {
@@ -388,6 +423,76 @@ export default function RequestsPage() {
                     required
                   />
                 </div>
+
+                {/* Conditional fields based on movement type */}
+                {formData.movementType === 'outgoing' ? (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle No</label>
+                      <input
+                        type="text"
+                        value={formData.vehicleNo}
+                        onChange={(e) => setFormData({ ...formData, vehicleNo: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                        placeholder="Enter vehicle number"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Delivered To</label>
+                      <input
+                        type="text"
+                        value={formData.deliveredTo}
+                        onChange={(e) => setFormData({ ...formData, deliveredTo: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                        placeholder="Enter recipient location/company"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Delivered By</label>
+                      <input
+                        type="text"
+                        value={formData.deliveredBy}
+                        onChange={(e) => setFormData({ ...formData, deliveredBy: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                        placeholder="Enter deliverer's name"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle No</label>
+                      <input
+                        type="text"
+                        value={formData.vehicleNo}
+                        onChange={(e) => setFormData({ ...formData, vehicleNo: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                        placeholder="Enter vehicle number"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Received By</label>
+                      <input
+                        type="text"
+                        value={formData.receivedBy}
+                        onChange={(e) => setFormData({ ...formData, receivedBy: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                        placeholder="Enter receiver's name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Received From</label>
+                      <input
+                        type="text"
+                        value={formData.receivedFrom}
+                        onChange={(e) => setFormData({ ...formData, receivedFrom: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                        placeholder="Enter sender location/company"
+                      />
+                    </div>
+                  </>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                   <textarea

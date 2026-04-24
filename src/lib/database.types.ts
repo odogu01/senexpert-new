@@ -120,6 +120,12 @@ export interface ToolRequest {
   updated_at?: Date;
   tool_name?: string;
   requester_name?: string;
+  // New fields for tracking
+  vehicle_no?: string;
+  delivered_to?: string;
+  delivered_by?: string;
+  received_by?: string;
+  received_from?: string;
   tool?: Tool;
   requested_by_profile?: { full_name: string };
   assigned_to_profile?: { full_name: string };

@@ -43,7 +43,10 @@ export default function InventoryPage() {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    checkAuth();
+    const timer = setTimeout(() => {
+      checkAuth();
+    }, 100);
+    return () => clearTimeout(timer);
   }, []);
 
   async function checkAuth() {
