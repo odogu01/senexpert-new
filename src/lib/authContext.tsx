@@ -50,6 +50,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  // Listen for storage changes (e.g., from login page)
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const storedToken = localStorage.getItem('senexpert_token');
+      const storedUser = localStorage.getItem('senexpert_user');
+      const storedProfile = localStorage.getItem('senexpert_profile');
+
+      if (storedToken && storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setToken(storedToken);
+          setUser(parsedUser);
+          
+          if (storedProfile) {
+            setProfile(JSON.parse(storedProfile));
+          }
+        } catch (error) {
+          console.error('Failed to parse stored user:', error);
+        }
+      } else {
+        setToken(null);
+        setUser(null);
+        setProfile(null);
+      }
+      setIsLoading(false);
+    };
+
+    // Handle custom event dispatch from same-tab login
+    const handleAuthChange = () => {
+      const storedToken = localStorage.getItem('senexpert_token');
+      const storedUser = localStorage.getItem('senexpert_user');
+      const storedProfile = localStorage.getItem('senexpert_profile');
+
+      if (storedToken && storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setToken(storedToken);
+          setUser(parsedUser);
+          
+          if (storedProfile) {
+            setProfile(JSON.parse(storedProfile));
+          }
+        } catch (error) {
+          console.error('Failed to parse stored user:', error);
+        }
+      } else {
+        setToken(null);
+        setUser(null);
+        setProfile(null);
+      }
+      setIsLoading(false);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('auth-change', handleAuthChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('auth-change', handleAuthChange);
+    };
+  }, []);
+
   const login = async (email: string, password: string) => {
     try {
       const response = await fetch('/api/auth/login', {

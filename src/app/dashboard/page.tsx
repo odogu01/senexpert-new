@@ -8,7 +8,7 @@ import StatCard from '@/components/dashboard/StatCard';
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import AlertsPanel from '@/components/dashboard/AlertsPanel';
 import StatusBadge, { ProgressBar } from '@/components/dashboard/StatusBadge';
-import { useAuth } from '@/lib/authContext';
+import { useAuth, getStoredUser, getStoredProfile } from '@/lib/authContext';
 import type { Alert } from '@/lib/database.types';
 
 interface DashboardStats {
@@ -38,6 +38,7 @@ interface StatusData {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { user, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -45,10 +46,22 @@ export default function DashboardPage() {
   const [statusDistribution, setStatusDistribution] = useState<StatusData[]>([]);
 
   useEffect(() => {
+    // Check if user is authenticated before loading data
+    const storedUser = getStoredUser();
+    const storedProfile = getStoredProfile();
+    
+    if (!storedUser || !storedProfile) {
+      router.push('/login');
+      return;
+    }
+    
     loadDashboardData();
-  }, []);
+  }, [authLoading]);
 
   async function loadDashboardData() {
+    // Skip if still loading auth
+    if (authLoading) return;
+    
     setLoading(true);
     try {
       const token = localStorage.getItem('senexpert_token');

@@ -64,6 +64,9 @@ export default function Login() {
         localStorage.setItem('senexpert_user', JSON.stringify(data.data.user));
         localStorage.setItem('senexpert_profile', JSON.stringify(data.data.profile));
         
+        // Dispatch custom event to notify auth context
+        window.dispatchEvent(new Event('auth-change'));
+        
         const route = getDashboardRoute(data.data.profile.role);
         router.push(route);
       } else {
