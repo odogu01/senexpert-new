@@ -108,7 +108,9 @@ export async function getTools(filters?: {
     await import('@/lib/mongodb').then(m => m.connectToDatabase());
     const collection = await getToolsCollection();
 
-    const query: Record<string, unknown> = {};
+    const query: Record<string, unknown> = {
+      quantity: { $gt: 0 } // Exclude tools with 0 or negative quantity
+    };
 
     if (filters?.category) {
       query.category = filters.category;
@@ -236,6 +238,26 @@ export async function updateTool(id: string, updates: ToolUpdate): Promise<{ suc
     // Get old values for audit
     const oldTool = await collection.findOne({ _id: objectId });
 
+    // Check if quantity is being set to 0 - auto-delete the tool
+    if (updates.quantity !== undefined && updates.quantity <= 0) {
+      const result = await collection.deleteOne({ _id: objectId });
+      
+      if (result.deletedCount === 0) {
+        return { success: false, error: 'Tool not found' };
+      }
+
+      // Log audit event for deletion
+      await logAuditEvent({
+        action: 'DELETE',
+        tableName: 'tools',
+        recordId: id,
+        oldValues: oldTool as unknown as Record<string, unknown>,
+        newValues: { ...updates, _deleted: true } as unknown as Record<string, unknown>,
+      });
+
+      return { success: true, data: { ...oldTool, id, quantity: 0 } as unknown as Tool };
+    }
+
     const updateFields = {
       ...updates,
       updated_at: new Date(),
@@ -315,7 +337,8 @@ export async function getCategories(): Promise<{ success: boolean; data?: string
     await import('@/lib/mongodb').then(m => m.connectToDatabase());
     const collection = await getToolsCollection();
 
-    const categories = await collection.distinct('category');
+    // Only get categories from tools with quantity > 0
+    const categories = await collection.distinct('category', { quantity: { $gt: 0 } });
     return { success: true, data: categories as string[] };
   } catch (error) {
     console.error('Get categories error:', error);
@@ -740,8 +763,8 @@ export async function getDashboardStats(): Promise<{
     const maintenanceCollection = await getMaintenanceCollection();
     const financialRequestsCollection = await getFinancialRequestsCollection();
 
-    // Get tools counts
-    const tools = await toolsCollection.find({}).toArray();
+    // Get tools counts - exclude tools with 0 quantity
+    const tools = await toolsCollection.find({ quantity: { $gt: 0 } }).toArray();
     
     const totalTools = tools.reduce((sum, t) => sum + t.quantity, 0);
     const available = tools.filter(t => t.status === 'available').length;
