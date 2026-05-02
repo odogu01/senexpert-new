@@ -63,8 +63,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     setViewAsRole(role);
   };
 
-  // Get avatar from profile
-  const profileAvatar = (profile as unknown as { avatar_url?: string }).avatar_url || '';
+  // Get avatar directly from localStorage to ensure we have the latest
+  const getStoredProfileData = () => {
+    if (typeof window === 'undefined') return null;
+    const stored = localStorage.getItem('senexpert_profile');
+    if (!stored) return null;
+    try {
+      return JSON.parse(stored);
+    } catch {
+      return null;
+    }
+  };
+  
+  const storedProfileData = getStoredProfileData();
+  const profileAvatar = storedProfileData?.avatar_url || '';
 
   const displayRole = viewAsRole || profile?.role || 'field';
   const isSuperAdmin = profile?.role === 'super_admin';

@@ -76,10 +76,14 @@ export default function Topbar({
     if (propUserName) {
       setUserName(propUserName);
     }
+  }, [propUserName]);
+
+  // Update avatar when avatarUrl prop changes
+  useEffect(() => {
     if (avatarUrl) {
       setAvatar(avatarUrl);
     }
-  }, []);
+  }, [avatarUrl]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
