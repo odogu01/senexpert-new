@@ -63,20 +63,29 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     setViewAsRole(role);
   };
 
-  // Get avatar directly from localStorage to ensure we have the latest
-  const getStoredProfileData = () => {
-    if (typeof window === 'undefined') return null;
-    const stored = localStorage.getItem('senexpert_profile');
-    if (!stored) return null;
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return null;
-    }
-  };
+  // Get avatar from API instead of localStorage (localStorage has 5MB limit)
+  const [profileAvatar, setProfileAvatar] = useState('');
   
-  const storedProfileData = getStoredProfileData();
-  const profileAvatar = storedProfileData?.avatar_url || '';
+  useEffect(() => {
+    const fetchProfileAvatar = async () => {
+      try {
+        const token = localStorage.getItem('senexpert_token');
+        if (!token) return;
+        
+        const res = await fetch('/api/profile', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success && data.data?.avatar_url) {
+          setProfileAvatar(data.data.avatar_url);
+        }
+      } catch (error) {
+        console.error('Failed to fetch profile avatar:', error);
+      }
+    };
+    
+    fetchProfileAvatar();
+  }, []);
 
   const displayRole = viewAsRole || profile?.role || 'field';
   const isSuperAdmin = profile?.role === 'super_admin';

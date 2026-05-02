@@ -59,10 +59,13 @@ export default function Login() {
       const data = await response.json();
 
       if (data.success && data.data) {
-        // Store in localStorage
+        // Store in localStorage (strip avatar to avoid exceeding 5MB limit)
         localStorage.setItem('senexpert_token', data.data.token);
         localStorage.setItem('senexpert_user', JSON.stringify(data.data.user));
-        localStorage.setItem('senexpert_profile', JSON.stringify(data.data.profile));
+        
+        // Store profile without avatar to avoid localStorage quota exceeded
+        const profileNoAvatar = { ...data.data.profile, avatar_url: undefined };
+        localStorage.setItem('senexpert_profile', JSON.stringify(profileNoAvatar));
         
         // Dispatch custom event to notify auth context
         window.dispatchEvent(new Event('auth-change'));
