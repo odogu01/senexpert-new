@@ -143,18 +143,23 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'manage_employees',
     'view_reports',
     'approve_financial_requests',
+    'view_financial_requests',
+    'make_financial_request',
   ],
   admin: [
     'manage_employees',
     'view_all_dashboards',
     'view_analytics',
     'view_reports',
+    'view_financial_requests',
+    'make_financial_request',
   ],
   accountant: [
     'approve_financial_requests',
     'view_financial_requests',
   ],
   hr: [],
+  field: [],
   field: [],
   operator: [
     'view_inventory',
