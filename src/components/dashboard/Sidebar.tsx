@@ -37,10 +37,10 @@ interface SidebarProps {
 
 // Navigation items with icons and labels
 const navItems = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'hr', 'field', 'operator'] },
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'accountant', 'hr', 'field', 'operator'] },
   { label: 'Inventory', href: '/dashboard/inventory', icon: Package, roles: ['super_admin', 'admin'] },
   { label: 'Requests', href: '/dashboard/requests', icon: RotateCcw, roles: ['super_admin', 'admin', 'field', 'operator'] },
-  { label: 'Financial Requests', href: '/dashboard/financial-requests', icon: DollarSign, roles: ['super_admin', 'admin'] },
+  { label: 'Financial Requests', href: '/dashboard/financial-requests', icon: DollarSign, roles: ['super_admin', 'accountant'] },
   { label: 'Approvals', href: '/dashboard/approvals', icon: CheckCircle, roles: ['super_admin', 'admin', 'hr'] },
   { label: 'Maintenance', href: '/dashboard/maintenance', icon: Wrench, roles: ['super_admin', 'admin'] },
   { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, roles: ['super_admin', 'admin'] },
@@ -197,6 +197,7 @@ export default function Sidebar({
           >
             <option value="">My Account</option>
             <option value="admin">Admin</option>
+            <option value="accountant">Accountant</option>
             <option value="hr">HR</option>
             <option value="field">Field</option>
             <option value="operator">Operator</option>

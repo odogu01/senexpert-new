@@ -302,6 +302,7 @@ const handleSaveProfile = async () => {
               <option value="">All Roles</option>
               <option value="super_admin">Super Admin</option>
               <option value="admin">Admin</option>
+              <option value="accountant">Accountant</option>
               <option value="hr">HR</option>
               <option value="field">Field</option>
               <option value="operator">Operator</option>
@@ -560,6 +561,7 @@ const handleSaveProfile = async () => {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
                   >
                     <option value="field">Field</option>
+                    <option value="accountant">Accountant</option>
                     <option value="hr">HR</option>
                     <option value="admin">Admin</option>
                     <option value="super_admin">Super Admin</option>

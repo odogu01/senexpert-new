@@ -30,6 +30,12 @@ const seedUsers: SeedUser[] = [
     role: 'admin',
   },
   {
+    email: 'accountant@test.com',
+    password: 'Test@123',
+    full_name: 'Accountant',
+    role: 'accountant',
+  },
+  {
     email: 'hr@test.com',
     password: 'Test@123',
     full_name: 'HR Manager',

@@ -176,12 +176,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         'view_analytics',
         'manage_employees',
         'view_reports',
+        'approve_financial_requests',
       ],
       admin: [
         'manage_employees',
         'view_all_dashboards',
         'view_analytics',
         'view_reports',
+      ],
+      accountant: [
+        'approve_financial_requests',
+        'view_financial_requests',
       ],
       hr: [],
       field: [],

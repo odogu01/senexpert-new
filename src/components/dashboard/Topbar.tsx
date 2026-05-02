@@ -35,6 +35,7 @@ interface TopbarProps {
 const roleDisplayNames: Record<UserRole, string> = {
   super_admin: 'Super Admin',
   admin: 'Administrator',
+  accountant: 'Accountant',
   hr: 'HR',
   field: 'Field',
   operator: 'Operator',
