@@ -63,6 +63,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     setViewAsRole(role);
   };
 
+  // Get avatar from profile
+  const profileAvatar = (profile as unknown as { avatar_url?: string }).avatar_url || '';
+
   const displayRole = viewAsRole || profile?.role || 'field';
   const isSuperAdmin = profile?.role === 'super_admin';
 
@@ -117,7 +120,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         sidebarCollapsed={sidebarCollapsed}
         onMenuClick={handleMenuClick}
         userName={profile?.full_name}
-        avatarUrl={(profile as unknown as { avatar_url?: string }).avatar_url}
+        avatarUrl={profileAvatar}
         isSuperAdmin={isSuperAdmin}
         viewAsRole={viewAsRole}
         onViewAsChange={handleViewAsChange}

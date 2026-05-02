@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
             email: response.data.profile.email,
             full_name: response.data.profile.full_name,
             role: response.data.profile.role,
+            avatar_url: (response.data.profile as unknown as { avatar_url?: string }).avatar_url,
           },
         },
       });
