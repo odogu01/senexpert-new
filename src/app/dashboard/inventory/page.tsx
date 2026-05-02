@@ -89,6 +89,7 @@ export default function InventoryPage() {
 
   // Permission checks
   const canViewAllInventory = userRole === 'super_admin' || userRole === 'admin';
+  const canViewInventory = userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator';
   const canAddTool = userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator';
   const canEditTool = userRole === 'super_admin' || userRole === 'admin';
   const canDeleteTool = userRole === 'super_admin' || userRole === 'admin';
@@ -105,7 +106,7 @@ export default function InventoryPage() {
   }, [tools, canViewAllInventory, currentUserId]);
 
   // Use filtered tools based on role
-  const displayTools = canViewAllInventory ? tools : operatorTools;
+  const displayTools = canViewInventory ? (canViewAllInventory ? tools : operatorTools) : [];
 
   // Categories and locations from display tools
   const categories = useMemo(() => {
