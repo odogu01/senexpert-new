@@ -68,8 +68,8 @@ export default function RequestsPage() {
   }
 
   // Permission checks
-  const canCreateRequest = userRole === 'super_admin' || userRole === 'admin' || userRole === 'manager' || userRole === 'operator';
-  const canApprove = userRole === 'super_admin' || userRole === 'admin' || userRole === 'hr';
+  const canCreateRequest = userRole === 'super_admin' || userRole === 'admin' || userRole === 'field' || userRole === 'operator';
+  const canApprove = userRole === 'super_admin' || userRole === 'admin';
 
   async function loadData() {
     setLoading(true);

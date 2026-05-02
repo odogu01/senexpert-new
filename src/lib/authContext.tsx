@@ -183,15 +183,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         'view_analytics',
         'view_reports',
       ],
-      hr: [
-        'manage_employees',
-        'view_employee_data',
-        'view_hr_dashboard',
-      ],
-      manager: [
-        'view_team_dashboard',
-        'view_reports',
-      ],
+      hr: [],
+      field: [],
       operator: [
         'add_inventory',
         'view_own_inventory',

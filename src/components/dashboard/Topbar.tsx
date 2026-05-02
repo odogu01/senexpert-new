@@ -35,13 +35,13 @@ interface TopbarProps {
 const roleDisplayNames: Record<UserRole, string> = {
   super_admin: 'Super Admin',
   admin: 'Administrator',
-  hr: 'HR Manager',
-  manager: 'Team Manager',
+  hr: 'HR',
+  field: 'Field',
   operator: 'Operator',
 };
 
 export default function Topbar({ 
-  userRole = 'manager', 
+  userRole = 'field', 
   actualRole,
   sidebarCollapsed = false, 
   onMenuClick, 

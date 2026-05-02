@@ -149,15 +149,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'view_analytics',
     'view_reports',
   ],
-  hr: [
-    'manage_employees',
-    'view_employee_data',
-    'view_hr_dashboard',
-  ],
-  manager: [
-    'view_team_dashboard',
-    'view_reports',
-  ],
+  hr: [],
+  field: [],
   operator: [
     'add_inventory',
     'view_own_inventory',
@@ -169,7 +162,7 @@ export const DASHBOARD_ROUTES: Record<UserRole, string> = {
   super_admin: '/dashboard',
   admin: '/dashboard',
   hr: '/dashboard',
-  manager: '/dashboard',
+  field: '/dashboard',
   operator: '/dashboard',
 };
 
@@ -748,14 +741,14 @@ export function getDashboardRoute(role: UserRole): string {
  * Validate role value
  */
 export function isValidRole(role: string): role is UserRole {
-  return ['super_admin', 'admin', 'hr', 'manager', 'operator'].includes(role);
+  return ['super_admin', 'admin', 'hr', 'field', 'operator'].includes(role);
 }
 
 /**
  * Get all roles
  */
 export function getAllRoles(): UserRole[] {
-  return ['super_admin', 'admin', 'hr', 'manager', 'operator'];
+  return ['super_admin', 'admin', 'hr', 'field', 'operator'];
 }
 
 /**

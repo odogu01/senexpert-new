@@ -73,8 +73,8 @@ export default function ReportsPage() {
     }
   }
 
-  // HR cannot export tools and maintenance status
-  const canExport = userRole && ['super_admin', 'admin', 'manager'].includes(userRole);
+  // Only super_admin and admin can export reports
+  const canExport = userRole && ['super_admin', 'admin'].includes(userRole);
 
   const quickReports = [
     { 

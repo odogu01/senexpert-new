@@ -57,8 +57,8 @@ export default function MaintenancePage() {
     setLoading(false);
   }
 
-  // Permission: HR cannot schedule maintenance
-  const canSchedule = userRole && ['super_admin', 'admin', 'manager', 'operator'].includes(userRole);
+  // Permission: Only super_admin and admin can schedule maintenance
+  const canSchedule = userRole && ['super_admin', 'admin'].includes(userRole);
 
   async function loadData() {
     try {

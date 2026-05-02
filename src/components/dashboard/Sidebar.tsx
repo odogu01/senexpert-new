@@ -37,22 +37,22 @@ interface SidebarProps {
 
 // Navigation items with icons and labels
 const navItems = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'hr', 'manager', 'operator'] },
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'hr', 'field', 'operator'] },
   { label: 'Inventory', href: '/dashboard/inventory', icon: Package, roles: ['super_admin', 'admin'] },
-  { label: 'Requests', href: '/dashboard/requests', icon: RotateCcw, roles: ['super_admin', 'admin', 'manager', 'operator'] },
-  { label: 'Financial Requests', href: '/dashboard/financial-requests', icon: DollarSign, roles: ['super_admin', 'admin', 'manager'] },
+  { label: 'Requests', href: '/dashboard/requests', icon: RotateCcw, roles: ['super_admin', 'admin', 'field', 'operator'] },
+  { label: 'Financial Requests', href: '/dashboard/financial-requests', icon: DollarSign, roles: ['super_admin', 'admin'] },
   { label: 'Approvals', href: '/dashboard/approvals', icon: CheckCircle, roles: ['super_admin', 'admin', 'hr'] },
-  { label: 'Maintenance', href: '/dashboard/maintenance', icon: Wrench, roles: ['super_admin', 'admin', 'manager'] },
-  { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, roles: ['super_admin', 'admin', 'hr', 'manager'] },
-  { label: 'Calendar', href: '/dashboard/calendar', icon: Calendar, roles: ['super_admin', 'admin', 'hr', 'manager'] },
-  { label: 'Reports', href: '/dashboard/reports', icon: FileText, roles: ['super_admin', 'admin', 'manager'] },
+  { label: 'Maintenance', href: '/dashboard/maintenance', icon: Wrench, roles: ['super_admin', 'admin'] },
+  { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, roles: ['super_admin', 'admin'] },
+  { label: 'Calendar', href: '/dashboard/calendar', icon: Calendar, roles: ['super_admin', 'admin'] },
+  { label: 'Reports', href: '/dashboard/reports', icon: FileText, roles: ['super_admin', 'admin'] },
   { label: 'Audit Logs', href: '/dashboard/audit-logs', icon: ClipboardList, roles: ['super_admin'] },
   { label: 'Users', href: '/dashboard/users', icon: Users, roles: ['super_admin', 'admin'] },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin', 'hr'] },
 ];
 
 export default function Sidebar({ 
-  userRole = 'manager', 
+  userRole = 'field', 
   actualRole,
   collapsed = false, 
   onToggle, 
@@ -198,7 +198,7 @@ export default function Sidebar({
             <option value="">My Account</option>
             <option value="admin">Admin</option>
             <option value="hr">HR</option>
-            <option value="manager">Manager</option>
+            <option value="field">Field</option>
             <option value="operator">Operator</option>
           </select>
           {viewAsRole && (

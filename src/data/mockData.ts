@@ -11,7 +11,7 @@ export type ToolStatus = 'available' | 'in_use' | 'maintenance' | 'damaged' | 'l
 export type ToolCategory = 'drilling' | 'safety' | 'electrical' | 'mechanical' | 'pressure';
 export type RequestStatus = 'pending' | 'approved' | 'rejected';
 export type RequestType = 'tool_outgoing' | 'tool_incoming' | 'finance';
-export type UserRole = 'super_admin' | 'admin' | 'hr' | 'manager';
+export type UserRole = 'super_admin' | 'admin' | 'hr' | 'field';
 
 export interface User {
   id: string;
@@ -110,9 +110,9 @@ export const mockUsers: User[] = [
   { id: '1', name: 'Super Admin', email: 'superadmin@test.com', role: 'super_admin', department: 'Management', site: 'HQ' },
   { id: '2', name: 'Admin User', email: 'admin@test.com', role: 'admin', department: 'Operations', site: 'HQ' },
   { id: '3', name: 'HR Manager', email: 'hr@test.com', role: 'hr', department: 'Human Resources', site: 'HQ' },
-  { id: '4', name: 'Team Manager', email: 'manager@test.com', role: 'manager', department: 'Drilling', site: 'Site A' },
-  { id: '5', name: 'John Smith', email: 'john@test.com', role: 'manager', department: 'Maintenance', site: 'Site B' },
-  { id: '6', name: 'Sarah Johnson', email: 'sarah@test.com', role: 'manager', department: 'Safety', site: 'Offshore Rig' },
+  { id: '4', name: 'Field Operator', email: 'field@test.com', role: 'field', department: 'Drilling', site: 'Site A' },
+  { id: '5', name: 'John Smith', email: 'john@test.com', role: 'field', department: 'Maintenance', site: 'Site B' },
+  { id: '6', name: 'Sarah Johnson', email: 'sarah@test.com', role: 'field', department: 'Safety', site: 'Offshore Rig' },
 ];
 
 // ============================================

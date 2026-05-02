@@ -4,7 +4,7 @@ export const DASHBOARD_ROUTES: Record<UserRole, string> = {
   super_admin: '/dashboard',
   admin: '/dashboard',
   hr: '/dashboard',
-  manager: '/dashboard',
+  field: '/dashboard',
   operator: '/dashboard',
 };
 
@@ -13,9 +13,9 @@ export function getDashboardRoute(role: UserRole): string {
 }
 
 export function isValidRole(role: string): role is UserRole {
-  return ['super_admin', 'admin', 'hr', 'manager', 'operator'].includes(role);
+  return ['super_admin', 'admin', 'hr', 'field', 'operator'].includes(role);
 }
 
 export function getAllRoles(): UserRole[] {
-  return ['super_admin', 'admin', 'hr', 'manager', 'operator'];
+  return ['super_admin', 'admin', 'hr', 'field', 'operator'];
 }

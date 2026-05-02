@@ -63,7 +63,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     setViewAsRole(role);
   };
 
-  const displayRole = viewAsRole || profile?.role || 'manager';
+  const displayRole = viewAsRole || profile?.role || 'field';
   const isSuperAdmin = profile?.role === 'super_admin';
 
   if (isLoading || !profile) {

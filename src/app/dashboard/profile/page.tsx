@@ -154,8 +154,8 @@ export default function ProfilePage() {
     const labels: Record<UserRole, string> = {
       super_admin: 'Super Admin',
       admin: 'Administrator',
-      hr: 'HR Manager',
-      manager: 'Team Manager',
+      hr: 'HR',
+      field: 'Field',
       operator: 'Operator',
     };
     return labels[role] || role;
@@ -166,7 +166,7 @@ export default function ProfilePage() {
       super_admin: 'bg-purple-100 text-purple-800',
       admin: 'bg-red-100 text-red-800',
       hr: 'bg-blue-100 text-blue-800',
-      manager: 'bg-green-100 text-green-800',
+      field: 'bg-green-100 text-green-800',
       operator: 'bg-orange-100 text-orange-800',
     };
     return colors[role] || 'bg-gray-100 text-gray-800';
