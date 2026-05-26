@@ -113,3 +113,28 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-primary);
 }
+
+/* Print-specific styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  .print-bg-white {
+    background-color: white !important;
+  }
+  
+  .print-shadow-none {
+    box-shadow: none !important;
+  }
+  
+  /* Ensure proper page breaks */
+  .print-page-break {
+    page-break-after: always;
+  }
+}

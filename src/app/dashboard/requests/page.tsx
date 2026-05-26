@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Check, Clock, AlertTriangle, Package, Filter, Ban } from 'lucide-react';
+import { Plus, X, Check, Clock, AlertTriangle, Package, Filter, Ban, Printer } from 'lucide-react';
 import { getToolRequestsApi, createToolRequestApi, updateToolRequestStatusApi, getToolsApi, getProfileApi } from '@/lib/apiClient';
 import { getStoredUser } from '@/lib/authContext';
 import StatusBadge from '@/components/dashboard/StatusBadge';
@@ -308,37 +308,45 @@ export default function RequestsPage() {
                       {request.quantity}
                     </td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600 max-w-xs truncate">
-                      {request.notes || '-'}
-                    </td>
-                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">
-                      {new Date(request.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 lg:px-6 py-4 text-right">
-                      {request.status === 'pending' && (
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleStatusChange(request.id, 'approved')}
-                            className="px-3 py-1 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => handleStatusChange(request.id, 'rejected')}
-                            className="px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      )}
-                      {request.status === 'approved' && (
-                        <button
-                          onClick={() => handleStatusChange(request.id, 'completed')}
-                          className="px-3 py-1 text-sm bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a]"
-                        >
-                          Complete
-                        </button>
-                      )}
-                    </td>
+               {request.notes || '-'}
+             </td>
+             <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">
+               {new Date(request.created_at).toLocaleDateString()}
+             </td>
+             <td className="px-4 lg:px-6 py-4 text-right">
+               <div className="flex items-center justify-end gap-2">
+                 <button
+                   onClick={() => window.open(`/dashboard/requests/${request.id}/print`, '_blank')}
+                   className="p-1 hover:bg-gray-100 rounded text-[#0B3C6D]"
+                 >
+                   <Printer className="w-4 h-4" />
+                 </button>
+                 {request.status === 'pending' && (
+                   <>
+                     <button
+                       onClick={() => handleStatusChange(request.id, 'approved')}
+                       className="px-3 py-1 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600"
+                     >
+                       Approve
+                     </button>
+                     <button
+                       onClick={() => handleStatusChange(request.id, 'rejected')}
+                       className="px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600"
+                     >
+                       Reject
+                     </button>
+                   </>
+                 )}
+                 {request.status === 'approved' && (
+                   <button
+                     onClick={() => handleStatusChange(request.id, 'completed')}
+                     className="px-3 py-1 text-sm bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a]"
+                   >
+                     Complete
+                   </button>
+                 )}
+               </div>
+             </td>
                   </motion.tr>
                 ))
               )}

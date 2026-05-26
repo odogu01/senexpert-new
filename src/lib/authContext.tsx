@@ -192,10 +192,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         'approve_financial_requests',
         'view_financial_requests',
       ],
-      hr: [],
-      field: [],
-      field: [],
-      operator: [
+       hr: [],
+       field: [],
+       operator: [
         'view_inventory',
         'add_inventory',
         'view_own_inventory',
