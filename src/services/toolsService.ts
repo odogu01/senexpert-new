@@ -360,17 +360,58 @@ export async function getToolRequests(filters?: {
   try {
     await import('@/lib/mongodb').then(m => m.connectToDatabase());
     const collection = await getToolRequestsCollection();
+    const toolsCollection = await getToolsCollection();
 
-    const query: Record<string, unknown> = {};
-
+    // Build match stage for filtering
+    const matchStage: Record<string, unknown> = {};
     if (filters?.status) {
-      query.status = filters.status;
+      matchStage.status = filters.status;
     }
     if (filters?.movement_type) {
-      query.movement_type = filters.movement_type;
+      matchStage.movement_type = filters.movement_type;
     }
 
-    const requests = await collection.find(query).sort({ created_at: -1 }).toArray();
+    // Perform aggregation to join with tools collection to get tool name
+    const pipeline: Record<string, unknown>[] = [
+      // Add match stage if we have filters
+      ...(Object.keys(matchStage).length > 0 ? [{ $match: matchStage }] : []),
+      // Lookup to get tool details
+      {
+        $lookup: {
+          from: 'tools',
+          localField: 'tool_id',
+          foreignField: '_id',
+          as: 'toolDetails'
+        }
+      },
+      // Add tool_name field from the first tool detail (if exists)
+      {
+        $addFields: {
+          tool_name: {
+            $let: {
+              vars: { toolDetailsArray: '$toolDetails' },
+              in: {
+                $cond: [
+                  { $gt: [{ $size: '$$toolDetailsArray' }, 0] },
+                  { $arrayElemAt: ['$$toolDetailsArray.name', 0] },
+                  null
+                ]
+              }
+            }
+          }
+        }
+      },
+      // Remove the temporary toolDetails field
+      {
+        $project: {
+          toolDetails: 0
+        }
+      },
+      // Sort by created_at descending
+      { $sort: { created_at: -1 } }
+    ];
+
+    const requests = await collection.aggregate(pipeline).toArray();
     
     const requestsWithId = requests.map(req => ({
       ...req,
