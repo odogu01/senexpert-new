@@ -311,14 +311,14 @@ export default function FinancialRequestsPage() {
                           >
                             <FileText className="w-4 h-4" />
                           </button>
-                          {request.status === 'approved' && (
-                            <button
-                              onClick={() => window.open(`/dashboard/financial-requests/${request.id}/print`, '_blank')}
-                              className="p-1 hover:bg-gray-100 rounded text-green-600"
-                            >
-                              <Download className="w-4 h-4" />
-                            </button>
-                          )}
+{request.status === 'approved' && (
+                             <button
+                               onClick={() => window.open(`/print/financial-request/${request.id}`, '_blank')}
+                               className="p-1 hover:bg-gray-100 rounded text-green-600"
+                             >
+                               <Download className="w-4 h-4" />
+                             </button>
+                           )}
                         </div>
                       </td>
                     </motion.tr>
@@ -507,17 +507,17 @@ export default function FinancialRequestsPage() {
                   </div>
                 )}
 
-                {selectedRequest.status === 'approved' && (
-                  <div className="pt-4 border-t border-gray-200">
-                    <button
-                      onClick={() => window.open(`/dashboard/financial-requests/${selectedRequest.id}/print`, '_blank')}
-                      className="w-full px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] flex items-center justify-center gap-2"
-                    >
-                      <Download className="w-4 h-4" />
-                      Print / Download PDF
-                    </button>
-                  </div>
-                )}
+{selectedRequest.status === 'approved' && (
+                   <div className="pt-4 border-t border-gray-200">
+                     <button
+                       onClick={() => window.open(`/print/financial-request/${selectedRequest.id}`, '_blank')}
+                       className="w-full px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] flex items-center justify-center gap-2"
+                     >
+                       <Download className="w-4 h-4" />
+                       Print / Download PDF
+                     </button>
+                   </div>
+                 )}
               </div>
             </motion.div>
           </motion.div>

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getStoredUser } from '@/lib/authContext';
 import { getFinancialRequestsApi } from '@/lib/apiClient';
 import type { FinancialRequest } from '@/lib/database.types';
 import { Printer, ArrowLeft } from 'lucide-react';
@@ -10,16 +9,6 @@ import { Printer, ArrowLeft } from 'lucide-react';
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('senexpert_token');
-}
-
-function getCurrentUserFromStorage() {
-  const userStr = localStorage.getItem('senexpert_user');
-  if (!userStr) return null;
-  try {
-    return JSON.parse(userStr);
-  } catch {
-    return null;
-  }
 }
 
 export default function PrintFinancialRequestPage() {
@@ -35,12 +24,6 @@ export default function PrintFinancialRequestPage() {
   async function loadRequest() {
     const token = getToken();
     if (!token) {
-      router.push('/login');
-      return;
-    }
-
-    const user = getCurrentUserFromStorage();
-    if (!user) {
       router.push('/login');
       return;
     }

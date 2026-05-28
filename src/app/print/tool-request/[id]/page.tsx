@@ -103,14 +103,14 @@ export default function PrintToolRequestPage() {
       <div className="mb-8 text-center print-hidden">
         <button
           onClick={handleBack}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mx-auto"
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mx-auto mb-2"
         >
           <ArrowLeft className="w-5 h-5" />
           Back
         </button>
         <button
           onClick={handlePrint}
-          className="flex items-center gap-2 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0B3C6D]/90 mx-auto mt-2"
+          className="flex items-center gap-2 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0B3C6D]/90 mx-auto"
         >
           <Printer className="w-5 h-5" />
           Print

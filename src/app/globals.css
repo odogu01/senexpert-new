@@ -120,9 +120,16 @@
     display: none !important;
   }
   
+  .print-hidden {
+    display: none !important;
+  }
+  
   body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    background: white !important;
+    margin: 0;
+    padding: 0;
   }
   
   .print-bg-white {
