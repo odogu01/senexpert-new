@@ -870,17 +870,58 @@ export async function getFinancialRequests(filters?: {
   try {
     await import('@/lib/mongodb').then(m => m.connectToDatabase());
     const collection = await getFinancialRequestsCollection();
+    const profilesCollection = await getProfilesCollection();
 
-    const query: Record<string, unknown> = {};
-
+    // Build match stage for filtering
+    const matchStage: Record<string, unknown> = {};
     if (filters?.status) {
-      query.status = filters.status;
+      matchStage.status = filters.status;
     }
     if (filters?.requested_by) {
-      query.requested_by = filters.requested_by;
+      matchStage.requested_by = filters.requested_by;
     }
 
-    const requests = await collection.find(query).sort({ created_at: -1 }).toArray();
+    // Perform aggregation to join with profiles collection to get requester name
+    const pipeline: Record<string, unknown>[] = [
+      // Add match stage if we have filters
+      ...(Object.keys(matchStage).length > 0 ? [{ $match: matchStage }] : []),
+      // Lookup to get requester profile details
+      {
+        $lookup: {
+          from: 'profiles',
+          localField: 'requested_by',
+          foreignField: '_id',
+          as: 'requestedByProfile'
+        }
+      },
+      // Add requester_name field from the profile (if exists)
+      {
+        $addFields: {
+          requester_name: {
+            $let: {
+              vars: { profileArray: '$requestedByProfile' },
+              in: {
+                $cond: [
+                  { $gt: [{ $size: '$$profileArray' }, 0] },
+                  { $arrayElemAt: ['$$profileArray.full_name', 0] },
+                  null
+                ]
+              }
+            }
+          }
+        }
+      },
+      // Remove the temporary requestedByProfile field
+      {
+        $project: {
+          requestedByProfile: 0
+        }
+      },
+      // Sort by created_at descending
+      { $sort: { created_at: -1 } }
+    ];
+
+    const requests = await collection.aggregate(pipeline).toArray();
     
     const requestsWithId = requests.map(req => ({
       ...req,
