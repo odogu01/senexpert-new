@@ -298,9 +298,9 @@ export default function RequestsPage() {
                     <td className="px-4 lg:px-6 py-4">
                       <StatusBadge status={request.status} size="sm" />
                     </td>
-                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">
-                      {request.tool_name || 'Tool'}
-                    </td>
+<td className="px-4 lg:px-6 py-4 text-sm text-gray-600">
+                       {request.tool_name || 'N/A'}
+                     </td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">
                       {(request as unknown as Record<string, unknown>).location as string || '-'}
                     </td>
