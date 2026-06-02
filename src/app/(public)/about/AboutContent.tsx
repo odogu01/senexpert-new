@@ -16,9 +16,6 @@ import {
   Lightbulb,
   TrendingUp
 } from 'lucide-react';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
-import Image from 'next/image';
 
 const stats = [
   { value: '60+', label: 'Years Combined Experience', icon: Award },
@@ -87,7 +84,7 @@ const equipmentCategories = [
   { name: 'Welding and Fabrication', description: 'Professional welding and fabrication services with precision and adherence to safety standards for industrial infrastructure.', image: '/welding.png' },
 ];
 
-export default function About() {
+export default function AboutContent() {
   const [currentSlide, setCurrentSlide] = useState(0);
   
   const heroImages = [
@@ -103,8 +100,7 @@ export default function About() {
   }, [heroImages.length]);
 
   return (
-    <main className="min-h-screen">
-      <Navbar transparent={false} />
+    <>
       {/* Hero Section */}
       <section className="relative min-h-[70vh] lg:min-h-[80vh] overflow-hidden">
         {/* Sliding Background Images */}
@@ -199,12 +195,10 @@ export default function About() {
                   alt="Who We Are"
                   className="w-full h-auto transition-transform duration-500 group-hover:scale-105"
                 />
-                {/* Gradient Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-primary/30 via-transparent to-transparent opacity-60" />
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-transparent to-accent/20" />
               </div>
               
-              {/* Floating Stats Card */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 whileInView={{ opacity: 1, scale: 1 }}
@@ -251,11 +245,9 @@ export default function About() {
 
       {/* Technical OEM Partners Section */}
       <section className="py-20 lg:py-28 bg-white relative overflow-hidden">
-        {/* Background Decoration */}
         <div className="absolute inset-0 bg-gradient-to-b from-background to-white" />
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-          {/* Section Header */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -274,7 +266,6 @@ export default function About() {
             </p>
           </motion.div>
 
-          {/* Partners Grid */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -308,36 +299,23 @@ className="max-w-full max-h-full object-contain"
             ))}
           </motion.div>
 
-          {/* Mobile Marquee - Infinite Scroll */}
+          {/* Mobile Marquee */}
           <div className="lg:hidden overflow-hidden relative">
-            {/* Fade edges */}
             <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-white to-transparent z-20 pointer-events-none" />
             <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent z-20 pointer-events-none" />
             
-            {/* Marquee wrapper */}
             <div className="relative flex overflow-x-auto hide-scrollbar">
               <style>{`
                 @keyframes partner-scroll {
-                  0% {
-                    transform: translateX(0);
-                  }
-                  100% {
-                    transform: translateX(-100%);
-                  }
+                  0% { transform: translateX(0); }
+                  100% { transform: translateX(-100%); }
                 }
                 .partner-marquee-content {
                   animation: partner-scroll 40s linear infinite;
                 }
-                .hide-scrollbar::-webkit-scrollbar {
-                  display: none;
-                }
-                .hide-scrollbar {
-                  -ms-overflow-style: none;
-                  scrollbar-width: none;
-                }
+                .hide-scrollbar::-webkit-scrollbar { display: none; }
+                .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
               `}</style>
-              
-              {/* Single set of logos that will be duplicated by animation */}
               <div className="partner-marquee-content flex gap-4 flex-shrink-0">
                 {[
                   { name: 'SLB', logo: '/partners/SLB.png' },
@@ -351,18 +329,13 @@ className="max-w-full max-h-full object-contain"
                     className="flex items-center justify-center px-4 py-3 bg-background rounded-lg flex-shrink-0"
                     style={{ width: '120px', height: '56px' }}
                   >
-                    <img
-                      src={partner.logo}
-                      alt={partner.name}
-className="max-w-full max-h-full object-contain grayscale group-hover:grayscale-0 transition-all duration-300 opacity-70 group-hover:opacity-100"
-                    />
+                    <img src={partner.logo} alt={partner.name} className="max-w-full max-h-full object-contain grayscale group-hover:grayscale-0 transition-all duration-300 opacity-70 group-hover:opacity-100" />
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Trust Statement */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -523,7 +496,7 @@ className="max-w-full max-h-full object-contain grayscale group-hover:grayscale-
         </div>
       </section>
 
-      {/* Equipment Inventory Section with Flip Cards */}
+      {/* Equipment Inventory Section */}
       <section className="py-24 lg:py-32 bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -554,22 +527,14 @@ className="max-w-full max-h-full object-contain grayscale group-hover:grayscale-
                 className="group h-64 [perspective:1000px]"
               >
                 <div className="relative h-full w-full transition-all duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
-                  {/* Front Side - Image with Animated Gradient */}
                   <div className="absolute inset-0 backface-hidden rounded-2xl overflow-hidden shadow-xl shadow-gray-200/50">
-                    <img
-                      src={equipment.image}
-                      alt={equipment.name}
-                      className="w-full h-full object-cover"
-                    />
-                    {/* Animated Gradient Overlay */}
+                    <img src={equipment.image} alt={equipment.name} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-r from-primary via-transparent to-secondary-light animate-gradient" />
                     <div className="absolute inset-0 bg-gradient-to-t from-primary/70 via-transparent to-transparent" />
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-6">
                       <h3 className="text-2xl font-bold text-center drop-shadow-lg">{equipment.name}</h3>
                     </div>
                   </div>
-                  
-                  {/* Back Side - Details */}
                   <div className="absolute inset-0 backface-hidden [transform:rotateY(180deg)] bg-gradient-to-br from-primary to-secondary-light rounded-2xl p-8 flex flex-col items-center justify-center text-white shadow-xl shadow-gray-200/50">
                     <div className="w-14 h-14 bg-white/10 rounded-xl flex items-center justify-center mb-4">
                       <Cog className="w-7 h-7" />
@@ -612,11 +577,7 @@ className="max-w-full max-h-full object-contain grayscale group-hover:grayscale-
                 className="bg-background rounded-2xl p-6 lg:p-8 text-center hover:shadow-xl hover:shadow-primary/10 transition-all"
               >
                 <div className="w-32 h-32 mx-auto mb-6 rounded-full overflow-hidden shadow-lg shadow-gray-200/50">
-                  <img
-                    src={member.image}
-                    alt={member.name}
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={member.image} alt={member.name} className="w-full h-full object-cover" />
                 </div>
                 <h3 className="text-xl font-bold text-text mb-2">{member.name}</h3>
                 <p className="text-accent font-medium mb-4">{member.role}</p>
@@ -630,7 +591,6 @@ className="max-w-full max-h-full object-contain grayscale group-hover:grayscale-
       {/* CTA Section */}
       <section className="py-24 lg:py-32 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-secondary-light via-primary to-secondary-light animate-gradient" />
-        
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -639,9 +599,7 @@ className="max-w-full max-h-full object-contain grayscale group-hover:grayscale-
             transition={{ duration: 0.8 }}
           >
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
-              Ready to Power Your
-              <br />
-              Next Project?
+              Ready to Power Your<br />Next Project?
             </h2>
             <p className="text-lg sm:text-xl text-white/80 mb-10 max-w-2xl mx-auto">
               Partner with SenExpert Global for world-class oilfield services. Let's discuss how we can support your operations.
@@ -657,7 +615,6 @@ className="max-w-full max-h-full object-contain grayscale group-hover:grayscale-
           </motion.div>
         </div>
       </section>
-      <Footer />
-    </main>
+    </>
   );
 }

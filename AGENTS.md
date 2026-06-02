@@ -1,72 +1,125 @@
-# AGENTS.md - SenExpert Global
+# AGENTS.md — SenExpert Global
 
 ## Quick Start
 ```bash
 npm install
-npm run dev     # http://localhost:3000
-npm run build   # Production build
-npm run lint    # ESLint check
+npm run dev        # Turbopack (may fail on low-RAM/paging; see below)
+npm run dev:classic # next dev --no-turbo — use if Turbopack panics
+npm run build
+npm run lint
 ```
+
+## Windows Paging File Issue
+Turbopack (Rust) spawns many threads. On Windows with a small paging file you get:
+```
+OS can't spawn worker thread: The paging file is too small (os error 1455)
+```
+**Fix:** Use `npm run dev:classic`, or increase Windows virtual memory to ≥8 GB.
+
+## Architecture — Two Sites in One App
+
+| Area | Route | Who |
+|------|-------|-----|
+| Public website | `/`, `/about`, `/services`, `/gallery`, `/contact` | Anonymous visitors |
+| Dashboard ("ToolVault") | `/dashboard/*`, `/login` | Authenticated users (6 roles) |
+| Print views | `/print/tool-request/[id]`, `/print/financial-request/[id]` | Authenticated users |
 
 ## Tech Stack
-- Next.js 16 (App Router) + Turbopack
-- React 19 + Tailwind CSS v4 (CSS-first config)
-- Framer Motion (animations)
-- MongoDB (Atlas) - Database & Authentication
-- JWT Authentication (custom implementation)
-- Lucide React (Icons)
+- **Next.js 16** (App Router, Turbopack) + **React 19**
+- **Tailwind CSS v4** — CSS-first config (`globals.css` `@theme` block), **no** `tailwind.config.js`
+- **Framer Motion** + **Lucide React**
+- **MongoDB Atlas** — native `mongodb` driver (no Mongoose/Prisma)
+- **JWT + bcryptjs** — custom auth, localStorage session (no cookies)
 
-## Database (MongoDB)
+## Server-Side Services — Critical Rules
 
-### Collections
-- `users` - User accounts with password_hash
-- `profiles` - User profiles with roles and avatar_url
-- `tools` - Tool inventory
-- `tool_requests` - Tool movement requests
-- `financial_requests` - Financial requests
-- `maintenance` - Tool maintenance scheduling
-- `alerts` - System alerts
-- `audit_logs` - All CRUD operations logged
+Three files have `// @ts-nocheck` and use **dynamic imports** to avoid bundling Node modules in the browser:
 
-### Environment Variables (.env.local)
+| File | Contents |
+|------|----------|
+| `src/lib/mongodb.ts` | `connectToDatabase()`, `getCollection()` |
+| `src/services/authService.ts` | `login()`, JWT, bcrypt, user CRUD |
+| `src/services/toolsService.ts` | Tools, requests, maintenance, stats, audit |
+
+### Never import these in client components.
+They dynamically `import('mongodb')`, `import('jsonwebtoken')`, `import('bcryptjs')`.
+
+**Client code** must use `src/lib/apiClient.ts` (wraps `fetch()` to API routes) or `src/lib/authContext.tsx` (auth state).
+
+### tsconfig excludes these deliberately
+```json
+"exclude": ["src/scripts/**/*", "src/services/**/*"]
 ```
-MONGODB_URI=mongodb+srv://testuser:Test1234@emma1.tmb1awh.mongodb.net/?appName=Emma1
-JWT_SECRET=senexpert-jwt-secret-key-2024-change-in-production
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
+They are **server-only** and skipped by the TS compiler.
 
-## Roles (Current)
+## Auth Model
+- **Storage:** `localStorage` keys: `senexpert_token`, `senexpert_user`, `senexpert_profile`
+- **JWT expiry:** 7 days, secret from `JWT_SECRET` env var
+- **Avatar:** stored as base64 **in MongoDB** (not localStorage — 5 MB quota limit). Fetched via `GET /api/profile`
+- **Context sync:** listens for `storage` events (cross-tab) and custom `auth-change` events (same-tab dispatch from login page)
+- **Logout:** calls `POST /api/auth/logout`, then clears localStorage
 
-| Role | Dashboard | Inventory | Requests | Financial | Approve |
-|------|-----------|------------|----------|-----------|----------|
-| **super_admin** | ✅ | ✅ | ✅ | ✅ Send+Approve | ✅ |
-| **admin** | ✅ | ✅ | ✅ | ✅ Send | ❌ |
-| **accountant** | ✅ | ❌ | ❌ | ✅ | ✅ Approve |
-| **hr** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **field** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **operator** | ✅ | ✅ View+Add | ✅ Send | ✅ Send | ❌ |
+## Routes & Roles
+
+See `authContext.tsx` `ROLE_PERMISSIONS` (client) and `authService.ts` `ROLE_PERMISSIONS` (server) — **duplicated**. Keep in sync.
+
+| Role | Distinct permissions |
+|------|---------------------|
+| **super_admin** | Everything + user management + audit logs + "View As" mode |
+| **admin** | Tool CRUD, approvals, analytics, calendar, maintenance |
+| **accountant** | Financial requests: approve/reject |
+| **hr** | Approvals (read), settings |
+| **field** | Dashboard only (read) |
+| **operator** | View/add tools, make tool/financial requests |
+
+⚠️ **Bug:** `authService.ts` line 162–163 has a duplicate `field: []` key. Second one wins.
+
+## Database — 8 Collections
+
+| Collection | Key detail |
+|-----------|------------|
+| `users` | `password_hash` (bcrypt, 12 rounds) |
+| `profiles` | `_id` matches `users._id`, `avatar_url` (base64) |
+| `tools` | Setting `quantity: 0` **deletes** the document |
+| `tool_requests` | Uses `$lookup` aggregation to resolve `tool_name` from `tools` |
+| `financial_requests` | Uses `$lookup` aggregation to resolve `requester_name` from `profiles` |
+| `maintenance` | Statuses: `scheduled`, `in_progress`, `completed`, `cancelled` |
+| `alerts` | Types: `info`, `warning`, `critical`, `success` |
+| `audit_logs` | Every mutation logs here |
+
+## API Routes (`/api/*`)
+
+All require `Authorization: Bearer <token>` header.
+
+| Endpoint | Methods | Notes |
+|----------|---------|-------|
+| `auth/login` | POST | Public |
+| `users` | GET/POST/PATCH/DELETE | Super admin only |
+| `profile` | GET/PATCH | Self only |
+| `tools` | GET/POST/PATCH/DELETE | Filters: `?category=`, `?status=`, `?search=`, `?id=` |
+| `tools/stats` | GET | Dashboard statistics |
+| `tool-requests` | GET/POST/PATCH | Status update: `approved`, `rejected`, `completed` |
+| `financial-requests` | GET/POST/PATCH | Status update: `approved`, `rejected` |
+| `maintenance` | GET/POST/PATCH | Status update: `scheduled`, `in_progress`, `completed`, `cancelled` |
+| `alerts` | GET | |
+| `audit-logs` | GET | |
+
+All route files follow an identical pattern: extract Bearer token, call service, return JSON.
+
+## Key Quirks
+
+- **Aggregation pipelines** resolve display names via `$lookup`. If adding a new joined field, follow the pattern in `toolsService.ts` (`$lookup` → `$addFields` with `$let/$cond` → `$project` to remove temp field)
+- **Tool auto-delete:** `updateTool()` deletes the document when `quantity` is set to `<= 0`
+- **Operator visibility:** Operators only see tools they created in the last 4 hours (`src/app/dashboard/inventory/page.tsx`)
+- **Seed command:** `npx tsx src/scripts/seedAll.ts` seeds 6 test users + inventory
+- **Path alias:** `@/*` maps to `src/*`
 
 ## Test Users
-- `superadmin@test.com` / `Test@123` - Super Admin
-- `admin@test.com` / `Test@123` - Admin
-- `accountant@test.com` / `Test@123` - Accountant
-- `hr@test.com` / `Test@123` - HR
-- `field@test.com` / `Test@123` - Field
-- `operator@test.com` / `Test@123` - Operator
-
-## Key Features
-
-### Avatar Storage
-- Avatars are stored in MongoDB (not localStorage - 5MB limit)
-- Fetches from API on dashboard load
-
-### View As Mode
-- Super admin can switch to any role to test permissions
-
-## Common Issues
-- **Login quota exceeded**: Avatar too large - avatar_url stripped from localStorage
-- **Profile null error**: Use localStorage or API to get profile data safely
-
-## Workflow
-- Commit and push after every change to GitHub
-- Branch: `main`
+| Email | Password | Role |
+|-------|----------|------|
+| superadmin@test.com | Test@123 | super_admin |
+| admin@test.com | Test@123 | admin |
+| accountant@test.com | Test@123 | accountant |
+| hr@test.com | Test@123 | hr |
+| field@test.com | Test@123 | field |
+| operator@test.com | Test@123 | operator |

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTools, createTool, updateTool, deleteTool, getToolById, getCategories } from '@/services/toolsService';
+import { getTools, getToolsPaginated, createTool, updateTool, deleteTool, getToolById, getCategories } from '@/services/toolsService';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,7 +13,10 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category') || undefined;
     const status = searchParams.get('status') || undefined;
     const search = searchParams.get('search') || undefined;
+    const location = searchParams.get('location') || undefined;
     const id = searchParams.get('id') || undefined;
+    const page = searchParams.get('page') ? Number(searchParams.get('page')) : undefined;
+    const limit = searchParams.get('limit') ? Number(searchParams.get('limit')) : undefined;
 
     // Get single tool by ID
     if (id) {
@@ -27,8 +30,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(response);
     }
 
-    // Get tools with filters
-    const response = await getTools({ category, status, search });
+    // Paginated mode — when page or limit is explicitly provided
+    if (page !== undefined || limit !== undefined) {
+      const response = await getToolsPaginated({ category, status, location, search, page, limit });
+      return NextResponse.json(response);
+    }
+
+    // Get all tools with filters (backward-compatible)
+    const response = await getTools({ category, status, location, search });
     return NextResponse.json(response);
   } catch (error) {
     console.error('Tools API error:', error);

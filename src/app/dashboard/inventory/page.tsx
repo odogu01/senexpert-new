@@ -1,27 +1,21 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Download, Plus, X, ChevronLeft, ChevronRight, Eye, Edit, Trash2, HelpCircle, Lock } from 'lucide-react';
-import { getToolsApi, createToolApi, updateToolApi, deleteToolApi, getCategoriesApi } from '@/lib/apiClient';
-import { getProfileApi } from '@/lib/apiClient';
-import { getStoredUser } from '@/lib/authContext';
+import { Search, Download, Plus, X, ChevronLeft, ChevronRight, Eye, Edit, Trash2, HelpCircle, Printer } from 'lucide-react';
+import { useTools, useToolsPaginated, useCreateTool, useUpdateTool, useDeleteTool, useProfile } from '@/hooks/api';
 import StatusBadge from '@/components/dashboard/StatusBadge';
-import type { Tool, ToolStatus, ToolInsert, ToolUpdate } from '@/lib/database.types';
-import type { UserRole } from '@/lib/database.types';
-
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('senexpert_token');
-}
+import type { Tool, ToolStatus, ToolInsert } from '@/lib/database.types';
 
 export default function InventoryPage() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<UserRole | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [tools, setTools] = useState<Tool[]>([]);
+  const { data: profile, isLoading: profileLoading } = useProfile();
+  const { mutateAsync: createTool } = useCreateTool();
+  const { mutateAsync: updateTool } = useUpdateTool();
+  const { mutateAsync: deleteTool } = useDeleteTool();
+
+  const userRole = profile?.role ?? null;
+  const currentUserId = profile?.id ?? null;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ToolStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -37,55 +31,15 @@ export default function InventoryPage() {
     quantity: 1,
     status: 'available',
     material_no: '',
+    received_from: '',
+    received_by: '',
+    vehicle_number: '',
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [printTool, setPrintTool] = useState<Tool | null>(null);
+  const [historyPage, setHistoryPage] = useState(1);
   const itemsPerPage = 10;
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      checkAuth();
-    }, 100);
-    return () => clearTimeout(timer);
-  }, []);
-
-  async function checkAuth() {
-    const token = getToken();
-    if (!token) {
-      router.push('/login');
-      return;
-    }
-
-    const user = getStoredUser();
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-
-    setCurrentUserId(user.id);
-
-    const profileResponse = await getProfileApi();
-    if (profileResponse.success && profileResponse.data) {
-      setUserRole(profileResponse.data.role);
-    }
-
-    await loadTools();
-    setLoading(false);
-  }
-
-  async function loadTools() {
-    setLoading(true);
-    try {
-      const response = await getToolsApi();
-      if (response.success && response.data) {
-        setTools(response.data);
-      }
-    } catch (error) {
-      console.error('Failed to load tools:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   // Permission checks
   const canViewAllInventory = userRole === 'super_admin' || userRole === 'admin';
@@ -94,65 +48,71 @@ export default function InventoryPage() {
   const canEditTool = userRole === 'super_admin' || userRole === 'admin';
   const canDeleteTool = userRole === 'super_admin' || userRole === 'admin';
 
-  // For operators - filter tools that were added by them in the last 4 hours
+  // ───── Full tool list (all tools, no pagination) ─────
+  // Used for: receiving history, operator filtering, categories/locations dropdowns
+  const { data: allTools = [], isLoading: allToolsLoading } = useTools(
+    canViewAllInventory ? undefined : { search: searchQuery || undefined }
+  );
+
+  // For operators - filter tools added by them in last 4 hours
   const operatorTools = useMemo(() => {
-    if (canViewAllInventory) return tools;
-    
+    if (canViewAllInventory) return allTools;
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
-    return tools.filter(tool => {
+    return allTools.filter(tool => {
       const createdAt = tool.created_at ? new Date(tool.created_at) : null;
       return createdAt && createdAt > fourHoursAgo && tool.created_by === currentUserId;
     });
-  }, [tools, canViewAllInventory, currentUserId]);
+  }, [allTools, canViewAllInventory, currentUserId]);
 
-  // Use filtered tools based on role
-  const displayTools = canViewInventory ? (canViewAllInventory ? tools : operatorTools) : [];
+  // ───── Server-paginated data for main table (admins) ─────
+  const paginatedFilters = useMemo(() => {
+    if (!canViewAllInventory) return undefined;
+    return {
+      search: searchQuery || undefined,
+      status: statusFilter !== 'all' ? statusFilter : undefined,
+      category: categoryFilter !== 'all' ? categoryFilter : undefined,
+      location: locationFilter !== 'all' ? locationFilter : undefined,
+      page: currentPage,
+      limit: itemsPerPage,
+    };
+  }, [canViewAllInventory, searchQuery, statusFilter, categoryFilter, locationFilter, currentPage]);
+  const { data: paginated, isLoading: paginatedLoading } = useToolsPaginated(paginatedFilters);
 
-  // Categories and locations from display tools
-  const categories = useMemo(() => {
-    return [...new Set(displayTools.map(tool => tool.category).filter(Boolean))];
-  }, [displayTools]);
+  // Admins: server-paginated tools. Operators: client-paginated from operatorTools.
+  const paginatedTools = useMemo(() => {
+    if (canViewAllInventory) return paginated?.data ?? [];
+    return operatorTools.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [canViewAllInventory, paginated, operatorTools, currentPage]);
 
-  const locations = useMemo(() => {
-    return [...new Set(displayTools.map(tool => tool.location).filter(Boolean))];
-  }, [displayTools]);
+  const totalResults = canViewAllInventory ? (paginated?.total ?? 0) : operatorTools.length;
+  const totalPages = Math.max(1, Math.ceil(totalResults / itemsPerPage));
 
-  const filteredTools = useMemo(() => {
-    return displayTools.filter(tool => {
-      const matchesSearch = 
-        tool.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tool.work_order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (tool.model?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
-        (tool.part_number?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
-      const matchesStatus = statusFilter === 'all' || tool.status === statusFilter;
-      const matchesCategory = categoryFilter === 'all' || tool.category === categoryFilter;
-      const matchesLocation = locationFilter === 'all' || tool.location === locationFilter;
-      
-      return matchesSearch && matchesStatus && matchesCategory && matchesLocation;
-    });
-  }, [displayTools, searchQuery, statusFilter, categoryFilter, locationFilter]);
+  const displayTools = canViewInventory ? (canViewAllInventory ? allTools : operatorTools) : [];
 
-  const totalPages = Math.ceil(filteredTools.length / itemsPerPage);
-  const paginatedTools = filteredTools.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+  const categories = useMemo(() =>
+    [...new Set(displayTools.map(t => t.category).filter(Boolean))],
+    [displayTools]
+  );
+  const locations = useMemo(() =>
+    [...new Set(displayTools.map(t => t.location).filter(Boolean))],
+    [displayTools]
   );
 
-  const clearFilters = () => {
+  const historyTotalPages = Math.ceil(displayTools.length / itemsPerPage);
+
+  const hasActiveFilters = searchQuery || statusFilter !== 'all' || categoryFilter !== 'all' || locationFilter !== 'all';
+
+  const clearFilters = useCallback(() => {
     setSearchQuery('');
     setStatusFilter('all');
     setCategoryFilter('all');
     setLocationFilter('all');
-  };
-
-  const hasActiveFilters = searchQuery || statusFilter !== 'all' || categoryFilter !== 'all' || locationFilter !== 'all';
+    setCurrentPage(1);
+  }, []);
 
   const handleDeleteTool = async (id: string) => {
     if (confirm('Are you sure you want to delete this tool?')) {
-      const response = await deleteToolApi(id);
-      if (response.success) {
-        setTools(tools.filter(t => t.id !== id));
-      }
+      await deleteTool(id);
     }
   };
 
@@ -177,16 +137,16 @@ export default function InventoryPage() {
 
   const handleAddNewTool = async () => {
     if (!editForm.name || !editForm.work_order_number || !currentUserId) return;
-    
     setSaving(true);
     try {
-      const toolData = {
+      await createTool({
         name: editForm.name,
         work_order_number: editForm.work_order_number,
         size_thread: editForm.size_thread,
         material: editForm.material,
         model: editForm.model,
         part_number: editForm.part_number,
+        material_no: editForm.material_no,
         category: editForm.category || 'General',
         quantity: editForm.quantity,
         min_quantity: editForm.min_quantity,
@@ -194,24 +154,24 @@ export default function InventoryPage() {
         location: editForm.location,
         description: editForm.description,
         created_by: currentUserId,
-      };
-
-      const response = await createToolApi(toolData);
-      if (response.success && response.data) {
-        setTools([response.data, ...tools]);
-        setIsAddModalOpen(false);
-        // Reset form
-        setEditForm({
-          name: '',
-          work_order_number: '',
-          category: 'Saleable',
-          quantity: 1,
-          status: 'available',
-          material_no: '',
-        });
-      }
-    } catch (error) {
-      console.error('Failed to add tool:', error);
+        received_from: editForm.received_from,
+        received_by: editForm.received_by,
+        vehicle_number: editForm.vehicle_number,
+      });
+      setIsAddModalOpen(false);
+      setEditForm({
+        name: '',
+        work_order_number: '',
+        category: 'Saleable',
+        quantity: 1,
+        status: 'available',
+        material_no: '',
+        received_from: '',
+        received_by: '',
+        vehicle_number: '',
+      });
+    } catch (err) {
+      console.error('Failed to add tool:', err);
     } finally {
       setSaving(false);
     }
@@ -221,38 +181,37 @@ export default function InventoryPage() {
     if (!editingTool) return;
     setSaving(true);
     try {
-      const updates: ToolUpdate = {
-        name: editForm.name,
-        work_order_number: editForm.work_order_number,
-        size_thread: editForm.size_thread,
-        material: editForm.material,
-        model: editForm.model,
-        part_number: editForm.part_number,
-        category: editForm.category,
-        quantity: editForm.quantity,
-        min_quantity: editForm.min_quantity,
-        status: editForm.status,
-        location: editForm.location,
-        description: editForm.description,
-      };
-
-      const response = await updateToolApi(editingTool.id, updates);
-      if (response.success) {
-        setTools(tools.map(t => t.id === editingTool.id ? { ...t, ...updates } : t));
-        setIsEditModalOpen(false);
-        setEditingTool(null);
-      }
-    } catch (error) {
-      console.error('Failed to update tool:', error);
+      await updateTool({
+        id: editingTool.id,
+        data: {
+          name: editForm.name,
+          work_order_number: editForm.work_order_number,
+          size_thread: editForm.size_thread,
+          material: editForm.material,
+          model: editForm.model,
+          part_number: editForm.part_number,
+          category: editForm.category,
+          quantity: editForm.quantity,
+          min_quantity: editForm.min_quantity,
+          status: editForm.status,
+          location: editForm.location,
+          description: editForm.description,
+        },
+      });
+      setIsEditModalOpen(false);
+      setEditingTool(null);
+    } catch (err) {
+      console.error('Failed to update tool:', err);
     } finally {
       setSaving(false);
     }
   };
 
+  const loading = profileLoading || (canViewAllInventory ? paginatedLoading : allToolsLoading);
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0B3C6D]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0B3C6D]" />
       </div>
     );
   }
@@ -271,7 +230,7 @@ export default function InventoryPage() {
             <span className="hidden sm:inline">Export</span>
           </button>
           {canAddTool && (
-            <button 
+            <button
               onClick={() => setIsAddModalOpen(true)}
               className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] transition-colors text-sm lg:text-base"
             >
@@ -340,8 +299,17 @@ export default function InventoryPage() {
 
       {/* Results Count */}
       <div className="flex items-center justify-between text-xs lg:text-sm text-gray-500">
-        <span className="hidden sm:block">Showing {paginatedTools.length} of {filteredTools.length} tools</span>
-        <span className="sm:hidden">{paginatedTools.length}/{filteredTools.length}</span>
+        {canViewAllInventory ? (
+          <>
+            <span className="hidden sm:block">Showing {paginatedTools.length} of {totalResults} tools</span>
+            <span className="sm:hidden">{paginatedTools.length}/{totalResults}</span>
+          </>
+        ) : (
+          <>
+            <span className="hidden sm:block">Showing {operatorTools.length} tools</span>
+            <span className="sm:hidden">{operatorTools.length}</span>
+          </>
+        )}
       </div>
 
       {/* Tools Table */}
@@ -440,22 +408,13 @@ export default function InventoryPage() {
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.location || '-'}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => setSelectedTool(tool)}
-                        className="p-2 text-gray-400 hover:text-[#0B3C6D] hover:bg-gray-100 rounded-lg transition-colors"
-                      >
+                      <button onClick={() => setSelectedTool(tool)} className="p-2 text-gray-400 hover:text-[#0B3C6D] hover:bg-gray-100 rounded-lg transition-colors">
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => openEditModal(tool)}
-                        className="p-2 text-gray-400 hover:text-[#0B3C6D] hover:bg-gray-100 rounded-lg transition-colors"
-                      >
+                      <button onClick={() => openEditModal(tool)} className="p-2 text-gray-400 hover:text-[#0B3C6D] hover:bg-gray-100 rounded-lg transition-colors">
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button 
-                        onClick={() => handleDeleteTool(tool.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-gray-100 rounded-lg transition-colors"
-                      >
+                      <button onClick={() => handleDeleteTool(tool.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-gray-100 rounded-lg transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -500,6 +459,104 @@ export default function InventoryPage() {
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
+        )}
+      </div>
+
+      {/* Receiving History Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-4 lg:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Receiving History</h2>
+            <p className="text-sm text-gray-500">Record of all received tools</p>
+          </div>
+        </div>
+
+        {displayTools.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            <p>No receiving history yet. Add tools to see history here.</p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tool Name</th>
+                    <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Quantity</th>
+                    <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Received From</th>
+                    <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Received By</th>
+                    <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Vehicle No</th>
+                    <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
+                    <th className="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {(displayTools.length > 10 ? displayTools.slice((historyPage - 1) * itemsPerPage, historyPage * itemsPerPage) : displayTools).map((tool, index) => (
+                    <motion.tr
+                      key={tool.id}
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, delay: index * 0.03 }}
+                      className="hover:bg-gray-50"
+                    >
+                      <td className="px-4 lg:px-6 py-3">
+                        <p className="font-medium text-gray-800 text-sm">{tool.name}</p>
+                      </td>
+                      <td className="px-4 lg:px-6 py-3 text-sm text-gray-600">{tool.quantity}</td>
+                      <td className="px-4 lg:px-6 py-3 text-sm text-gray-600">{tool.received_from || '-'}</td>
+                      <td className="px-4 lg:px-6 py-3 text-sm text-gray-600">{tool.received_by || '-'}</td>
+                      <td className="px-4 lg:px-6 py-3 text-sm text-gray-600">{tool.vehicle_number || '-'}</td>
+                      <td className="px-4 lg:px-6 py-3 text-sm text-gray-600">
+                        {tool.created_at ? new Date(tool.created_at).toLocaleDateString('en-GB') : '-'}
+                      </td>
+                      <td className="px-4 lg:px-6 py-3 text-right">
+                        <button
+                          onClick={() => setPrintTool(tool)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-[#0B3C6D] bg-[#0B3C6D]/5 hover:bg-[#0B3C6D]/10 rounded-lg transition-colors"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          Print
+                        </button>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {displayTools.length > 10 && (
+              <div className="px-6 py-3 border-t border-gray-200 flex items-center justify-between">
+                <span className="text-xs text-gray-500">{displayTools.length} total records</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                    disabled={historyPage === 1}
+                    className="p-1.5 text-gray-600 hover:bg-gray-50 rounded disabled:opacity-50"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  {Array.from({ length: historyTotalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => setHistoryPage(page)}
+                      className={`w-7 h-7 text-xs rounded ${
+                        historyPage === page ? 'bg-[#0B3C6D] text-white' : 'text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setHistoryPage(p => Math.min(historyTotalPages, p + 1))}
+                    disabled={historyPage === historyTotalPages}
+                    className="p-1.5 text-gray-600 hover:bg-gray-50 rounded disabled:opacity-50"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -608,13 +665,7 @@ export default function InventoryPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Tool Name *</label>
-                    <input
-                      type="text"
-                      value={editForm.name}
-                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                      required
-                    />
+                    <input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" required />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -622,94 +673,46 @@ export default function InventoryPage() {
                         Work Order Number (W/O)
                         <div className="group relative">
                           <HelpCircle className="w-3 h-3 text-gray-400 cursor-help" />
-                          <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 whitespace-nowrap z-[100] pointer-events-none transition-opacity">
-                            Work Order Number
-                          </span>
+                          <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 whitespace-nowrap z-[100] pointer-events-none transition-opacity">Work Order Number</span>
                         </div>
                       </span>
                     </label>
-                    <input
-                      type="text"
-                      value={editForm.work_order_number}
-                      onChange={(e) => setEditForm({ ...editForm, work_order_number: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                      required
-                    />
+                    <input type="text" value={editForm.work_order_number} onChange={(e) => setEditForm({ ...editForm, work_order_number: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" required />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Size/Thread</label>
-                    <input
-                      type="text"
-                      value={editForm.size_thread}
-                      onChange={(e) => setEditForm({ ...editForm, size_thread: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                    />
+                    <input type="text" value={editForm.size_thread} onChange={(e) => setEditForm({ ...editForm, size_thread: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Material</label>
-                    <input
-                      type="text"
-                      value={editForm.material}
-                      onChange={(e) => setEditForm({ ...editForm, material: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                    />
+                    <input type="text" value={editForm.material} onChange={(e) => setEditForm({ ...editForm, material: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
-                    <input
-                      type="text"
-                      value={editForm.model}
-                      onChange={(e) => setEditForm({ ...editForm, model: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                    />
+                    <input type="text" value={editForm.model} onChange={(e) => setEditForm({ ...editForm, model: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Part Number</label>
-                    <input
-                      type="text"
-                      value={editForm.part_number}
-                      onChange={(e) => setEditForm({ ...editForm, part_number: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                    />
+                    <input type="text" value={editForm.part_number} onChange={(e) => setEditForm({ ...editForm, part_number: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                    <select
-                      value={editForm.category}
-                      onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                    >
+                    <select value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20">
                       <option value="Saleable">Saleable</option>
                       <option value="Rental">Rental</option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={editForm.quantity}
-                      onChange={(e) => setEditForm({ ...editForm, quantity: parseInt(e.target.value) || 0 })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                    />
+                    <input type="number" min="0" value={editForm.quantity} onChange={(e) => setEditForm({ ...editForm, quantity: parseInt(e.target.value) || 0 })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Min Quantity</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={editForm.min_quantity}
-                      onChange={(e) => setEditForm({ ...editForm, min_quantity: parseInt(e.target.value) || 0 })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                    />
+                    <input type="number" min="0" value={editForm.min_quantity} onChange={(e) => setEditForm({ ...editForm, min_quantity: parseInt(e.target.value) || 0 })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select
-                      value={editForm.status}
-                      onChange={(e) => setEditForm({ ...editForm, status: e.target.value as ToolStatus })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                    >
+                    <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value as ToolStatus })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20">
                       <option value="available">Available</option>
                       <option value="in_use">In Use</option>
                       <option value="maintenance">Maintenance</option>
@@ -718,44 +721,19 @@ export default function InventoryPage() {
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                    <input
-                      type="text"
-                      value={editForm.location}
-                      onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                    />
+                    <input type="text" value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                    <textarea
-                      value={editForm.description}
-                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                      rows={3}
-                    />
+                    <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" rows={3} />
                   </div>
                 </div>
                 <div className="flex gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setIsEditModalOpen(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveEdit}
-                    disabled={saving}
-                    className="flex-1 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
+                  <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
+                  <button onClick={handleSaveEdit} disabled={saving} className="flex-1 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] disabled:opacity-50 flex items-center justify-center gap-2">
                     {saving ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                        Saving...
-                      </>
-                    ) : (
-                      'Save Changes'
-                    )}
+                      <><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>Saving...</>
+                    ) : 'Save Changes'}
                   </button>
                 </div>
               </div>
@@ -777,123 +755,64 @@ export default function InventoryPage() {
             <motion.div
               initial={{ scale: 0.95 }}
               animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
               className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
               onClick={e => e.stopPropagation()}
             >
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-gray-900">Add New Tool</h2>
-                  <button onClick={() => setIsAddModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                    <X className="w-5 h-5 text-gray-500" />
-                  </button>
+                  <button onClick={() => setIsAddModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
                 </div>
               </div>
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Tool Name *</label>
-                    <input
-                      type="text"
-                      value={editForm.name}
-                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                      required
-                    />
+                    <input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" required />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Work Order Number (W/O) *</label>
-                    <input
-                      type="text"
-                      value={editForm.work_order_number}
-                      onChange={(e) => setEditForm({ ...editForm, work_order_number: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                      required
-                    />
+                    <input type="text" value={editForm.work_order_number} onChange={(e) => setEditForm({ ...editForm, work_order_number: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" required />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Size/Thread</label>
-                    <input
-                      type="text"
-                      value={editForm.size_thread || ''}
-                      onChange={(e) => setEditForm({ ...editForm, size_thread: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                    />
+                    <input type="text" value={editForm.size_thread || ''} onChange={(e) => setEditForm({ ...editForm, size_thread: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Material</label>
-                    <input
-                      type="text"
-                      value={editForm.material || ''}
-                      onChange={(e) => setEditForm({ ...editForm, material: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                    />
+                    <input type="text" value={editForm.material || ''} onChange={(e) => setEditForm({ ...editForm, material: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
-                    <input
-                      type="text"
-                      value={editForm.model || ''}
-                      onChange={(e) => setEditForm({ ...editForm, model: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                    />
+                    <input type="text" value={editForm.model || ''} onChange={(e) => setEditForm({ ...editForm, model: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Material No</label>
-                    <input
-                      type="text"
-                      value={editForm.material_no || ''}
-                      onChange={(e) => setEditForm({ ...editForm, material_no: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                    />
+                    <input type="text" value={editForm.material_no || ''} onChange={(e) => setEditForm({ ...editForm, material_no: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Part Number</label>
-                    <input
-                      type="text"
-                      value={editForm.part_number || ''}
-                      onChange={(e) => setEditForm({ ...editForm, part_number: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                    />
+                    <input type="text" value={editForm.part_number || ''} onChange={(e) => setEditForm({ ...editForm, part_number: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
-                    <select
-                      value={editForm.category}
-                      onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                    >
+                    <select value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20">
                       <option value="Saleable">Saleable</option>
                       <option value="Rental">Rental</option>
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={editForm.quantity}
-                      onChange={(e) => setEditForm({ ...editForm, quantity: parseInt(e.target.value) || 0 })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                      required
-                    />
+                    <input type="number" min="1" value={editForm.quantity} onChange={(e) => setEditForm({ ...editForm, quantity: parseInt(e.target.value) || 0 })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" required />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Min Quantity</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={editForm.min_quantity || 1}
-                      onChange={(e) => setEditForm({ ...editForm, min_quantity: parseInt(e.target.value) || 0 })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                    />
+                    <input type="number" min="0" value={editForm.min_quantity || 1} onChange={(e) => setEditForm({ ...editForm, min_quantity: parseInt(e.target.value) || 0 })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select
-                      value={editForm.status}
-                      onChange={(e) => setEditForm({ ...editForm, status: e.target.value as ToolStatus })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                    >
+                    <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value as ToolStatus })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20">
                       <option value="available">Available</option>
                       <option value="in_use">In Use</option>
                       <option value="maintenance">Maintenance</option>
@@ -903,45 +822,34 @@ export default function InventoryPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                    <input
-                      type="text"
-                      value={editForm.location || ''}
-                      onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                      placeholder="e.g., Warehouse A, PFT"
-                    />
+                    <input type="text" value={editForm.location || ''} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" placeholder="e.g., Warehouse A, PFT" />
+                  </div>
+                  <div className="md:col-span-2 border-t border-gray-200 pt-4 mt-2">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Receiving Details</h3>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Received From</label>
+                    <input type="text" value={editForm.received_from || ''} onChange={(e) => setEditForm({ ...editForm, received_from: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" placeholder="e.g., Supplier name" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Received By</label>
+                    <input type="text" value={editForm.received_by || ''} onChange={(e) => setEditForm({ ...editForm, received_by: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" placeholder="e.g., Staff name" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Number</label>
+                    <input type="text" value={editForm.vehicle_number || ''} onChange={(e) => setEditForm({ ...editForm, vehicle_number: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" placeholder="e.g., ABC-1234" />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <textarea
-                    value={editForm.description || ''}
-                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                    rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-                  />
+                  <textarea value={editForm.description || ''} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={3} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                 </div>
                 <div className="flex gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddModalOpen(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleAddNewTool}
-                    disabled={saving || !editForm.name || !editForm.work_order_number}
-                    className="flex-1 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
+                  <button type="button" onClick={() => setIsAddModalOpen(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
+                  <button onClick={handleAddNewTool} disabled={saving || !editForm.name || !editForm.work_order_number} className="flex-1 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] disabled:opacity-50 flex items-center justify-center gap-2">
                     {saving ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                        Adding...
-                      </>
-                    ) : (
-                      'Add Tool'
-                    )}
+                      <><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>Adding...</>
+                    ) : 'Add Tool'}
                   </button>
                 </div>
               </div>
@@ -949,6 +857,130 @@ export default function InventoryPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Print Preview Modal */}
+      <AnimatePresence>
+        {printTool && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setPrintTool(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              <div id="print-content">
+                <div className="p-6 border-b border-gray-200 no-print">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-semibold text-gray-900">Print Preview</h2>
+                    <button onClick={() => setPrintTool(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                      <X className="w-5 h-5 text-gray-500" />
+                    </button>
+                  </div>
+                </div>
+                <div className="p-6 space-y-6" id="print-area">
+                  <div className="text-center border-b border-gray-300 pb-4 mb-4">
+                    <img src="/title-logo.png" alt="SenExpert Global" className="w-20 h-auto mx-auto mb-2" />
+                    <h1 className="text-2xl font-bold text-gray-900">SenExpert Global Energies</h1>
+                    <p className="text-sm text-gray-500">Tool Receiving Receipt</p>
+                  </div>
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Tool Specifications</h3>
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">W/O</span>
+                        <span className="text-sm text-gray-900">{printTool.work_order_number}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Size/Thread</span>
+                        <span className="text-sm text-gray-900">{printTool.size_thread || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Material</span>
+                        <span className="text-sm text-gray-900">{printTool.material || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Model</span>
+                        <span className="text-sm text-gray-900">{printTool.model || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Material No</span>
+                        <span className="text-sm text-gray-900">{printTool.material_no || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Part No</span>
+                        <span className="text-sm text-gray-900">{printTool.part_number || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Location</span>
+                        <span className="text-sm text-gray-900">{printTool.location || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Tool Name</span>
+                        <span className="text-sm text-gray-900">{printTool.name}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Quantity</span>
+                        <span className="text-sm text-gray-900">{printTool.quantity}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-3 pt-4 border-t border-gray-200">
+                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Receiving Information</h3>
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Received From</span>
+                        <span className="text-sm text-gray-900">{printTool.received_from || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Received By</span>
+                        <span className="text-sm text-gray-900">{printTool.received_by || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Vehicle No</span>
+                        <span className="text-sm text-gray-900">{printTool.vehicle_number || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Date</span>
+                        <span className="text-sm text-gray-900">{printTool.created_at ? new Date(printTool.created_at).toLocaleDateString('en-GB') : '-'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-4 border-t border-gray-200 text-center text-xs text-gray-400">
+                    <p>Generated by SenExpert Global Energies - SGE System</p>
+                  </div>
+                </div>
+              </div>
+              <div className="p-6 border-t border-gray-200 flex gap-3 no-print">
+                <button onClick={() => setPrintTool(null)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
+                <button onClick={() => window.print()} className="flex-1 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] flex items-center justify-center gap-2">
+                  <Printer className="w-4 h-4" /> Print
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #print-content, #print-content * { visibility: visible; }
+          #print-content {
+            position: fixed; left: 0; top: 0; width: 100%; height: 100%;
+            background: white; z-index: 99999; overflow: auto;
+          }
+          #print-area { padding: 40px !important; }
+          .no-print { display: none !important; }
+          @page { margin: 15mm; size: A4 portrait; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -58,6 +58,10 @@ export interface Tool {
   created_by?: string;
   created_at: Date;
   updated_at?: Date;
+  // Receiving details
+  received_from?: string;
+  received_by?: string;
+  vehicle_number?: string;
 }
 
 export interface ToolInsert {
@@ -80,6 +84,10 @@ export interface ToolInsert {
   packing_list_no?: string;
   packing_info?: string;
   created_by?: string;
+  // Receiving details
+  received_from?: string;
+  received_by?: string;
+  vehicle_number?: string;
 }
 
 export interface ToolUpdate {

@@ -13,15 +13,15 @@ const clients = [
   },
   {
     name: 'Anatolia Energy & Services Limited',
-    logo: '/clients/Anatolia Energy & Services Limited.png',
+    logo: '/clients/Anatolia-Energy.png',
   },
   {
     name: 'BAP Energy Limited',
-    logo: '/clients/BAP ENERGY LIMITED.png',
+    logo: '/clients/BAP-Energy-Limited.png',
   },
   {
     name: 'Eyrie Group',
-    logo: '/clients/Eyrie Group.png',
+    logo: '/clients/Eyrie-Group.png',
   },
 ];
 

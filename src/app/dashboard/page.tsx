@@ -1,28 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Package, CheckCircle, Clock, Wrench, AlertTriangle, FolderOpen, TrendingUp, DollarSign, FileCheck } from 'lucide-react';
 import StatCard from '@/components/dashboard/StatCard';
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import AlertsPanel from '@/components/dashboard/AlertsPanel';
 import StatusBadge, { ProgressBar } from '@/components/dashboard/StatusBadge';
-import { useAuth, getStoredUser, getStoredProfile } from '@/lib/authContext';
-import type { Alert } from '@/lib/database.types';
-
-interface DashboardStats {
-  totalTools: number;
-  available: number;
-  inUse: number;
-  maintenance: number;
-  lowStock: number;
-  pendingRequests: number;
-  upcomingMaintenance: number;
-  pendingFinancialRequests: number;
-  approvedFinancialRequests: number;
-  totalFinancialAmount: number;
-}
+import { useDashboardStats, useAlerts, useTools } from '@/hooks/api';
 
 interface CategoryData {
   name: string;
@@ -37,102 +22,51 @@ interface StatusData {
 }
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const { user, isLoading: authLoading } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [categories, setCategories] = useState<CategoryData[]>([]);
-  const [statusDistribution, setStatusDistribution] = useState<StatusData[]>([]);
+  const { data: stats, isLoading: statsLoading, isError: statsError } = useDashboardStats();
+  const { data: alerts } = useAlerts();
+  const { data: toolsData } = useTools();
 
-  useEffect(() => {
-    // Check if user is authenticated before loading data
-    const storedUser = getStoredUser();
-    const storedProfile = getStoredProfile();
-    
-    if (!storedUser || !storedProfile) {
-      router.push('/login');
-      return;
+  // Derive status distribution from stats
+  const statusDistribution = useMemo<StatusData[]>(() => {
+    if (!stats) return [];
+    const total = stats.available + stats.inUse + stats.maintenance;
+    if (total === 0) return [];
+    return [
+      { name: 'Available', value: Math.round((stats.available / total) * 100), count: stats.available },
+      { name: 'In Use', value: Math.round((stats.inUse / total) * 100), count: stats.inUse },
+      { name: 'Maintenance', value: Math.round((stats.maintenance / total) * 100), count: stats.maintenance },
+    ];
+  }, [stats]);
+
+  // Derive category distribution from tools list
+  const categories = useMemo<CategoryData[]>(() => {
+    if (!toolsData || toolsData.length === 0) return [];
+    const map = new Map<string, number>();
+    for (const tool of toolsData) {
+      map.set(tool.category, (map.get(tool.category) || 0) + tool.quantity);
     }
-    
-    loadDashboardData();
-  }, [authLoading]);
+    const total = Array.from(map.values()).reduce((a, b) => a + b, 0);
+    return Array.from(map.entries())
+      .map(([name, qty]) => ({
+        name,
+        value: total > 0 ? Math.round((qty / total) * 100) : 0,
+        tools: qty,
+      }))
+      .sort((a, b) => b.tools - a.tools);
+  }, [toolsData]);
 
-  async function loadDashboardData() {
-    // Skip if still loading auth
-    if (authLoading) return;
-    
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('senexpert_token');
-      
-      // Fetch stats from API
-      const statsRes = await fetch('/api/tools/stats', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const statsData = await statsRes.json();
-      if (statsData.success && statsData.data) {
-        setStats(statsData.data);
-        
-        const totalToolItems = statsData.data.available + statsData.data.inUse + statsData.data.maintenance;
-        if (totalToolItems > 0) {
-          setStatusDistribution([
-            { name: 'Available', value: Math.round((statsData.data.available / totalToolItems) * 100), count: statsData.data.available },
-            { name: 'In Use', value: Math.round((statsData.data.inUse / totalToolItems) * 100), count: statsData.data.inUse },
-            { name: 'Maintenance', value: Math.round((statsData.data.maintenance / totalToolItems) * 100), count: statsData.data.maintenance },
-          ]);
-        }
-      }
-
-      // Fetch alerts
-      const alertsRes = await fetch('/api/alerts', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const alertsData = await alertsRes.json();
-      if (alertsData.success && alertsData.data) {
-        setAlerts(alertsData.data);
-      }
-
-      // Fetch tools for category distribution
-      const toolsRes = await fetch('/api/tools', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const toolsData = await toolsRes.json();
-      if (toolsData.success && toolsData.data) {
-        const categoryMap = new Map<string, number>();
-        toolsData.data.forEach((tool: { category: string; quantity: number }) => {
-          const current = categoryMap.get(tool.category) || 0;
-          categoryMap.set(tool.category, current + tool.quantity);
-        });
-        
-        const total = Array.from(categoryMap.values()).reduce((a, b) => a + b, 0);
-        const catData: CategoryData[] = Array.from(categoryMap.entries()).map(([name, tools]) => ({
-          name,
-          value: total > 0 ? Math.round((tools / total) * 100) : 0,
-          tools,
-        }));
-        setCategories(catData.sort((a, b) => b.tools - a.tools));
-      }
-    } catch (error) {
-      console.error('Failed to load dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
-  };
 
-  if (loading || !stats) {
+  if (statsLoading || !stats) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0B3C6D]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0B3C6D]" />
       </div>
     );
   }
@@ -143,48 +77,12 @@ export default function DashboardPage() {
   const maintenancePercentage = totalToolsCount > 0 ? Math.round((stats.maintenance / totalToolsCount) * 100) : 0;
 
   const statCards = [
-    { 
-      title: 'Total Tools', 
-      value: stats.totalTools, 
-      icon: Package,
-      color: 'blue' as const,
-      subtitle: `${totalToolsCount} items in stock`
-    },
-    { 
-      title: 'Available', 
-      value: stats.available, 
-      icon: CheckCircle,
-      color: 'green' as const,
-      subtitle: `${availablePercentage}% of total`
-    },
-    { 
-      title: 'In Use', 
-      value: stats.inUse, 
-      icon: Clock,
-      color: 'blue' as const,
-      subtitle: `${inUsePercentage}% of total`
-    },
-    { 
-      title: 'Maintenance', 
-      value: stats.maintenance, 
-      icon: Wrench,
-      color: 'orange' as const,
-      subtitle: `${maintenancePercentage}% of total`
-    },
-    { 
-      title: 'Low Stock', 
-      value: stats.lowStock, 
-      icon: AlertTriangle,
-      color: 'red' as const,
-      subtitle: 'Items below minimum'
-    },
-    { 
-      title: 'Pending Requests', 
-      value: stats.pendingRequests, 
-      icon: FolderOpen,
-      color: 'purple' as const,
-      subtitle: 'Tool requests awaiting'
-    },
+    { title: 'Total Tools', value: stats.totalTools, icon: Package, color: 'blue' as const, subtitle: `${totalToolsCount} items in stock` },
+    { title: 'Available', value: stats.available, icon: CheckCircle, color: 'green' as const, subtitle: `${availablePercentage}% of total` },
+    { title: 'In Use', value: stats.inUse, icon: Clock, color: 'blue' as const, subtitle: `${inUsePercentage}% of total` },
+    { title: 'Maintenance', value: stats.maintenance, icon: Wrench, color: 'orange' as const, subtitle: `${maintenancePercentage}% of total` },
+    { title: 'Low Stock', value: stats.lowStock, icon: AlertTriangle, color: 'red' as const, subtitle: 'Items below minimum' },
+    { title: 'Pending Requests', value: stats.pendingRequests, icon: FolderOpen, color: 'purple' as const, subtitle: 'Tool requests awaiting' },
   ];
 
   return (
@@ -193,7 +91,7 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500 mt-1 text-sm lg:text-base">Welcome back! Here's what's happening with your tool inventory.</p>
+          <p className="text-gray-500 mt-1 text-sm lg:text-base">Welcome back! Here&apos;s what&apos;s happening with your tool inventory.</p>
         </div>
         <div className="flex items-center gap-2 text-xs lg:text-sm text-gray-500">
           <span>Last updated:</span>
@@ -260,14 +158,11 @@ export default function DashboardPage() {
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-        {/* Left Column - Activity Feed */}
         <div className="lg:col-span-2">
           <ActivityFeed maxItems={8} />
         </div>
-
-        {/* Right Column - Alerts */}
         <div className="lg:col-span-1">
-          <AlertsPanel alerts={alerts} maxItems={5} />
+          <AlertsPanel alerts={alerts ?? []} maxItems={5} />
         </div>
       </div>
 
@@ -282,18 +177,13 @@ export default function DashboardPage() {
         >
           <h3 className="font-semibold text-gray-800 mb-4">Tool Status Distribution</h3>
           <div className="space-y-4">
-            {statusDistribution.map((status) => (
-              <div key={status.name} className="space-y-2">
+            {statusDistribution.map((s) => (
+              <div key={s.name} className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">{status.name}</span>
-                  <span className="font-medium text-gray-800">{status.count} ({status.value}%)</span>
+                  <span className="text-gray-600">{s.name}</span>
+                  <span className="font-medium text-gray-800">{s.count} ({s.value}%)</span>
                 </div>
-                <ProgressBar 
-                  value={status.value} 
-                  max={100} 
-                  color={status.name === 'Available' ? 'green' : status.name === 'In Use' ? 'blue' : 'orange'} 
-                  size="md" 
-                />
+                <ProgressBar value={s.value} max={100} color={s.name === 'Available' ? 'green' : s.name === 'In Use' ? 'blue' : 'orange'} size="md" />
               </div>
             ))}
             <div className="pt-4 border-t border-gray-100">
@@ -314,13 +204,13 @@ export default function DashboardPage() {
         >
           <h3 className="font-semibold text-gray-800 mb-4">Tools by Category</h3>
           <div className="space-y-4">
-            {categories.length > 0 ? categories.slice(0, 6).map((category) => (
-              <div key={category.name} className="space-y-2">
+            {categories.length > 0 ? categories.slice(0, 6).map((cat) => (
+              <div key={cat.name} className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">{category.name}</span>
-                  <span className="font-medium text-gray-800">{category.tools} ({category.value}%)</span>
+                  <span className="text-gray-600">{cat.name}</span>
+                  <span className="font-medium text-gray-800">{cat.tools} ({cat.value}%)</span>
                 </div>
-                <ProgressBar value={category.value} max={100} color="blue" size="sm" />
+                <ProgressBar value={cat.value} max={100} color="blue" size="sm" />
               </div>
             )) : (
               <p className="text-gray-500 text-sm">No tools in inventory yet.</p>

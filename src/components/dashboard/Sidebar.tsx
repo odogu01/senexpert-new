@@ -96,16 +96,14 @@ export default function Sidebar({
       {/* Header */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
         <Link href="/dashboard" className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-[#0B3C6D] to-[#00AEEF] rounded-lg flex items-center justify-center">
-            <Package className="w-5 h-5 text-white" />
-          </div>
+          <img src="/title-logo.png" alt="SenExpert Global" className="w-8 h-8" />
           {showExpanded && (
             <motion.span 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="font-bold text-[#0B3C6D] text-lg"
             >
-              ToolVault
+              SGE System
             </motion.span>
           )}
         </Link>
