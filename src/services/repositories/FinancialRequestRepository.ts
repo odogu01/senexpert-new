@@ -20,8 +20,19 @@ export class FinancialRequestRepository extends BaseRepository<any> {
       {
         $lookup: {
           from: 'profiles',
-          localField: 'requested_by',
-          foreignField: '_id',
+          let: { requesterIdString: '$requested_by' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $ne: ['$$requesterIdString', ''] },
+                    { $eq: [{ $toString: '$_id' }, '$$requesterIdString'] }
+                  ]
+                }
+              }
+            }
+          ],
           as: 'requestedByProfile',
         },
       },

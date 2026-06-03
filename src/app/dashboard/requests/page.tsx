@@ -16,7 +16,7 @@ export default function RequestsPage() {
   const { mutateAsync: updateStatus } = useUpdateToolRequestStatus();
 
   const userRole = profile?.role ?? null;
-  const canCreateRequest = userRole === 'super_admin' || userRole === 'operator';
+  const canCreateRequest = userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator';
   const canApprove = userRole === 'super_admin' || userRole === 'admin';
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -24,8 +24,13 @@ export default function RequestsPage() {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     toolId: '',
+    toolName: '',
+    sizeThread: '',
+    material: '',
+    model: '',
     quantity: '1',
     movementType: 'outgoing' as 'incoming' | 'outgoing',
+    transactionType: 'sold' as 'sold' | 'rented',
     location: 'Warehouse A',
     notes: '',
     vehicleNo: '',
@@ -34,6 +39,8 @@ export default function RequestsPage() {
     receivedBy: '',
     receivedFrom: '',
   });
+  const [maxQuantity, setMaxQuantity] = useState<number | null>(null);
+  const [quantityError, setQuantityError] = useState<string | null>(null);
 
   const filteredRequests = (requests as ToolRequest[]).filter(req => {
     const matchesStatus = statusFilter === 'all' || req.status === statusFilter;
@@ -47,6 +54,14 @@ export default function RequestsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate outgoing quantity doesn't exceed available stock
+    const parsedQuantity = parseInt(formData.quantity);
+    if (formData.movementType === 'outgoing' && maxQuantity !== null && parsedQuantity > maxQuantity) {
+      setQuantityError(`Maximum available quantity is ${maxQuantity}. You requested ${parsedQuantity}.`);
+      return;
+    }
+
     try {
       const requestData: Record<string, unknown> = {
         tool_id: formData.toolId,
@@ -59,28 +74,42 @@ export default function RequestsPage() {
         requestData.vehicle_no = formData.vehicleNo;
         requestData.delivered_to = formData.deliveredTo;
         requestData.delivered_by = formData.deliveredBy;
+        requestData.transaction_type = formData.transactionType;
       } else {
         requestData.vehicle_no = formData.vehicleNo;
         requestData.received_by = formData.receivedBy;
         requestData.received_from = formData.receivedFrom;
+        // Incoming requests for returning rented tools
+        requestData.transaction_type = 'rented';
       }
       await createRequest(requestData);
-      setShowModal(false);
-      setFormData({
-        toolId: '',
-        quantity: '1',
-        movementType: 'outgoing',
-        location: 'Warehouse A',
-        notes: '',
-        vehicleNo: '',
-        deliveredTo: '',
-        deliveredBy: '',
-        receivedBy: '',
-        receivedFrom: '',
-      });
+      handleCloseModal();
     } catch (err) {
       console.error('Failed to submit request:', err);
     }
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setMaxQuantity(null);
+    setQuantityError(null);
+    setFormData({
+      toolId: '',
+      toolName: '',
+      sizeThread: '',
+      material: '',
+      model: '',
+      quantity: '1',
+      movementType: 'outgoing',
+      transactionType: 'sold',
+      location: 'Warehouse A',
+      notes: '',
+      vehicleNo: '',
+      deliveredTo: '',
+      deliveredBy: '',
+      receivedBy: '',
+      receivedFrom: '',
+    });
   };
 
   const handleStatusChange = async (id: string, status: 'approved' | 'rejected' | 'completed') => {
@@ -232,28 +261,187 @@ export default function RequestsPage() {
       {/* New Request Modal */}
       <AnimatePresence>
         {showModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-              <div className="p-6 border-b border-gray-200">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={handleCloseModal}>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-white rounded-xl shadow-xl w-full max-w-md flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+              <div className="p-5 border-b border-gray-200 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold text-gray-900">New Tool Request</h2>
-                  <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
+                  <button onClick={handleCloseModal} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
                 </div>
               </div>
-              <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <form id="request-form" onSubmit={handleSubmit} className="p-5 space-y-3 overflow-y-auto flex-grow">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Movement Type</label>
-                  <select value={formData.movementType} onChange={(e) => setFormData({ ...formData, movementType: e.target.value as 'incoming' | 'outgoing' })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+                  <select value={formData.movementType} onChange={(e) => {
+                    const newMovementType = e.target.value as 'incoming' | 'outgoing';
+                    setMaxQuantity(null);
+                    setQuantityError(null);
+                    setFormData({ 
+                      ...formData, 
+                      movementType: newMovementType,
+                      toolId: '',
+                      toolName: '',
+                      sizeThread: '',
+                      material: '',
+                      model: '',
+                      quantity: '1',
+                      transactionType: newMovementType === 'outgoing' ? 'sold' : 'sold' // Default to sold for both, but rented tools won't appear for incoming
+                    });
+                  }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
                     <option value="outgoing">Outgoing</option>
                     <option value="incoming">Incoming</option>
                   </select>
                 </div>
+                {formData.movementType === 'outgoing' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Transaction Type</label>
+                    <select value={formData.transactionType} onChange={(e) => setFormData({ ...formData, transactionType: e.target.value as 'sold' | 'rented' })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+                      <option value="sold">Sold</option>
+                      <option value="rented">Rented</option>
+                    </select>
+                  </div>
+                )}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Tool</label>
-                  <select value={formData.toolId} onChange={(e) => setFormData({ ...formData, toolId: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
-                    <option value="">Select a tool...</option>
-                    {tools.map(tool => (
-                      <option key={tool.id} value={tool.id}>{tool.name} | {tool.size_thread || '-'} | {tool.material || '-'} | {tool.model || '-'}</option>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tool Name</label>
+                  <select value={formData.toolName} onChange={(e) => {
+                    const toolName = e.target.value;
+                    const filteredTools = formData.movementType === 'incoming' 
+                      ? tools.filter(t => t.status === 'rentals')
+                      : tools;
+                    const matchingTools = filteredTools.filter(t => t.name === toolName);
+                    const firstTool = matchingTools[0];
+                    const toolQuantity = firstTool?.quantity || 0;
+                    setMaxQuantity(toolQuantity);
+                    setFormData({ 
+                      ...formData, 
+                      toolName,
+                      toolId: firstTool?.id || '',
+                      sizeThread: firstTool?.size_thread || '',
+                      material: firstTool?.material || '',
+                      model: firstTool?.model || '',
+                      quantity: toolQuantity > 0 ? Math.min(parseInt(formData.quantity), toolQuantity).toString() : '1'
+                    });
+                  }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+                    <option value="">Select tool name...</option>
+                    {Array.from(new Set(
+                      (formData.movementType === 'incoming' 
+                        ? tools.filter(t => t.status === 'rentals')
+                        : tools
+                      ).map(t => t.name)
+                    )).map(name => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Size/Thread</label>
+                  <select value={formData.sizeThread} onChange={(e) => {
+                    const sizeThread = e.target.value;
+                    const filteredTools = formData.movementType === 'incoming' 
+                      ? tools.filter(t => t.status === 'rentals')
+                      : tools;
+                    const matchingTools = filteredTools.filter(t => t.name === formData.toolName && t.size_thread === sizeThread);
+                    const firstTool = matchingTools[0];
+                    const toolQuantity = firstTool?.quantity || 0;
+                    setMaxQuantity(toolQuantity);
+                    setFormData({ 
+                      ...formData, 
+                      sizeThread,
+                      toolId: firstTool?.id || '',
+                      material: firstTool?.material || '',
+                      model: firstTool?.model || '',
+                      quantity: toolQuantity > 0 ? Math.min(parseInt(formData.quantity), toolQuantity).toString() : '1'
+                    });
+                  }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+                    <option value="">Select size/thread...</option>
+                    {Array.from(new Set(
+                      (formData.movementType === 'incoming' 
+                        ? tools.filter(t => t.status === 'rentals')
+                        : tools
+                      )
+                      .filter(t => t.name === formData.toolName)
+                      .map(t => t.size_thread || '')
+                      .filter(v => v !== '')
+                    )).map(size => (
+                      <option key={size} value={size}>{size}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Material</label>
+                  <select value={formData.material} onChange={(e) => {
+                    const material = e.target.value;
+                    const filteredTools = formData.movementType === 'incoming' 
+                      ? tools.filter(t => t.status === 'rentals')
+                      : tools;
+                    const matchingTools = filteredTools.filter(t => 
+                      t.name === formData.toolName && 
+                      t.size_thread === formData.sizeThread &&
+                      t.material === material
+                    );
+                    const firstTool = matchingTools[0];
+                    const toolQuantity = firstTool?.quantity || 0;
+                    setMaxQuantity(toolQuantity);
+                    setFormData({ 
+                      ...formData, 
+                      material,
+                      toolId: firstTool?.id || '',
+                      model: firstTool?.model || '',
+                      quantity: toolQuantity > 0 ? Math.min(parseInt(formData.quantity), toolQuantity).toString() : '1'
+                    });
+                  }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+                    <option value="">Select material...</option>
+                    {Array.from(new Set(
+                      (formData.movementType === 'incoming' 
+                        ? tools.filter(t => t.status === 'rentals')
+                        : tools
+                      )
+                      .filter(t => t.name === formData.toolName && t.size_thread === formData.sizeThread)
+                      .map(t => t.material || '')
+                      .filter(v => v !== '')
+                    )).map(mat => (
+                      <option key={mat} value={mat}>{mat}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                  <select value={formData.model} onChange={(e) => {
+                    const model = e.target.value;
+                    const filteredTools = formData.movementType === 'incoming' 
+                      ? tools.filter(t => t.status === 'rentals')
+                      : tools;
+                    const matchingTools = filteredTools.filter(t => 
+                      t.name === formData.toolName && 
+                      t.size_thread === formData.sizeThread &&
+                      t.material === formData.material &&
+                      t.model === model
+                    );
+                    const firstTool = matchingTools[0];
+                    const toolQuantity = firstTool?.quantity || 0;
+                    setMaxQuantity(toolQuantity);
+                    setFormData({ 
+                      ...formData, 
+                      model,
+                      toolId: firstTool?.id || '',
+                      quantity: toolQuantity > 0 ? Math.min(parseInt(formData.quantity) || 1, toolQuantity).toString() : '1'
+                    });
+                  }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+                    <option value="">Select model...</option>
+                    {Array.from(new Set(
+                      (formData.movementType === 'incoming' 
+                        ? tools.filter(t => t.status === 'rentals')
+                        : tools
+                      )
+                      .filter(t => 
+                        t.name === formData.toolName && 
+                        t.size_thread === formData.sizeThread &&
+                        t.material === formData.material
+                      )
+                      .map(t => t.model || '')
+                      .filter(v => v !== '')
+                    )).map(mod => (
+                      <option key={mod} value={mod}>{mod}</option>
                     ))}
                   </select>
                 </div>
@@ -266,7 +454,33 @@ export default function RequestsPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                  <input type="number" min="1" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      max={formData.movementType === 'outgoing' && maxQuantity !== null ? maxQuantity : undefined}
+                      value={formData.quantity}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData({ ...formData, quantity: val });
+                        if (formData.movementType === 'outgoing' && maxQuantity !== null && parseInt(val) > maxQuantity) {
+                          setQuantityError(`Maximum available quantity is ${maxQuantity}`);
+                        } else {
+                          setQuantityError(null);
+                        }
+                      }}
+                      className={`w-full px-4 py-2 border rounded-lg ${quantityError ? 'border-red-500' : 'border-gray-300'}`}
+                      required
+                    />
+                    {formData.movementType === 'outgoing' && maxQuantity !== null && (
+                      <span className="text-xs text-gray-500 whitespace-nowrap shrink-0">
+                        Available: <strong>{maxQuantity}</strong>
+                      </span>
+                    )}
+                  </div>
+                  {quantityError && (
+                    <p className="mt-1 text-sm text-red-600">{quantityError}</p>
+                  )}
                 </div>
                 {formData.movementType === 'outgoing' ? (
                   <>
@@ -282,11 +496,13 @@ export default function RequestsPage() {
                   </>
                 )}
                 <div><label className="block text-sm font-medium text-gray-700 mb-1">Notes</label><textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" rows={3} /></div>
-                <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
-                  <button type="submit" className="flex-1 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a]">Submit Request</button>
-                </div>
               </form>
+              <div className="p-5 border-t border-gray-200 flex-shrink-0">
+                <div className="flex gap-3">
+                  <button type="button" onClick={handleCloseModal} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
+                  <button type="submit" form="request-form" className="flex-1 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a]">Submit Request</button>
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}

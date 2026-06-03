@@ -56,7 +56,11 @@ export function useUpdateToolRequestStatus() {
       });
       return throwIfError(await res.json());
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.toolRequests.all }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.toolRequests.all });
+      qc.invalidateQueries({ queryKey: queryKeys.tools.all });
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.stats });
+    },
   });
 }
 

@@ -219,20 +219,34 @@ export async function getToolRequests(filters?: {
 export async function createToolRequest(request: {
   tool_id: string;
   movement_type: 'incoming' | 'outgoing';
+  transaction_type?: 'sold' | 'rented';
   requested_by?: string;
   assigned_to?: string;
   quantity: number;
   notes?: string;
+  location?: string;
+  vehicle_no?: string;
+  delivered_to?: string;
+  delivered_by?: string;
+  received_by?: string;
+  received_from?: string;
 }): Promise<{ success: boolean; data?: ToolRequest; error?: string }> {
   try {
     const newRequest = await toolRequestRepo.insertOne({
       tool_id: request.tool_id,
       movement_type: request.movement_type,
+      transaction_type: request.transaction_type,
       requested_by: request.requested_by,
       assigned_to: request.assigned_to,
       quantity: request.quantity,
       status: 'pending',
       notes: request.notes,
+      location: request.location,
+      vehicle_no: request.vehicle_no,
+      delivered_to: request.delivered_to,
+      delivered_by: request.delivered_by,
+      received_by: request.received_by,
+      received_from: request.received_from,
       request_date: new Date().toISOString(),
     });
 
@@ -262,8 +276,43 @@ export async function updateToolRequestStatus(
     if (status === 'approved') {
       updates.approved_by = approved_by;
       updates.approved_at = new Date();
+      
+      // Handle tool quantity logic for approved outgoing requests
+      if (oldRequest?.movement_type === 'outgoing' && oldRequest?.tool_id) {
+        const tool = await toolRepo.findById(oldRequest.tool_id);
+        if (tool) {
+          if (oldRequest.transaction_type === 'sold') {
+            // Reduce quantity for sold tools
+            const newQuantity = Math.max(0, tool.quantity - oldRequest.quantity);
+            await toolRepo.updateOneRaw(oldRequest.tool_id, { quantity: newQuantity });
+            
+            // If quantity becomes 0, delete the tool (existing auto-delete logic)
+            if (newQuantity === 0) {
+              await toolRepo.deleteOne(oldRequest.tool_id);
+            }
+          } else if (oldRequest.transaction_type === 'rented') {
+            // Reduce quantity + mark as rentals
+            const newQuantity = Math.max(0, tool.quantity - oldRequest.quantity);
+            await toolRepo.updateOneRaw(oldRequest.tool_id, { quantity: newQuantity, status: 'rentals' });
+            
+            if (newQuantity === 0) {
+              await toolRepo.deleteOne(oldRequest.tool_id);
+            }
+          }
+        }
+      }
     } else if (status === 'completed') {
       updates.completed_at = new Date();
+      
+      // Handle incoming requests (returns)
+      if (oldRequest?.movement_type === 'incoming' && oldRequest?.tool_id) {
+        const tool = await toolRepo.findById(oldRequest.tool_id);
+        if (tool && oldRequest.transaction_type === 'rented') {
+          // Return rented tool - add quantity back + mark as available
+          const newQuantity = tool.quantity + oldRequest.quantity;
+          await toolRepo.updateOneRaw(oldRequest.tool_id, { quantity: newQuantity, status: 'available' });
+        }
+      }
     }
 
     const { matchedCount } = await toolRequestRepo.updateOneRaw(id, updates);

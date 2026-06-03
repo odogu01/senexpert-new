@@ -114,6 +114,7 @@ export interface ToolRequest {
   id: string;
   tool_id?: string;
   movement_type: MovementType;
+  transaction_type?: 'sold' | 'rented';
   requested_by?: string;
   assigned_to?: string;
   quantity: number;

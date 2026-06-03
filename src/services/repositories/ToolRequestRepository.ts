@@ -20,8 +20,19 @@ export class ToolRequestRepository extends BaseRepository<any> {
       {
         $lookup: {
           from: 'tools',
-          localField: 'tool_id',
-          foreignField: '_id',
+          let: { toolIdString: '$tool_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $ne: ['$$toolIdString', ''] },
+                    { $eq: [{ $toString: '$_id' }, '$$toolIdString'] }
+                  ]
+                }
+              }
+            }
+          ],
           as: 'toolDetails',
         },
       },
