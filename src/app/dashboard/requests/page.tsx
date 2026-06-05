@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Check, Clock, AlertTriangle, Package, Printer } from 'lucide-react';
+import { Plus, X, Clock, AlertTriangle, Package, Printer } from 'lucide-react';
 import { useToolRequests, useCreateToolRequest, useUpdateToolRequestStatus, useTools, useProfile } from '@/hooks/api';
 import StatusBadge from '@/components/dashboard/StatusBadge';
 import type { ToolRequest } from '@/lib/database.types';
@@ -49,8 +49,10 @@ export default function RequestsPage() {
   });
 
   const pendingCount = (requests as ToolRequest[]).filter(r => r.status === 'pending').length;
-  const approvedCount = (requests as ToolRequest[]).filter(r => r.status === 'approved').length;
   const rejectedCount = (requests as ToolRequest[]).filter(r => r.status === 'rejected').length;
+  const approvedToolsCount = (requests as ToolRequest[])
+    .filter(r => r.status === 'approved')
+    .reduce((sum, r) => sum + (r.quantity || 0), 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,17 +153,7 @@ export default function RequestsPage() {
               <p className="text-xs text-gray-500">Pending</p>
             </div>
           </div>
-        </div>
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
-              <Check className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-800">{approvedCount}</p>
-              <p className="text-xs text-gray-500">Approved</p>
-            </div>
-          </div>
+        )
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
           <div className="flex items-center gap-3">
@@ -171,6 +163,17 @@ export default function RequestsPage() {
             <div>
               <p className="text-2xl font-bold text-gray-800">{rejectedCount}</p>
               <p className="text-xs text-gray-500">Rejected</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
+              <Package className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-800">{approvedToolsCount}</p>
+              <p className="text-xs text-gray-500">Approved Tools</p>
             </div>
           </div>
         </div>
@@ -206,6 +209,7 @@ export default function RequestsPage() {
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Tool</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Location</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Quantity</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Vehicle No</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Notes</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
                 <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Actions</th>
@@ -214,7 +218,7 @@ export default function RequestsPage() {
             <tbody className="divide-y divide-gray-100">
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
                     <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                     <p>No requests found</p>
                   </td>
@@ -232,6 +236,7 @@ export default function RequestsPage() {
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.tool_name || 'N/A'}</td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{(request as unknown as Record<string, unknown>).location as string || '-'}</td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.quantity}</td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.vehicle_no || '-'}</td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600 max-w-xs truncate">{request.notes || '-'}</td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{new Date(request.created_at).toLocaleDateString()}</td>
                     <td className="px-4 lg:px-6 py-4 text-right">
@@ -245,9 +250,7 @@ export default function RequestsPage() {
                             <button onClick={() => handleStatusChange(request.id, 'rejected')} className="px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600">Reject</button>
                           </>
                         )}
-                        {request.status === 'approved' && (
-                          <button onClick={() => handleStatusChange(request.id, 'completed')} className="px-3 py-1 text-sm bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a]">Complete</button>
-                        )}
+
                       </div>
                     </td>
                   </motion.tr>
@@ -319,7 +322,9 @@ export default function RequestsPage() {
                       sizeThread: firstTool?.size_thread || '',
                       material: firstTool?.material || '',
                       model: firstTool?.model || '',
-                      quantity: toolQuantity > 0 ? Math.min(parseInt(formData.quantity), toolQuantity).toString() : '1'
+                      quantity: formData.movementType === 'outgoing' && toolQuantity > 0
+                        ? Math.min(parseInt(formData.quantity), toolQuantity).toString()
+                        : formData.quantity
                     });
                   }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
                     <option value="">Select tool name...</option>
@@ -350,7 +355,9 @@ export default function RequestsPage() {
                       toolId: firstTool?.id || '',
                       material: firstTool?.material || '',
                       model: firstTool?.model || '',
-                      quantity: toolQuantity > 0 ? Math.min(parseInt(formData.quantity), toolQuantity).toString() : '1'
+                      quantity: formData.movementType === 'outgoing' && toolQuantity > 0
+                        ? Math.min(parseInt(formData.quantity), toolQuantity).toString()
+                        : formData.quantity
                     });
                   }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
                     <option value="">Select size/thread...</option>
@@ -387,7 +394,9 @@ export default function RequestsPage() {
                       material,
                       toolId: firstTool?.id || '',
                       model: firstTool?.model || '',
-                      quantity: toolQuantity > 0 ? Math.min(parseInt(formData.quantity), toolQuantity).toString() : '1'
+                      quantity: formData.movementType === 'outgoing' && toolQuantity > 0
+                        ? Math.min(parseInt(formData.quantity), toolQuantity).toString()
+                        : formData.quantity
                     });
                   }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
                     <option value="">Select material...</option>
@@ -424,7 +433,9 @@ export default function RequestsPage() {
                       ...formData, 
                       model,
                       toolId: firstTool?.id || '',
-                      quantity: toolQuantity > 0 ? Math.min(parseInt(formData.quantity) || 1, toolQuantity).toString() : '1'
+                      quantity: formData.movementType === 'outgoing' && toolQuantity > 0
+                        ? Math.min(parseInt(formData.quantity) || 1, toolQuantity).toString()
+                        : formData.quantity
                     });
                   }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
                     <option value="">Select model...</option>
@@ -458,13 +469,13 @@ export default function RequestsPage() {
                     <input
                       type="number"
                       min="1"
-                      max={formData.movementType === 'outgoing' && maxQuantity !== null ? maxQuantity : undefined}
+                      max={maxQuantity !== null ? maxQuantity : undefined}
                       value={formData.quantity}
                       onChange={(e) => {
                         const val = e.target.value;
                         setFormData({ ...formData, quantity: val });
-                        if (formData.movementType === 'outgoing' && maxQuantity !== null && parseInt(val) > maxQuantity) {
-                          setQuantityError(`Maximum available quantity is ${maxQuantity}`);
+                        if (maxQuantity !== null && parseInt(val) > maxQuantity) {
+                          setQuantityError(`Maximum quantity is ${maxQuantity}`);
                         } else {
                           setQuantityError(null);
                         }
@@ -472,9 +483,9 @@ export default function RequestsPage() {
                       className={`w-full px-4 py-2 border rounded-lg ${quantityError ? 'border-red-500' : 'border-gray-300'}`}
                       required
                     />
-                    {formData.movementType === 'outgoing' && maxQuantity !== null && (
+                    {maxQuantity !== null && (
                       <span className="text-xs text-gray-500 whitespace-nowrap shrink-0">
-                        Available: <strong>{maxQuantity}</strong>
+                        {formData.movementType === 'incoming' ? 'Rented:' : 'Available:'} <strong>{maxQuantity}</strong>
                       </span>
                     )}
                   </div>
