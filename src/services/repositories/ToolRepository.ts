@@ -73,8 +73,9 @@ export class ToolRepository extends BaseRepository<any> {
   }
 
   /**
-   * Update tool — if quantity is set to <= 0 the document is deleted.
-   * Returns { deleted: true, oldDoc } when auto-deleted.
+   * Update tool — quantity can go to 0 but the document stays in the database
+   * for record-keeping. The _buildFilterQuery filter ({ quantity: { $gt: 0 } })
+   * keeps zero-quantity tools out of inventory lists.
    */
   async updateWithAutoDelete(
     id: string,
@@ -86,12 +87,9 @@ export class ToolRepository extends BaseRepository<any> {
     let oid: any;
     try { oid = new mongodb.ObjectId(id); } catch { return { error: 'Invalid tool ID' }; }
 
-    // If quantity === 0 → auto-delete
-    if (updates.quantity !== undefined && updates.quantity <= 0) {
-      const oldDoc = await col.findOne({ _id: oid });
-      if (!oldDoc) return { error: 'Tool not found' };
-      await col.deleteOne({ _id: oid });
-      return { deleted: true, data: this.toApp({ ...oldDoc, quantity: 0 }) };
+    // Clamp quantity to 0 minimum — no more auto-delete
+    if (updates.quantity !== undefined) {
+      updates.quantity = Math.max(0, updates.quantity);
     }
 
     const result = await col.findOneAndUpdate(

@@ -153,7 +153,6 @@ export default function RequestsPage() {
               <p className="text-xs text-gray-500">Pending</p>
             </div>
           </div>
-        )
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
           <div className="flex items-center gap-3">

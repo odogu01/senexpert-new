@@ -2,12 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { getDashboardRoute } from '@/lib/clientAuth';
 import { getStoredUser, getStoredProfile } from '@/lib/authContext';
 
 export default function Login() {
-  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,9 +22,9 @@ export default function Login() {
     
     if (user && profile) {
       const route = getDashboardRoute(profile.role);
-      router.push(route);
+      window.location.href = route;
     }
-  }, [router]);
+  }, []);
 
   const handleTogglePassword = () => {
     setShowPassword(!showPassword);
@@ -71,7 +69,7 @@ export default function Login() {
         window.dispatchEvent(new Event('auth-change'));
         
         const route = getDashboardRoute(data.data.profile.role);
-        router.push(route);
+        window.location.href = route;
       } else {
         setError(data.error?.message || 'Login failed. Please try again.');
       }

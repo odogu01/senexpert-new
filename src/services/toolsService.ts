@@ -144,17 +144,6 @@ export async function updateTool(id: string, updates: ToolUpdate): Promise<{ suc
 
     if (result.error) return { success: false, error: result.error };
 
-    if (result.deleted) {
-      await logAuditEvent({
-        action: 'DELETE',
-        tableName: 'tools',
-        recordId: id,
-        oldValues: result.data as any,
-        newValues: { ...updates, _deleted: true } as any,
-      });
-      return { success: true, data: result.data as any };
-    }
-
     await logAuditEvent({
       action: 'UPDATE',
       tableName: 'tools',
@@ -282,22 +271,13 @@ export async function updateToolRequestStatus(
         const tool = await toolRepo.findById(oldRequest.tool_id);
         if (tool) {
           if (oldRequest.transaction_type === 'sold') {
-            // Reduce quantity for sold tools
+            // Reduce quantity for sold tools (stays in DB at qty 0 for records)
             const newQuantity = Math.max(0, tool.quantity - oldRequest.quantity);
             await toolRepo.updateOneRaw(oldRequest.tool_id, { quantity: newQuantity });
-            
-            // If quantity becomes 0, delete the tool (existing auto-delete logic)
-            if (newQuantity === 0) {
-              await toolRepo.deleteOne(oldRequest.tool_id);
-            }
           } else if (oldRequest.transaction_type === 'rented') {
-            // Reduce quantity + mark as rentals
+            // Reduce quantity + mark as rentals (stays in DB at qty 0 for records)
             const newQuantity = Math.max(0, tool.quantity - oldRequest.quantity);
             await toolRepo.updateOneRaw(oldRequest.tool_id, { quantity: newQuantity, status: 'rentals' });
-            
-            if (newQuantity === 0) {
-              await toolRepo.deleteOne(oldRequest.tool_id);
-            }
           }
         }
       }

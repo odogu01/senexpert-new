@@ -103,7 +103,7 @@ export default function Sidebar({
               animate={{ opacity: 1 }}
               className="font-bold text-[#0B3C6D] text-lg"
             >
-              SGE System
+              SEG System
             </motion.span>
           )}
         </Link>
