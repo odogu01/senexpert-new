@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getProfile, updateProfile, getUsers } from '@/services/authService';
+import { getProfile, updateProfile, getUsers, changePassword } from '@/services/authService';
 import { verifyToken } from '@/services/authService';
 
 export async function GET(request: NextRequest) {
@@ -37,6 +37,13 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
+
+    // Handle password change separately
+    if (body.action === 'change-password') {
+      const response = await changePassword(decoded.userId, body.currentPassword, body.newPassword);
+      return NextResponse.json(response);
+    }
+
     const response = await updateProfile(decoded.userId, body);
     return NextResponse.json(response);
   } catch (error) {

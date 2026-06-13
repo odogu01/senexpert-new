@@ -1,4 +1,4 @@
-export { useProfile, useUpdateProfile, useLogin, useLogout } from './useAuth';
+export { useProfile, useUpdateProfile, useChangePassword, useLogin, useLogout } from './useAuth';
 export type { ProfileData } from './useAuth';
 
 export { useTools, useToolsPaginated, useToolById, useCategories, useLocations, useCreateTool, useUpdateTool, useDeleteTool } from './useTools';

@@ -47,6 +47,25 @@ export function useUpdateProfile() {
   });
 }
 
+// ───────── Change Password ─────────
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: async ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) => {
+      const res = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ action: 'change-password', currentPassword, newPassword }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message || 'Failed to change password');
+      }
+      return throwIfError(await res.json());
+    },
+  });
+}
+
 // ───────── Login / Logout ─────────
 
 export function useLogin() {
