@@ -101,6 +101,7 @@ export async function getToolById(id: string): Promise<{ success: boolean; data?
 
 export async function createTool(tool: ToolInsert): Promise<{ success: boolean; data?: Tool; error?: string }> {
   try {
+    const qty = tool.quantity || 1;
     const newTool = await toolRepo.insertOne({
       name: tool.name,
       work_order_number: tool.work_order_number,
@@ -110,7 +111,8 @@ export async function createTool(tool: ToolInsert): Promise<{ success: boolean; 
       material_no: tool.material_no,
       part_number: tool.part_number,
       category: tool.category || 'Saleable',
-      quantity: tool.quantity || 1,
+      quantity: qty,
+      initial_quantity: qty,
       min_quantity: tool.min_quantity,
       status: tool.status || 'available',
       location: tool.location,
@@ -140,7 +142,9 @@ export async function createTool(tool: ToolInsert): Promise<{ success: boolean; 
 
 export async function updateTool(id: string, updates: ToolUpdate): Promise<{ success: boolean; data?: Tool; error?: string }> {
   try {
-    const result = await toolRepo.updateWithAutoDelete(id, updates as any);
+    // Never allow initial_quantity to be changed via update
+    const { initial_quantity, ...safeUpdates } = updates as any;
+    const result = await toolRepo.updateWithAutoDelete(id, safeUpdates);
 
     if (result.error) return { success: false, error: result.error };
 

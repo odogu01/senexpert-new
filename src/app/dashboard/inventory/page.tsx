@@ -336,6 +336,17 @@ export default function InventoryPage() {
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Material No</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Part Number</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Category</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">
+                  <span className="flex items-center gap-1">
+                    IQ
+                    <div className="group relative">
+                      <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
+                      <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 whitespace-nowrap z-[100] pointer-events-none transition-opacity">
+                        Initial Quantity
+                      </span>
+                    </div>
+                  </span>
+                </th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Quantity</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Location</th>
@@ -351,7 +362,7 @@ export default function InventoryPage() {
                   transition={{ duration: 0.3, delay: index * 0.05 }}
                   className="hover:bg-gray-50"
                 >
-                  <td colSpan={11} className="lg:hidden px-4 py-4">
+                  <td colSpan={12} className="lg:hidden px-4 py-4">
                     <div className="space-y-2">
                       <div className="flex items-start justify-between">
                         <div>
@@ -395,6 +406,9 @@ export default function InventoryPage() {
                     <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full capitalize ${tool.category === 'Saleable' ? 'bg-green-100 text-green-700' : tool.category === 'Rental' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
                       {tool.category}
                     </span>
+                  </td>
+                  <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4">
+                    <div className="text-sm font-medium text-gray-800">{tool.initial_quantity ?? tool.quantity}</div>
                   </td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4">
                     <div className="text-sm font-medium text-gray-800">{tool.quantity}</div>

@@ -20,7 +20,6 @@ export default function RequestsPage() {
   const canApprove = userRole === 'super_admin' || userRole === 'admin';
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [movementFilter, setMovementFilter] = useState<string>('all');
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     toolId: '',
@@ -42,11 +41,12 @@ export default function RequestsPage() {
   const [maxQuantity, setMaxQuantity] = useState<number | null>(null);
   const [quantityError, setQuantityError] = useState<string | null>(null);
 
-  const filteredRequests = (requests as ToolRequest[]).filter(req => {
-    const matchesStatus = statusFilter === 'all' || req.status === statusFilter;
-    const matchesMovement = movementFilter === 'all' || req.movement_type === movementFilter;
-    return matchesStatus && matchesMovement;
-  });
+  const filteredIncoming = (requests as ToolRequest[]).filter(req =>
+    req.movement_type === 'incoming' && (statusFilter === 'all' || req.status === statusFilter)
+  );
+  const filteredOutgoing = (requests as ToolRequest[]).filter(req =>
+    req.movement_type === 'outgoing' && (statusFilter === 'all' || req.status === statusFilter)
+  );
 
   const pendingCount = (requests as ToolRequest[]).filter(r => r.status === 'pending').length;
   const rejectedCount = (requests as ToolRequest[]).filter(r => r.status === 'rejected').length;
@@ -188,54 +188,48 @@ export default function RequestsPage() {
             <option value="rejected">Rejected</option>
             <option value="completed">Completed</option>
           </select>
-          <select value={movementFilter} onChange={(e) => setMovementFilter(e.target.value)} className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
-            <option value="all">All Movements</option>
-            <option value="incoming">Incoming</option>
-            <option value="outgoing">Outgoing</option>
-          </select>
         </div>
       </div>
 
-      {/* Requests Table */}
+      {/* Outgoing Requests Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-4 lg:px-6 py-4 border-b border-gray-200 bg-gray-50">
+          <h2 className="text-lg font-semibold text-gray-900">Outgoing Requests</h2>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200 hidden lg:table-header-group">
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">ID</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Movement</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Tool</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Location</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Quantity</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Vehicle No</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Delivered By</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Notes</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
                 <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredRequests.length === 0 ? (
+              {filteredOutgoing.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
                     <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                    <p>No requests found</p>
+                    <p>No outgoing requests found</p>
                   </td>
                 </tr>
               ) : (
-                filteredRequests.map((request: ToolRequest) => (
+                filteredOutgoing.map((request: ToolRequest) => (
                   <motion.tr key={request.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-gray-50">
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">#{request.id.slice(0, 8)}</td>
-                    <td className="px-4 lg:px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${request.movement_type === 'incoming' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                        {request.movement_type}
-                      </span>
-                    </td>
                     <td className="px-4 lg:px-6 py-4"><StatusBadge status={request.status} size="sm" /></td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.tool_name || 'N/A'}</td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{(request as unknown as Record<string, unknown>).location as string || '-'}</td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.quantity}</td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.vehicle_no || '-'}</td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.delivered_by || '-'}</td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600 max-w-xs truncate">{request.notes || '-'}</td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{new Date(request.created_at).toLocaleDateString()}</td>
                     <td className="px-4 lg:px-6 py-4 text-right">
@@ -249,7 +243,68 @@ export default function RequestsPage() {
                             <button onClick={() => handleStatusChange(request.id, 'rejected')} className="px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600">Reject</button>
                           </>
                         )}
+                      </div>
+                    </td>
+                  </motion.tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
+      {/* Incoming Requests Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-4 lg:px-6 py-4 border-b border-gray-200 bg-gray-50">
+          <h2 className="text-lg font-semibold text-gray-900">Incoming Requests</h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200 hidden lg:table-header-group">
+              <tr>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">ID</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Tool</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Location</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Quantity</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Vehicle No</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Received By</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Notes</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
+                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredIncoming.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
+                    <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>No incoming requests found</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredIncoming.map((request: ToolRequest) => (
+                  <motion.tr key={request.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-gray-50">
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">#{request.id.slice(0, 8)}</td>
+                    <td className="px-4 lg:px-6 py-4"><StatusBadge status={request.status} size="sm" /></td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.tool_name || 'N/A'}</td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{(request as unknown as Record<string, unknown>).location as string || '-'}</td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.quantity}</td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.vehicle_no || '-'}</td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.received_by || '-'}</td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600 max-w-xs truncate">{request.notes || '-'}</td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{new Date(request.created_at).toLocaleDateString()}</td>
+                    <td className="px-4 lg:px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => window.open(`/print/tool-request/${request.id}`, '_blank')} className="p-1 hover:bg-gray-100 rounded text-[#0B3C6D]">
+                          <Printer className="w-4 h-4" />
+                        </button>
+                        {request.status === 'pending' && (
+                          <>
+                            <button onClick={() => handleStatusChange(request.id, 'approved')} className="px-3 py-1 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600">Approve</button>
+                            <button onClick={() => handleStatusChange(request.id, 'rejected')} className="px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600">Reject</button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </motion.tr>

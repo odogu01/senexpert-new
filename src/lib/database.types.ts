@@ -48,6 +48,7 @@ export interface Tool {
   part_number?: string;
   category: string;
   quantity: number;
+  initial_quantity?: number;
   min_quantity?: number;
   status: ToolStatus;
   location?: string;

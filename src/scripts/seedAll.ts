@@ -136,6 +136,7 @@ async function seed() {
       const tool = {
         _id: new ObjectId(),
         ...toolData,
+        initial_quantity: toolData.quantity,
         created_by: testUserId,
         created_at: new Date(),
         updated_at: new Date(),
