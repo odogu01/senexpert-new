@@ -83,6 +83,7 @@ export default function InventoryPage() {
       status: statusFilter !== 'all' ? statusFilter : undefined,
       category: categoryFilter !== 'all' ? categoryFilter : undefined,
       location: locationFilter !== 'all' ? locationFilter : undefined,
+      sort: '-created_at',
       page: currentPage,
       limit: itemsPerPage,
     };

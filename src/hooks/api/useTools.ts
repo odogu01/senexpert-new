@@ -17,6 +17,7 @@ export interface PaginatedFilters extends ToolFilters {
   location?: string;
   page?: number;
   limit?: number;
+  sort?: string;
 }
 
 async function fetchTools(filters?: ToolFilters): Promise<Tool[]> {
@@ -53,6 +54,7 @@ async function fetchToolsPaginated(filters?: PaginatedFilters): Promise<Paginate
   if (filters?.search) params.set('search', filters.search);
   if (filters?.page) params.set('page', String(filters.page));
   if (filters?.limit) params.set('limit', String(filters.limit));
+  if (filters?.sort) params.set('sort', filters.sort);
   const qs = params.toString();
   const res = await fetch(`/api/tools${qs ? `?${qs}` : ''}`, { headers: getAuthHeaders() });
   const json = await res.json();
