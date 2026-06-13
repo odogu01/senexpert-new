@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Calendar as CalendarIcon, Plus, X, Clock, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, X, Clock, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMaintenance } from '@/hooks/api';
 import type { Maintenance } from '@/lib/database.types';
 
@@ -19,7 +19,28 @@ export default function CalendarPage() {
   const { data: maintenanceData = [] } = useMaintenance();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showModal, setShowModal] = useState(false);
-  const [view, setView] = useState<'month' | 'week'>('month');
+
+  // ── Create Meeting form ──
+  const [form, setForm] = useState({ title: '', date: '', time: '', location: '', attendees: '' });
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+
+  const resetForm = () => setForm({ title: '', date: '', time: '', location: '', attendees: '' });
+
+  const handleCreateMeeting = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title || !form.date || !form.time) return;
+    const newMeeting: Meeting = {
+      id: `meeting-${Date.now()}`,
+      title: form.title,
+      date: form.date,
+      time: form.time,
+      location: form.location || 'N/A',
+      status: 'scheduled',
+    };
+    setMeetings(prev => [...prev, newMeeting]);
+    resetForm();
+    setShowModal(false);
+  };
 
   const mockMeetings: Meeting[] = (maintenanceData as Maintenance[]).map(m => ({
     id: m.id || '',
@@ -30,8 +51,10 @@ export default function CalendarPage() {
     status: m.status,
   }));
 
-  const upcomingMeetings = mockMeetings.filter(m => m.status === 'scheduled' || m.status === 'in_progress');
-  const completedMeetings = mockMeetings.filter(m => m.status === 'completed');
+  const allMeetings = [...meetings, ...mockMeetings];
+
+  const upcomingMeetings = allMeetings.filter(m => m.status === 'scheduled' || m.status === 'in_progress');
+  const completedMeetings = allMeetings.filter(m => m.status === 'completed');
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -50,7 +73,7 @@ export default function CalendarPage() {
   const getMeetingsForDay = (day: number | null) => {
     if (!day) return [];
     const ds = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    return mockMeetings.filter(m => m.date === ds);
+    return allMeetings.filter(m => m.date === ds);
   };
 
   const navigateMonth = (dir: 'prev' | 'next') => {
@@ -150,16 +173,31 @@ export default function CalendarPage() {
               <h2 className="text-xl font-semibold text-gray-800">Create Meeting</h2>
               <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
             </div>
-            <form className="p-6 space-y-4">
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Title</label><input type="text" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20" required /></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Date</label><input type="date" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20" required /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Time</label><input type="time" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20" required /></div>
+            <form onSubmit={handleCreateMeeting} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20" required />
               </div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Location</label><input type="text" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20" /></div>
-              <div><label className="block text-sm font-medium text-gray-700 mb-1">Attendees</label><input type="text" placeholder="Enter attendee names" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20" /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
+                  <input type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20" required />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input type="text" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Attendees</label>
+                <input type="text" value={form.attendees} onChange={e => setForm(f => ({ ...f, attendees: e.target.value }))} placeholder="Enter attendee names" className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20" />
+              </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
+                <button type="button" onClick={() => { resetForm(); setShowModal(false); }} className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
                 <button type="submit" className="flex-1 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a]">Create</button>
               </div>
             </form>
