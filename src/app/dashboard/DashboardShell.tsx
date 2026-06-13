@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth, getStoredUser, getStoredProfile } from '@/lib/authContext';
+import { useAutoLogout } from '@/hooks/useAutoLogout';
 import type { UserRole } from '@/lib/database.types';
 import Sidebar from '@/components/dashboard/Sidebar';
 import Topbar from '@/components/dashboard/Topbar';
@@ -45,6 +46,9 @@ export default function DashboardShell({ children }: DashboardShellProps) {
       }
     }
   }, [authLoading, router]);
+
+  // Auto-logout after 5 minutes of inactivity (only when authenticated)
+  useAutoLogout(logout, 5 * 60 * 1000, !!user);
 
   const handleLogout = async () => {
     await logout();

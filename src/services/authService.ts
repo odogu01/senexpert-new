@@ -165,10 +165,12 @@ export async function isTokenExpiringSoon(token: string): Promise<boolean> {
 
 // ───────── Login ─────────
 
+const LOCKOUT_THRESHOLD = 10;
+const LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+
 export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
   try {
     const bcrypt = await getBcryptModule();
-    const mongodb = await import('mongodb');
 
     const user = await userRepo.findByEmail(credentials.email);
 
@@ -180,17 +182,67 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
       return { success: false, error: { message: 'Invalid email or password. Please try again.', status: 401 } };
     }
 
-    const isValidPassword = await bcrypt.compare(credentials.password, user.password_hash);
-    if (!isValidPassword) {
-      await logAuditEvent({
-        userId: user.id, action: 'LOGIN_FAILED',
-        details: `Failed login attempt for email: ${credentials.email}. Invalid password.`,
-      });
-      return { success: false, error: { message: 'Invalid email or password. Please try again.', status: 401 } };
-    }
-
     if (!user.is_active) {
       return { success: false, error: { message: 'This account has been suspended. Please contact support.', status: 403 } };
+    }
+
+    // ── Account lockout check ──────────────────────────────────
+    const failedAttempts = user.failed_login_attempts ?? 0;
+    const lockedUntil = user.locked_until ? new Date(user.locked_until) : null;
+
+    if (lockedUntil && lockedUntil > new Date()) {
+      const remainingMin = Math.ceil((lockedUntil.getTime() - Date.now()) / 60_000);
+      return {
+        success: false,
+        error: {
+          message: `Account locked due to too many failed attempts. Try again in ${remainingMin} minute(s).`,
+          status: 423,
+        },
+      };
+    }
+
+    const isValidPassword = await bcrypt.compare(credentials.password, user.password_hash);
+    if (!isValidPassword) {
+      const newCount = failedAttempts + 1;
+      const updates: Record<string, unknown> = { failed_login_attempts: newCount };
+
+      if (newCount >= LOCKOUT_THRESHOLD) {
+        updates.locked_until = new Date(Date.now() + LOCKOUT_DURATION_MS);
+      }
+
+      await userRepo.updateOneRaw(user.id, updates);
+
+      await logAuditEvent({
+        userId: user.id, action: 'LOGIN_FAILED',
+        details: `Failed login attempt ${newCount}/${LOCKOUT_THRESHOLD} for email: ${credentials.email}.`,
+      });
+
+      if (newCount >= LOCKOUT_THRESHOLD) {
+        return {
+          success: false,
+          error: {
+            message: 'Account locked due to too many failed attempts. Try again in 5 minutes.',
+            status: 423,
+          },
+        };
+      }
+
+      const remaining = LOCKOUT_THRESHOLD - newCount;
+      return {
+        success: false,
+        error: {
+          message: `Invalid email or password. ${remaining} attempt(s) remaining.`,
+          status: 401,
+        },
+      };
+    }
+
+    // ── Successful login — reset lockout fields ────────────────
+    if (failedAttempts > 0 || lockedUntil) {
+      await userRepo.updateOneRaw(user.id, {
+        failed_login_attempts: 0,
+        locked_until: null,
+      });
     }
 
     const token = await generateToken({ ...user, _id: user.id });

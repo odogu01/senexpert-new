@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { success: false, error: response.error },
       {
-        status: 401,
+        status: response.error?.status ?? 401,
         headers: {
           'X-RateLimit-Remaining': String(remaining),
         },
