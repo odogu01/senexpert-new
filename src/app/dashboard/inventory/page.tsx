@@ -100,9 +100,9 @@ export default function InventoryPage() {
 
   // ───── Admin: server-paginated receiving history (independent of main table) ─────
   const { data: receivingHistory, isLoading: historyLoading } = useQuery({
-    queryKey: ['tools', 'receiving-history', historyPage],
+    queryKey: ['tools', 'receiving-history', 'recent', historyPage],
     queryFn: async () => {
-      const params = new URLSearchParams({ page: String(historyPage), limit: String(itemsPerPage) });
+      const params = new URLSearchParams({ page: String(historyPage), limit: String(itemsPerPage), sort: '-created_at' });
       const res = await fetch(`/api/tools?${params}`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (!json.success) throw new Error(json.error?.message || 'Failed to fetch receiving history');

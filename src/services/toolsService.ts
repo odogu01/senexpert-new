@@ -78,6 +78,7 @@ export async function getToolsPaginated(filters?: {
   search?: string;
   page?: number;
   limit?: number;
+  sort?: string;
 }): Promise<{ success: boolean; data?: Tool[]; total?: number; error?: string }> {
   try {
     const { data, total } = await toolRepo.findAllFiltered(filters);

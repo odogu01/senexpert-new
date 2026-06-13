@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     const id = searchParams.get('id') || undefined;
     const page = searchParams.get('page') ? Number(searchParams.get('page')) : undefined;
     const limit = searchParams.get('limit') ? Number(searchParams.get('limit')) : undefined;
+    const sort = searchParams.get('sort') || undefined;
 
     // Get single tool by ID
     if (id) {
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     // Paginated mode — when page or limit is explicitly provided
     if (page !== undefined || limit !== undefined) {
-      const response = await getToolsPaginated({ category, status, location, search, page, limit });
+      const response = await getToolsPaginated({ category, status, location, search, page, limit, sort });
       return NextResponse.json(response);
     }
 

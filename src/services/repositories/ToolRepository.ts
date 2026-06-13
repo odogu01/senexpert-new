@@ -42,9 +42,16 @@ export class ToolRepository extends BaseRepository<any> {
     search?: string;
     page?: number;
     limit?: number;
+    sort?: string; // e.g. "name" or "-created_at" (descending)
   }): Promise<{ data: any[]; total?: number }> {
     const query = this._buildFilterQuery(filters);
     const col = await this.getCollection();
+
+    // Build sort object from sort string: "-created_at" → { created_at: -1 }
+    const sortField = filters?.sort ?? 'name';
+    const sortDir = sortField.startsWith('-') ? -1 : 1;
+    const sortKey = sortField.startsWith('-') ? sortField.slice(1) : sortField;
+    const sort: Record<string, 1 | -1> = { [sortKey]: sortDir };
 
     // Paginated mode — when either page or limit is explicitly provided
     if (filters?.page !== undefined || filters?.limit !== undefined) {
@@ -53,7 +60,7 @@ export class ToolRepository extends BaseRepository<any> {
       const skip = (page - 1) * limit;
 
       const [docs, total] = await Promise.all([
-        col.find(query).sort({ name: 1 }).skip(skip).limit(limit).toArray(),
+        col.find(query).sort(sort).skip(skip).limit(limit).toArray(),
         col.countDocuments(query),
       ]);
 
@@ -61,7 +68,7 @@ export class ToolRepository extends BaseRepository<any> {
     }
 
     // Non-paginated mode — return all matching docs
-    const docs = await col.find(query).sort({ name: 1 }).toArray();
+    const docs = await col.find(query).sort(sort).toArray();
     return { data: this.toAppList(docs) };
   }
 
