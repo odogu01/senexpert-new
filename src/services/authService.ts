@@ -69,6 +69,7 @@ async function logAuditEvent(params: {
   details?: string;
   oldValues?: Record<string, unknown>;
   newValues?: Record<string, unknown>;
+  ipAddress?: string;
 }) {
   try {
     await auditRepo.insertOne({
@@ -81,6 +82,7 @@ async function logAuditEvent(params: {
         ...(params.newValues as Record<string, unknown>),
       },
       old_values: params.oldValues,
+      ip_address: params.ipAddress,
     });
   } catch (error) {
     console.error('Failed to log audit event:', error);
@@ -168,7 +170,7 @@ export async function isTokenExpiringSoon(token: string): Promise<boolean> {
 const LOCKOUT_THRESHOLD = 10;
 const LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 
-export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
+export async function login(credentials: LoginCredentials, ipAddress?: string): Promise<AuthResponse> {
   try {
     const bcrypt = await getBcryptModule();
 
@@ -178,6 +180,7 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
       await logAuditEvent({
         action: 'LOGIN_FAILED',
         details: `Failed login attempt for email: ${credentials.email}. User not found.`,
+        ipAddress,
       });
       return { success: false, error: { message: 'Invalid email or password. Please try again.', status: 401 } };
     }
@@ -215,6 +218,7 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
       await logAuditEvent({
         userId: user.id, action: 'LOGIN_FAILED',
         details: `Failed login attempt ${newCount}/${LOCKOUT_THRESHOLD} for email: ${credentials.email}.`,
+        ipAddress,
       });
 
       if (newCount >= LOCKOUT_THRESHOLD) {
@@ -248,7 +252,7 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
     const token = await generateToken({ ...user, _id: user.id });
     const profile = await profileRepo.findByUserId(user.id);
 
-    await logAuditEvent({ userId: user.id, action: 'LOGIN', details: `User logged in: ${user.email}` });
+    await logAuditEvent({ userId: user.id, action: 'LOGIN', details: `User logged in: ${user.email}`, ipAddress });
 
     return {
       success: true,
@@ -266,9 +270,9 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
 
 // ───────── Logout ─────────
 
-export async function logout(): Promise<{ success: boolean; error?: AuthError }> {
+export async function logout(ipAddress?: string): Promise<{ success: boolean; error?: AuthError }> {
   try {
-    await logAuditEvent({ action: 'LOGOUT', details: 'User logged out' });
+    await logAuditEvent({ action: 'LOGOUT', details: 'User logged out', ipAddress });
     return { success: true };
   } catch (error) {
     console.error('Logout error:', error);

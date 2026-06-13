@@ -61,6 +61,7 @@ export default function AuditLogsPage() {
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Action</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Table</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">User</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">IP Address</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Date</th>
               <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Actions</th>
             </tr>
@@ -71,6 +72,7 @@ export default function AuditLogsPage() {
                 <td className="px-4 py-3 text-sm">{log.action}</td>
                 <td className="px-4 py-3 text-sm">{log.table_name || '-'}</td>
                 <td className="px-4 py-3 text-sm">{log.user_name || 'System'}</td>
+                <td className="px-4 py-3 text-sm font-mono">{log.ip_address || '-'}</td>
                 <td className="px-4 py-3 text-sm">{log.created_at ? new Date(log.created_at).toLocaleString() : '-'}</td>
                 <td className="px-4 py-3">
                   <button onClick={() => setSelectedLog(log)} className="text-[#0B3C6D] hover:text-[#0B3C6D]/80">
@@ -99,6 +101,7 @@ export default function AuditLogsPage() {
                 <div><label className="text-sm font-medium text-gray-500">Action</label><p className="text-gray-900">{selectedLog.action}</p></div>
                 <div><label className="text-sm font-medium text-gray-500">Table</label><p className="text-gray-900">{selectedLog.table_name || '-'}</p></div>
                 <div><label className="text-sm font-medium text-gray-500">User ID</label><p className="text-gray-900">{selectedLog.user_id || 'System'}</p></div>
+                <div><label className="text-sm font-medium text-gray-500">IP Address</label><p className="text-gray-900 font-mono">{selectedLog.ip_address || '-'}</p></div>
                 <div><label className="text-sm font-medium text-gray-500">Date</label><p className="text-gray-900">{selectedLog.created_at ? new Date(selectedLog.created_at).toLocaleString() : '-'}</p></div>
                 {selectedLog.old_values && (
                   <div><label className="text-sm font-medium text-gray-500">Old Values</label><pre className="bg-gray-50 p-3 rounded text-sm overflow-x-auto">{JSON.stringify(selectedLog.old_values, null, 2)}</pre></div>

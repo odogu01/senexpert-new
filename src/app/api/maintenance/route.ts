@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMaintenanceRecords, createMaintenanceRecord, updateMaintenanceStatus } from '@/services/toolsService';
 
+function getClientIp(request: NextRequest): string | undefined {
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || undefined;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
@@ -30,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const response = await createMaintenanceRecord(body);
+    const response = await createMaintenanceRecord(body, getClientIp(request));
     return NextResponse.json(response);
   } catch (error) {
     console.error('Maintenance API create error:', error);
@@ -54,7 +60,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const response = await updateMaintenanceStatus(id, body.status, body.performed_by);
+    const response = await updateMaintenanceStatus(id, body.status, body.performed_by, getClientIp(request));
     return NextResponse.json(response);
   } catch (error) {
     console.error('Maintenance API update error:', error);

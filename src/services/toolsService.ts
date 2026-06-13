@@ -37,6 +37,7 @@ async function logAuditEvent(params: {
   recordId?: string;
   oldValues?: Record<string, unknown>;
   newValues?: Record<string, unknown>;
+  ipAddress?: string;
 }) {
   try {
     await auditRepo.insertOne({
@@ -46,6 +47,7 @@ async function logAuditEvent(params: {
       record_id: params.recordId,
       old_values: params.oldValues,
       new_values: params.newValues,
+      ip_address: params.ipAddress,
     });
   } catch (error) {
     console.error('Failed to log audit event:', error);
@@ -100,7 +102,7 @@ export async function getToolById(id: string): Promise<{ success: boolean; data?
   }
 }
 
-export async function createTool(tool: ToolInsert): Promise<{ success: boolean; data?: Tool; error?: string }> {
+export async function createTool(tool: ToolInsert, ipAddress?: string): Promise<{ success: boolean; data?: Tool; error?: string }> {
   try {
     const qty = tool.quantity || 1;
     const newTool = await toolRepo.insertOne({
@@ -132,6 +134,7 @@ export async function createTool(tool: ToolInsert): Promise<{ success: boolean; 
       tableName: 'tools',
       recordId: newTool.id,
       newValues: tool as any,
+      ipAddress,
     });
 
     return { success: true, data: newTool as any };
@@ -141,7 +144,7 @@ export async function createTool(tool: ToolInsert): Promise<{ success: boolean; 
   }
 }
 
-export async function updateTool(id: string, updates: ToolUpdate): Promise<{ success: boolean; data?: Tool; error?: string }> {
+export async function updateTool(id: string, updates: ToolUpdate, ipAddress?: string): Promise<{ success: boolean; data?: Tool; error?: string }> {
   try {
     // Never allow initial_quantity to be changed via update
     const { initial_quantity, ...safeUpdates } = updates as any;
@@ -155,6 +158,7 @@ export async function updateTool(id: string, updates: ToolUpdate): Promise<{ suc
       recordId: id,
       oldValues: await toolRepo.findById(id).catch(() => null) as any,
       newValues: updates as any,
+      ipAddress,
     });
 
     return { success: true, data: result.data as any };
@@ -164,7 +168,7 @@ export async function updateTool(id: string, updates: ToolUpdate): Promise<{ suc
   }
 }
 
-export async function deleteTool(id: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteTool(id: string, ipAddress?: string): Promise<{ success: boolean; error?: string }> {
   try {
     const oldTool = await toolRepo.deleteOneWithDoc(id);
     if (!oldTool) return { success: false, error: 'Tool not found' };
@@ -174,6 +178,7 @@ export async function deleteTool(id: string): Promise<{ success: boolean; error?
       tableName: 'tools',
       recordId: id,
       oldValues: oldTool as any,
+      ipAddress,
     });
 
     return { success: true };
@@ -234,7 +239,7 @@ export async function createToolRequest(request: {
   delivered_by?: string;
   received_by?: string;
   received_from?: string;
-}): Promise<{ success: boolean; data?: ToolRequest; error?: string }> {
+}, ipAddress?: string): Promise<{ success: boolean; data?: ToolRequest; error?: string }> {
   try {
     const newRequest = await toolRequestRepo.insertOne({
       tool_id: request.tool_id,
@@ -259,6 +264,7 @@ export async function createToolRequest(request: {
       tableName: 'tool_requests',
       recordId: newRequest.id,
       newValues: request as any,
+      ipAddress,
     });
 
     return { success: true, data: newRequest as any };
@@ -272,6 +278,7 @@ export async function updateToolRequestStatus(
   id: string,
   status: 'approved' | 'rejected' | 'completed',
   approved_by?: string,
+  ipAddress?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const oldRequest = await toolRequestRepo.findById(id);
@@ -319,6 +326,7 @@ export async function updateToolRequestStatus(
       recordId: id,
       oldValues: oldRequest as any,
       newValues: { status, ...(approved_by && { approved_by }) },
+      ipAddress,
     });
 
     return { success: true };
@@ -352,7 +360,7 @@ export async function createMaintenanceRecord(record: {
   scheduled_date: string;
   cost?: number;
   notes?: string;
-}): Promise<{ success: boolean; data?: Maintenance; error?: string }> {
+}, ipAddress?: string): Promise<{ success: boolean; data?: Maintenance; error?: string }> {
   try {
     const newRecord = await maintenanceRepo.insertOne({
       tool_id: record.tool_id,
@@ -369,6 +377,7 @@ export async function createMaintenanceRecord(record: {
       tableName: 'maintenance',
       recordId: newRecord.id,
       newValues: record as any,
+      ipAddress,
     });
 
     return { success: true, data: newRecord as any };
@@ -382,6 +391,7 @@ export async function updateMaintenanceStatus(
   id: string,
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled',
   performed_by?: string,
+  ipAddress?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const oldRecord = await maintenanceRepo.findById(id);
@@ -401,6 +411,7 @@ export async function updateMaintenanceStatus(
       recordId: id,
       oldValues: oldRecord as any,
       newValues: { status, ...(performed_by && { performed_by }) },
+      ipAddress,
     });
 
     return { success: true };
@@ -542,7 +553,7 @@ export async function createFinancialRequest(request: {
   amount: number;
   category: string;
   requested_by?: string;
-}): Promise<{ success: boolean; data?: FinancialRequest; error?: string }> {
+}, ipAddress?: string): Promise<{ success: boolean; data?: FinancialRequest; error?: string }> {
   try {
     const newRequest = await financialRequestRepo.insertOne({
       title: request.title,
@@ -558,6 +569,7 @@ export async function createFinancialRequest(request: {
       tableName: 'financial_requests',
       recordId: newRequest.id,
       newValues: request as any,
+      ipAddress,
     });
 
     return { success: true, data: newRequest as any };
@@ -572,6 +584,7 @@ export async function updateFinancialRequestStatus(
   status: 'approved' | 'rejected',
   approved_by?: string,
   notes?: string,
+  ipAddress?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const oldRequest = await financialRequestRepo.findById(id);
@@ -592,6 +605,7 @@ export async function updateFinancialRequestStatus(
       recordId: id,
       oldValues: oldRequest as any,
       newValues: { status, notes },
+      ipAddress,
     });
 
     return { success: true };

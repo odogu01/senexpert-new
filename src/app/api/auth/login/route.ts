@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const response = await authLogin({ email: sanitizedEmail, password });
+    const response = await authLogin({ email: sanitizedEmail, password }, ip);
 
     if (response.success && response.data) {
       return NextResponse.json({

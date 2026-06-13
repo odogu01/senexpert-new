@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTools, getToolsPaginated, createTool, updateTool, deleteTool, getToolById, getCategories, getLocations } from '@/services/toolsService';
 
+function getClientIp(request: NextRequest): string | undefined {
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || undefined;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
@@ -61,7 +67,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const response = await createTool(body);
+    const response = await createTool(body, getClientIp(request));
     return NextResponse.json(response);
   } catch (error) {
     console.error('Tools API create error:', error);
@@ -85,7 +91,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const response = await updateTool(id, body);
+    const response = await updateTool(id, body, getClientIp(request));
     return NextResponse.json(response);
   } catch (error) {
     console.error('Tools API update error:', error);
@@ -108,7 +114,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: { message: 'Tool ID required' } }, { status: 400 });
     }
 
-    const response = await deleteTool(id);
+    const response = await deleteTool(id, getClientIp(request));
     return NextResponse.json(response);
   } catch (error) {
     console.error('Tools API delete error:', error);
