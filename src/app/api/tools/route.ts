@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTools, getToolsPaginated, createTool, updateTool, deleteTool, getToolById, getCategories } from '@/services/toolsService';
+import { getTools, getToolsPaginated, createTool, updateTool, deleteTool, getToolById, getCategories, getLocations } from '@/services/toolsService';
 
 export async function GET(request: NextRequest) {
   try {
@@ -27,6 +27,12 @@ export async function GET(request: NextRequest) {
     // Get categories
     if (searchParams.get('categories') === 'true') {
       const response = await getCategories();
+      return NextResponse.json(response);
+    }
+
+    // Get distinct locations
+    if (searchParams.get('locations') === 'true') {
+      const response = await getLocations();
       return NextResponse.json(response);
     }
 

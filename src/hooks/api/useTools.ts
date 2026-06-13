@@ -101,6 +101,20 @@ export function useCategories() {
   });
 }
 
+async function fetchLocations(): Promise<string[]> {
+  const res = await fetch('/api/tools?locations=true', { headers: getAuthHeaders() });
+  return throwIfError<string[]>(await res.json());
+}
+
+export function useLocations() {
+  return useQuery({
+    queryKey: [...queryKeys.tools.all, 'locations'] as const,
+    queryFn: fetchLocations,
+    staleTime: 10 * 60 * 1000,
+    enabled: typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token'),
+  });
+}
+
 // ───────── Mutations ─────────
 
 export function useCreateTool() {

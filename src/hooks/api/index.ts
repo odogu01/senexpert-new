@@ -1,7 +1,7 @@
 export { useProfile, useUpdateProfile, useLogin, useLogout } from './useAuth';
 export type { ProfileData } from './useAuth';
 
-export { useTools, useToolsPaginated, useToolById, useCategories, useCreateTool, useUpdateTool, useDeleteTool } from './useTools';
+export { useTools, useToolsPaginated, useToolById, useCategories, useLocations, useCreateTool, useUpdateTool, useDeleteTool } from './useTools';
 export type { ToolFilters, PaginatedFilters } from './useTools';
 
 export { useToolRequests, useCreateToolRequest, useUpdateToolRequestStatus, useFinancialRequests, useCreateFinancialRequest, useUpdateFinancialRequestStatus } from './useRequests';

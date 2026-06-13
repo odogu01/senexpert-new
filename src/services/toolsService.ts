@@ -192,6 +192,16 @@ export async function getCategories(): Promise<{ success: boolean; data?: string
   }
 }
 
+export async function getLocations(): Promise<{ success: boolean; data?: string[]; error?: string }> {
+  try {
+    const locations = await toolRepo.getLocations();
+    return { success: true, data: locations };
+  } catch (error) {
+    console.error('Get locations error:', error);
+    return { success: false, error: 'Failed to fetch locations' };
+  }
+}
+
 // ============================================
 // TOOL REQUESTS
 // ============================================

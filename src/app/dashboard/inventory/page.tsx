@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Download, Plus, X, ChevronLeft, ChevronRight, Eye, Edit, Trash2, HelpCircle, Printer } from 'lucide-react';
-import { useTools, useToolsPaginated, useCreateTool, useUpdateTool, useDeleteTool, useProfile } from '@/hooks/api';
+import { useToolsPaginated, useCategories, useLocations, useCreateTool, useUpdateTool, useDeleteTool, useProfile } from '@/hooks/api';
+import { getAuthHeaders } from '@/lib/query';
 import StatusBadge from '@/components/dashboard/StatusBadge';
 import type { Tool, ToolStatus, ToolInsert } from '@/lib/database.types';
 
@@ -43,28 +45,37 @@ export default function InventoryPage() {
 
   // Permission checks
   const canViewAllInventory = userRole === 'super_admin' || userRole === 'admin';
-  const canViewInventory = userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator';
   const canAddTool = userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator';
   const canEditTool = userRole === 'super_admin' || userRole === 'admin';
   const canDeleteTool = userRole === 'super_admin' || userRole === 'admin';
 
-  // ───── Full tool list (all tools, no pagination) ─────
-  // Used for: receiving history, operator filtering, categories/locations dropdowns
-  const { data: allTools = [], isLoading: allToolsLoading } = useTools(
-    canViewAllInventory ? undefined : { search: searchQuery || undefined }
-  );
+  // ───── Admin: categories/locations for filter dropdowns (lightweight distinct queries) ─────
+  const { data: categories = [] } = useCategories();
+  const { data: locations = [] } = useLocations();
 
-  // For operators - filter tools added by them in last 4 hours
+  // ───── Operator: fetch their tools (runs only for non-admin roles) ─────
+  const { data: operatorAllTools = [], isLoading: operatorToolsLoading } = useQuery({
+    queryKey: ['tools', 'operator', currentUserId],
+    queryFn: async () => {
+      const res = await fetch('/api/tools', { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message || 'Failed to fetch tools');
+      return json.data as Tool[] ?? [];
+    },
+    enabled: !canViewAllInventory && !!currentUserId && typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token'),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const operatorTools = useMemo(() => {
-    if (canViewAllInventory) return allTools;
+    if (canViewAllInventory) return [];
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
-    return allTools.filter(tool => {
+    return operatorAllTools.filter(tool => {
       const createdAt = tool.created_at ? new Date(tool.created_at) : null;
       return createdAt && createdAt > fourHoursAgo && tool.created_by === currentUserId;
     });
-  }, [allTools, canViewAllInventory, currentUserId]);
+  }, [operatorAllTools, canViewAllInventory, currentUserId]);
 
-  // ───── Server-paginated data for main table (admins) ─────
+  // ───── Admin: server-paginated data for main table ─────
   const paginatedFilters = useMemo(() => {
     if (!canViewAllInventory) return undefined;
     return {
@@ -87,18 +98,23 @@ export default function InventoryPage() {
   const totalResults = canViewAllInventory ? (paginated?.total ?? 0) : operatorTools.length;
   const totalPages = Math.max(1, Math.ceil(totalResults / itemsPerPage));
 
-  const displayTools = canViewInventory ? (canViewAllInventory ? allTools : operatorTools) : [];
+  // ───── Admin: server-paginated receiving history (independent of main table) ─────
+  const { data: receivingHistory, isLoading: historyLoading } = useQuery({
+    queryKey: ['tools', 'receiving-history', historyPage],
+    queryFn: async () => {
+      const params = new URLSearchParams({ page: String(historyPage), limit: String(itemsPerPage) });
+      const res = await fetch(`/api/tools?${params}`, { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message || 'Failed to fetch receiving history');
+      return { data: json.data as Tool[] ?? [], total: json.total as number ?? 0 };
+    },
+    enabled: canViewAllInventory && typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token'),
+    staleTime: 5 * 60 * 1000,
+  });
 
-  const categories = useMemo(() =>
-    [...new Set(displayTools.map(t => t.category).filter(Boolean))],
-    [displayTools]
-  );
-  const locations = useMemo(() =>
-    [...new Set(displayTools.map(t => t.location).filter(Boolean))],
-    [displayTools]
-  );
-
-  const historyTotalPages = Math.ceil(displayTools.length / itemsPerPage);
+  const historyTools = canViewAllInventory ? (receivingHistory?.data ?? []) : operatorTools;
+  const historyTotal = canViewAllInventory ? (receivingHistory?.total ?? 0) : operatorTools.length;
+  const historyTotalPages = Math.max(1, Math.ceil(historyTotal / itemsPerPage));
 
   const hasActiveFilters = searchQuery || statusFilter !== 'all' || categoryFilter !== 'all' || locationFilter !== 'all';
 
@@ -207,7 +223,7 @@ export default function InventoryPage() {
     }
   };
 
-  const loading = profileLoading || (canViewAllInventory ? paginatedLoading : allToolsLoading);
+  const loading = profileLoading || (canViewAllInventory ? paginatedLoading : operatorToolsLoading);
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -485,7 +501,7 @@ export default function InventoryPage() {
           </div>
         </div>
 
-        {displayTools.length === 0 ? (
+        {historyTotal === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <p>No receiving history yet. Add tools to see history here.</p>
           </div>
@@ -505,7 +521,7 @@ export default function InventoryPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {(displayTools.length > 10 ? displayTools.slice((historyPage - 1) * itemsPerPage, historyPage * itemsPerPage) : displayTools).map((tool, index) => (
+                  {historyTools.map((tool, index) => (
                     <motion.tr
                       key={tool.id}
                       initial={{ opacity: 0, y: 5 }}
@@ -538,9 +554,9 @@ export default function InventoryPage() {
               </table>
             </div>
 
-            {displayTools.length > 10 && (
+            {historyTotal > itemsPerPage && (
               <div className="px-6 py-3 border-t border-gray-200 flex items-center justify-between">
-                <span className="text-xs text-gray-500">{displayTools.length} total records</span>
+                <span className="text-xs text-gray-500">{historyTotal} total records</span>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setHistoryPage(p => Math.max(1, p - 1))}

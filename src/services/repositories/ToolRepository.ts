@@ -72,6 +72,10 @@ export class ToolRepository extends BaseRepository<any> {
     return this.distinct('category', { quantity: { $gt: 0 } });
   }
 
+  async getLocations(): Promise<string[]> {
+    return this.distinct('location', { quantity: { $gt: 0 } });
+  }
+
   /**
    * Update tool — quantity can go to 0 but the document stays in the database
    * for record-keeping. The _buildFilterQuery filter ({ quantity: { $gt: 0 } })
