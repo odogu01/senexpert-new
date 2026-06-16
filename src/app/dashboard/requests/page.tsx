@@ -132,11 +132,10 @@ export default function RequestsPage() {
   const displayIncoming = filteredIncoming.slice((incomingPage - 1) * itemsPerPage, incomingPage * itemsPerPage);
   const displayOutgoing = filteredOutgoing.slice((outgoingPage - 1) * itemsPerPage, outgoingPage * itemsPerPage);
 
-  const pendingCount = incomingItems.filter(r => r.status === 'pending').length;
-  const rejectedCount = incomingItems.filter(r => r.status === 'rejected').length;
-  const approvedToolsCount = incomingItems
-    .filter(r => r.status === 'approved')
-    .reduce((sum, r) => sum + (r.quantity || 0), 0);
+  const receiptItems = incomingItems.filter(r => r.type === 'receipt');
+  const pendingCount = receiptItems.filter(r => r.status === 'pending').length;
+  const rejectedCount = receiptItems.filter(r => r.status === 'rejected').length;
+  const approvedToolsCount = receiptItems.filter(r => r.status === 'approved').length;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
