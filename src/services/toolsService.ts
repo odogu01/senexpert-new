@@ -226,7 +226,7 @@ export async function getToolRequests(filters?: {
 }
 
 export async function createToolRequest(request: {
-  tool_id: string;
+  tool_id?: string;
   movement_type: 'incoming' | 'outgoing';
   transaction_type?: 'sold' | 'rented';
   requested_by?: string;
@@ -239,15 +239,16 @@ export async function createToolRequest(request: {
   delivered_by?: string;
   received_by?: string;
   received_from?: string;
+  new_tool_data?: Record<string, unknown>;
 }, ipAddress?: string): Promise<{ success: boolean; data?: ToolRequest; error?: string }> {
   try {
-    const newRequest = await toolRequestRepo.insertOne({
-      tool_id: request.tool_id,
+    const insertData: Record<string, unknown> = {
+      tool_id: request.tool_id || '',
       movement_type: request.movement_type,
       transaction_type: request.transaction_type,
       requested_by: request.requested_by,
       assigned_to: request.assigned_to,
-      quantity: request.quantity,
+      quantity: request.quantity || 1,
       status: 'pending',
       notes: request.notes,
       location: request.location,
@@ -257,7 +258,15 @@ export async function createToolRequest(request: {
       received_by: request.received_by,
       received_from: request.received_from,
       request_date: new Date().toISOString(),
-    });
+    };
+
+    // Store new_tool_data for incoming receipt requests
+    if (request.new_tool_data) {
+      insertData.new_tool_data = request.new_tool_data;
+      insertData.transaction_type = 'receipt';
+    }
+
+    const newRequest = await toolRequestRepo.insertOne(insertData);
 
     await logAuditEvent({
       action: 'INSERT',
@@ -319,6 +328,34 @@ export async function updateToolRequestStatus(
 
     const { matchedCount } = await toolRequestRepo.updateOneRaw(id, updates);
     if (!matchedCount) return { success: false, error: 'Request not found' };
+
+    // ── Incoming receipt approval: create the actual tool ──
+    if (status === 'approved' && oldRequest?.new_tool_data && oldRequest?.movement_type === 'incoming') {
+      const toolData = oldRequest.new_tool_data as Record<string, unknown>;
+      await toolRepo.insertOne({
+        name: toolData.name || '',
+        work_order_number: toolData.work_order_number || '',
+        size_thread: toolData.size_thread || '',
+        material: toolData.material || '',
+        model: toolData.model || '',
+        material_no: toolData.material_no || '',
+        part_number: toolData.part_number || '',
+        category: toolData.category || 'Saleable',
+        quantity: toolData.quantity ? Number(toolData.quantity) : 1,
+        initial_quantity: toolData.quantity ? Number(toolData.quantity) : 1,
+        min_quantity: toolData.min_quantity ? Number(toolData.min_quantity) : 1,
+        status: toolData.status || 'available',
+        location: toolData.location || '',
+        image_url: toolData.image_url || '',
+        description: toolData.description || '',
+        purchase_date: toolData.purchase_date || '',
+        purchase_price: toolData.purchase_price ? Number(toolData.purchase_price) : 0,
+        created_by: toolData.created_by ? String(toolData.created_by) : oldRequest.requested_by || '',
+        received_from: toolData.received_from || '',
+        received_by: toolData.received_by || '',
+        vehicle_number: toolData.vehicle_number || '',
+      });
+    }
 
     await logAuditEvent({
       action: 'UPDATE',

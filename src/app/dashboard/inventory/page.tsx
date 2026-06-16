@@ -3,8 +3,8 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Download, Plus, X, ChevronLeft, ChevronRight, Eye, Edit, Trash2, HelpCircle, Printer } from 'lucide-react';
-import { useToolsPaginated, useCategories, useLocations, useCreateTool, useUpdateTool, useDeleteTool, useProfile } from '@/hooks/api';
+import { Search, Download, Plus, X, ChevronLeft, ChevronRight, Eye, Edit, Trash2, HelpCircle } from 'lucide-react';
+import { useToolsPaginated, useCategories, useLocations, useCreateTool, useUpdateTool, useDeleteTool, useProfile, useCreateToolRequest } from '@/hooks/api';
 import { getAuthHeaders } from '@/lib/query';
 import StatusBadge from '@/components/dashboard/StatusBadge';
 import type { Tool, ToolStatus, ToolInsert } from '@/lib/database.types';
@@ -14,6 +14,7 @@ export default function InventoryPage() {
   const { mutateAsync: createTool } = useCreateTool();
   const { mutateAsync: updateTool } = useUpdateTool();
   const { mutateAsync: deleteTool } = useDeleteTool();
+  const { mutateAsync: createToolRequest } = useCreateToolRequest();
 
   const userRole = profile?.role ?? null;
   const currentUserId = profile?.id ?? null;
@@ -39,8 +40,6 @@ export default function InventoryPage() {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [saving, setSaving] = useState(false);
-  const [printTool, setPrintTool] = useState<Tool | null>(null);
-  const [historyPage, setHistoryPage] = useState(1);
   const itemsPerPage = 10;
 
   // Permission checks
@@ -99,24 +98,6 @@ export default function InventoryPage() {
   const totalResults = canViewAllInventory ? (paginated?.total ?? 0) : operatorTools.length;
   const totalPages = Math.max(1, Math.ceil(totalResults / itemsPerPage));
 
-  // ───── Admin: server-paginated receiving history (independent of main table) ─────
-  const { data: receivingHistory, isLoading: historyLoading } = useQuery({
-    queryKey: ['tools', 'receiving-history', 'recent', historyPage],
-    queryFn: async () => {
-      const params = new URLSearchParams({ page: String(historyPage), limit: String(itemsPerPage), sort: '-created_at' });
-      const res = await fetch(`/api/tools?${params}`, { headers: getAuthHeaders() });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message || 'Failed to fetch receiving history');
-      return { data: json.data as Tool[] ?? [], total: json.total as number ?? 0 };
-    },
-    enabled: canViewAllInventory && typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token'),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const historyTools = canViewAllInventory ? (receivingHistory?.data ?? []) : operatorTools;
-  const historyTotal = canViewAllInventory ? (receivingHistory?.total ?? 0) : operatorTools.length;
-  const historyTotalPages = Math.max(1, Math.ceil(historyTotal / itemsPerPage));
-
   const hasActiveFilters = searchQuery || statusFilter !== 'all' || categoryFilter !== 'all' || locationFilter !== 'all';
 
   const clearFilters = useCallback(() => {
@@ -156,24 +137,32 @@ export default function InventoryPage() {
     if (!editForm.name || !editForm.work_order_number || !currentUserId) return;
     setSaving(true);
     try {
-      await createTool({
-        name: editForm.name,
-        work_order_number: editForm.work_order_number,
-        size_thread: editForm.size_thread,
-        material: editForm.material,
-        model: editForm.model,
-        part_number: editForm.part_number,
-        material_no: editForm.material_no,
-        category: editForm.category || 'General',
-        quantity: editForm.quantity,
-        min_quantity: editForm.min_quantity,
-        status: editForm.status,
-        location: editForm.location,
-        description: editForm.description,
-        created_by: currentUserId,
-        received_from: editForm.received_from,
-        received_by: editForm.received_by,
-        vehicle_number: editForm.vehicle_number,
+      // Create an incoming receipt request (requires approval before tool is added)
+      await createToolRequest({
+        movement_type: 'incoming',
+        quantity: editForm.quantity || 1,
+        location: editForm.location || '',
+        notes: `New tool receipt: ${editForm.name}`,
+        requested_by: currentUserId,
+        new_tool_data: {
+          name: editForm.name,
+          work_order_number: editForm.work_order_number,
+          size_thread: editForm.size_thread,
+          material: editForm.material,
+          model: editForm.model,
+          part_number: editForm.part_number,
+          material_no: editForm.material_no,
+          category: editForm.category || 'General',
+          quantity: editForm.quantity,
+          min_quantity: editForm.min_quantity,
+          status: editForm.status,
+          location: editForm.location,
+          description: editForm.description,
+          created_by: currentUserId,
+          received_from: editForm.received_from,
+          received_by: editForm.received_by,
+          vehicle_number: editForm.vehicle_number,
+        },
       });
       setIsAddModalOpen(false);
       setEditForm({
@@ -188,7 +177,7 @@ export default function InventoryPage() {
         vehicle_number: '',
       });
     } catch (err) {
-      console.error('Failed to add tool:', err);
+      console.error('Failed to submit receipt request:', err);
     } finally {
       setSaving(false);
     }
@@ -493,104 +482,6 @@ export default function InventoryPage() {
         )}
       </div>
 
-      {/* Receiving History Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-4 lg:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Receiving History</h2>
-            <p className="text-sm text-gray-500">Record of all received tools</p>
-          </div>
-        </div>
-
-        {historyTotal === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            <p>No receiving history yet. Add tools to see history here.</p>
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tool Name</th>
-                    <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Quantity</th>
-                    <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Received From</th>
-                    <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Received By</th>
-                    <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Vehicle No</th>
-                    <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
-                    <th className="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {historyTools.map((tool, index) => (
-                    <motion.tr
-                      key={tool.id}
-                      initial={{ opacity: 0, y: 5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.2, delay: index * 0.03 }}
-                      className="hover:bg-gray-50"
-                    >
-                      <td className="px-4 lg:px-6 py-3">
-                        <p className="font-medium text-gray-800 text-sm">{tool.name}</p>
-                      </td>
-                      <td className="px-4 lg:px-6 py-3 text-sm text-gray-600">{tool.quantity}</td>
-                      <td className="px-4 lg:px-6 py-3 text-sm text-gray-600">{tool.received_from || '-'}</td>
-                      <td className="px-4 lg:px-6 py-3 text-sm text-gray-600">{tool.received_by || '-'}</td>
-                      <td className="px-4 lg:px-6 py-3 text-sm text-gray-600">{tool.vehicle_number || '-'}</td>
-                      <td className="px-4 lg:px-6 py-3 text-sm text-gray-600">
-                        {tool.created_at ? new Date(tool.created_at).toLocaleDateString('en-GB') : '-'}
-                      </td>
-                      <td className="px-4 lg:px-6 py-3 text-right">
-                        <button
-                          onClick={() => setPrintTool(tool)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-[#0B3C6D] bg-[#0B3C6D]/5 hover:bg-[#0B3C6D]/10 rounded-lg transition-colors"
-                        >
-                          <Printer className="w-3.5 h-3.5" />
-                          Print
-                        </button>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {historyTotal > itemsPerPage && (
-              <div className="px-6 py-3 border-t border-gray-200 flex items-center justify-between">
-                <span className="text-xs text-gray-500">{historyTotal} total records</span>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
-                    disabled={historyPage === 1}
-                    className="p-1.5 text-gray-600 hover:bg-gray-50 rounded disabled:opacity-50"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  {Array.from({ length: historyTotalPages }, (_, i) => i + 1).map(page => (
-                    <button
-                      key={page}
-                      onClick={() => setHistoryPage(page)}
-                      className={`w-7 h-7 text-xs rounded ${
-                        historyPage === page ? 'bg-[#0B3C6D] text-white' : 'text-gray-600 hover:bg-gray-50'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => setHistoryPage(p => Math.min(historyTotalPages, p + 1))}
-                    disabled={historyPage === historyTotalPages}
-                    className="p-1.5 text-gray-600 hover:bg-gray-50 rounded disabled:opacity-50"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
       {/* Tool Detail Modal */}
       <AnimatePresence>
         {selectedTool && (
@@ -883,116 +774,6 @@ export default function InventoryPage() {
                     ) : 'Add Tool'}
                   </button>
                 </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Print Preview Modal */}
-      <AnimatePresence>
-        {printTool && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-            onClick={() => setPrintTool(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.95 }}
-              className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-              onClick={e => e.stopPropagation()}
-            >
-              <div id="print-content">
-                <div className="p-6 border-b border-gray-200 no-print">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-semibold text-gray-900">Print Preview</h2>
-                    <button onClick={() => setPrintTool(null)} className="p-2 hover:bg-gray-100 rounded-lg">
-                      <X className="w-5 h-5 text-gray-500" />
-                    </button>
-                  </div>
-                </div>
-                <div className="p-6 space-y-6" id="print-area">
-                  <div className="text-center border-b border-gray-300 pb-4 mb-4">
-                    <img src="/title-logo.png" alt="SenExpert Global" className="w-20 h-auto mx-auto mb-2" />
-                    <h1 className="text-2xl font-bold text-gray-900">SenExpert Global Energies</h1>
-                    <p className="text-sm text-gray-500">Tool Receiving Receipt</p>
-                  </div>
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Tool Specifications</h3>
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-                      <div className="flex items-center border-b border-gray-100 pb-2">
-                        <span className="text-xs font-semibold text-gray-500 w-32">W/O</span>
-                        <span className="text-sm text-gray-900">{printTool.work_order_number}</span>
-                      </div>
-                      <div className="flex items-center border-b border-gray-100 pb-2">
-                        <span className="text-xs font-semibold text-gray-500 w-32">Size/Thread</span>
-                        <span className="text-sm text-gray-900">{printTool.size_thread || '-'}</span>
-                      </div>
-                      <div className="flex items-center border-b border-gray-100 pb-2">
-                        <span className="text-xs font-semibold text-gray-500 w-32">Material</span>
-                        <span className="text-sm text-gray-900">{printTool.material || '-'}</span>
-                      </div>
-                      <div className="flex items-center border-b border-gray-100 pb-2">
-                        <span className="text-xs font-semibold text-gray-500 w-32">Model</span>
-                        <span className="text-sm text-gray-900">{printTool.model || '-'}</span>
-                      </div>
-                      <div className="flex items-center border-b border-gray-100 pb-2">
-                        <span className="text-xs font-semibold text-gray-500 w-32">Material No</span>
-                        <span className="text-sm text-gray-900">{printTool.material_no || '-'}</span>
-                      </div>
-                      <div className="flex items-center border-b border-gray-100 pb-2">
-                        <span className="text-xs font-semibold text-gray-500 w-32">Part No</span>
-                        <span className="text-sm text-gray-900">{printTool.part_number || '-'}</span>
-                      </div>
-                      <div className="flex items-center border-b border-gray-100 pb-2">
-                        <span className="text-xs font-semibold text-gray-500 w-32">Location</span>
-                        <span className="text-sm text-gray-900">{printTool.location || '-'}</span>
-                      </div>
-                      <div className="flex items-center border-b border-gray-100 pb-2">
-                        <span className="text-xs font-semibold text-gray-500 w-32">Tool Name</span>
-                        <span className="text-sm text-gray-900">{printTool.name}</span>
-                      </div>
-                      <div className="flex items-center border-b border-gray-100 pb-2">
-                        <span className="text-xs font-semibold text-gray-500 w-32">Quantity</span>
-                        <span className="text-sm text-gray-900">{printTool.quantity}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-3 pt-4 border-t border-gray-200">
-                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Receiving Information</h3>
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-                      <div className="flex items-center border-b border-gray-100 pb-2">
-                        <span className="text-xs font-semibold text-gray-500 w-32">Received From</span>
-                        <span className="text-sm text-gray-900">{printTool.received_from || '-'}</span>
-                      </div>
-                      <div className="flex items-center border-b border-gray-100 pb-2">
-                        <span className="text-xs font-semibold text-gray-500 w-32">Received By</span>
-                        <span className="text-sm text-gray-900">{printTool.received_by || '-'}</span>
-                      </div>
-                      <div className="flex items-center border-b border-gray-100 pb-2">
-                        <span className="text-xs font-semibold text-gray-500 w-32">Vehicle No</span>
-                        <span className="text-sm text-gray-900">{printTool.vehicle_number || '-'}</span>
-                      </div>
-                      <div className="flex items-center border-b border-gray-100 pb-2">
-                        <span className="text-xs font-semibold text-gray-500 w-32">Date</span>
-                        <span className="text-sm text-gray-900">{printTool.created_at ? new Date(printTool.created_at).toLocaleDateString('en-GB') : '-'}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="pt-4 border-t border-gray-200 text-center text-xs text-gray-400">
-                    <p>Generated by SenExpert Global Energies - SGE System</p>
-                  </div>
-                </div>
-              </div>
-              <div className="p-6 border-t border-gray-200 flex gap-3 no-print">
-                <button onClick={() => setPrintTool(null)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
-                <button onClick={() => window.print()} className="flex-1 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] flex items-center justify-center gap-2">
-                  <Printer className="w-4 h-4" /> Print
-                </button>
               </div>
             </motion.div>
           </motion.div>

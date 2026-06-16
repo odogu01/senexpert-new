@@ -139,6 +139,7 @@ export interface ToolRequest {
   tool?: Tool;
   requested_by_profile?: { full_name: string };
   assigned_to_profile?: { full_name: string };
+  new_tool_data?: Record<string, unknown>; // Tool creation payload for incoming receipt requests
 }
 
 export interface Maintenance {

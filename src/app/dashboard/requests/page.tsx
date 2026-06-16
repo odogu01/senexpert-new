@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Clock, AlertTriangle, Package, Printer } from 'lucide-react';
+import { Plus, X, Clock, AlertTriangle, Package, Printer, CheckCircle, XCircle } from 'lucide-react';
 import { useToolRequests, useCreateToolRequest, useUpdateToolRequestStatus, useTools, useProfile } from '@/hooks/api';
+import { getAuthHeaders } from '@/lib/query';
 import StatusBadge from '@/components/dashboard/StatusBadge';
-import type { ToolRequest } from '@/lib/database.types';
+import type { ToolRequest, Tool } from '@/lib/database.types';
 
 export default function RequestsPage() {
   const { data: requests = [] } = useToolRequests();
@@ -21,6 +23,81 @@ export default function RequestsPage() {
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showModal, setShowModal] = useState(false);
+
+  // ── Receiving history: recently added tools ──
+  const { data: receivedTools = [] } = useQuery({
+    queryKey: ['tools', 'receiving-history', 'recent-50'],
+    queryFn: async () => {
+      const params = new URLSearchParams({ limit: '50', sort: '-created_at' });
+      const res = await fetch(`/api/tools?${params}`, { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message || 'Failed to fetch receiving history');
+      return (json.data ?? []) as Tool[];
+    },
+    enabled: typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token'),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // ── Merge incoming requests + receiving history ──
+  type IncomingItem = {
+    id: string;
+    type: 'request' | 'receipt';
+    status: string;
+    tool_name?: string;
+    location?: string;
+    quantity: number;
+    notes?: string;
+    created_at: Date;
+    request?: ToolRequest;
+    tool?: Tool;
+  };
+
+  const incomingItems: IncomingItem[] = useMemo(() => {
+    const items: IncomingItem[] = [];
+
+    // Incoming tool requests (including receipt requests with new_tool_data)
+    for (const req of requests.filter(r => r.movement_type === 'incoming')) {
+      items.push({
+        id: req.id,
+        type: req.new_tool_data ? 'receipt' : 'request',
+        status: req.status,
+        tool_name: req.new_tool_data
+          ? (req.new_tool_data as Record<string, unknown>).name as string || 'New Tool'
+          : req.tool_name || 'N/A',
+        location: req.location || (req.new_tool_data
+          ? (req.new_tool_data as Record<string, unknown>).location as string || ''
+          : ''),
+        quantity: req.quantity || 1,
+        notes: req.new_tool_data ? 'New tool receipt' : req.notes,
+        created_at: req.created_at,
+        request: req,
+      });
+    }
+
+    // Receiving history (already-added tools shown as approved)
+    for (const tool of receivedTools) {
+      items.push({
+        id: `tool-${tool.id}`,
+        type: 'receipt',
+        status: 'approved',
+        tool_name: tool.name,
+        location: tool.location,
+        quantity: tool.quantity,
+        notes: `Received from: ${tool.received_from || 'N/A'}`,
+        created_at: tool.created_at,
+        tool,
+      });
+    }
+
+    // Sort by created_at descending (most recent first)
+    items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return items;
+  }, [requests, receivedTools]);
+
+  const filteredIncoming = incomingItems.filter(item =>
+    statusFilter === 'all' || item.status === statusFilter
+  );
+
   const [formData, setFormData] = useState({
     toolId: '',
     toolName: '',
@@ -41,16 +118,13 @@ export default function RequestsPage() {
   const [maxQuantity, setMaxQuantity] = useState<number | null>(null);
   const [quantityError, setQuantityError] = useState<string | null>(null);
 
-  const filteredIncoming = (requests as ToolRequest[]).filter(req =>
-    req.movement_type === 'incoming' && (statusFilter === 'all' || req.status === statusFilter)
-  );
   const filteredOutgoing = (requests as ToolRequest[]).filter(req =>
     req.movement_type === 'outgoing' && (statusFilter === 'all' || req.status === statusFilter)
   );
 
-  const pendingCount = (requests as ToolRequest[]).filter(r => r.status === 'pending').length;
-  const rejectedCount = (requests as ToolRequest[]).filter(r => r.status === 'rejected').length;
-  const approvedToolsCount = (requests as ToolRequest[])
+  const pendingCount = incomingItems.filter(r => r.status === 'pending').length;
+  const rejectedCount = incomingItems.filter(r => r.status === 'rejected').length;
+  const approvedToolsCount = incomingItems
     .filter(r => r.status === 'approved')
     .reduce((sum, r) => sum + (r.quantity || 0), 0);
 
@@ -253,22 +327,21 @@ export default function RequestsPage() {
         </div>
       </div>
 
-      {/* Incoming Requests Table */}
+      {/* Incoming Requests & Receiving History */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-4 lg:px-6 py-4 border-b border-gray-200 bg-gray-50">
-          <h2 className="text-lg font-semibold text-gray-900">Incoming Requests</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Incoming & Receiving History</h2>
+          <p className="text-sm text-gray-500">Incoming requests, receipt requests, and received tools</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200 hidden lg:table-header-group">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">ID</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Type</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Tool</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Location</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Quantity</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Vehicle No</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Received By</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Notes</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
                 <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Actions</th>
@@ -277,33 +350,51 @@ export default function RequestsPage() {
             <tbody className="divide-y divide-gray-100">
               {filteredIncoming.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                     <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                    <p>No incoming requests found</p>
+                    <p>No incoming records found</p>
                   </td>
                 </tr>
               ) : (
-                filteredIncoming.map((request: ToolRequest) => (
-                  <motion.tr key={request.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-gray-50">
-                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">#{request.id.slice(0, 8)}</td>
-                    <td className="px-4 lg:px-6 py-4"><StatusBadge status={request.status} size="sm" /></td>
-                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.tool_name || 'N/A'}</td>
-                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{(request as unknown as Record<string, unknown>).location as string || '-'}</td>
-                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.quantity}</td>
-                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.vehicle_no || '-'}</td>
-                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.received_by || '-'}</td>
-                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600 max-w-xs truncate">{request.notes || '-'}</td>
-                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{new Date(request.created_at).toLocaleDateString()}</td>
+                filteredIncoming.map((item: IncomingItem) => (
+                  <motion.tr key={item.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-gray-50">
+                    <td className="px-4 lg:px-6 py-4">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${
+                        item.type === 'receipt'
+                          ? 'bg-purple-100 text-purple-700'
+                          : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {item.type === 'receipt' ? 'Receipt' : 'Return'}
+                      </span>
+                    </td>
+                    <td className="px-4 lg:px-6 py-4"><StatusBadge status={item.status as any} size="sm" /></td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{item.tool_name || 'N/A'}</td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{item.location || '-'}</td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{item.quantity}</td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600 max-w-xs truncate">{item.notes || '-'}</td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{new Date(item.created_at).toLocaleDateString()}</td>
                     <td className="px-4 lg:px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => window.open(`/print/tool-request/${request.id}`, '_blank')} className="p-1 hover:bg-gray-100 rounded text-[#0B3C6D]">
-                          <Printer className="w-4 h-4" />
-                        </button>
-                        {request.status === 'pending' && (
+                        {item.request && item.request.status === 'pending' && (
                           <>
-                            <button onClick={() => handleStatusChange(request.id, 'approved')} className="px-3 py-1 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600">Approve</button>
-                            <button onClick={() => handleStatusChange(request.id, 'rejected')} className="px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600">Reject</button>
+                            <button
+                              onClick={() => handleStatusChange(item.request!.id, 'approved')}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-green-500 text-white rounded-lg hover:bg-green-600"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" /> Approve
+                            </button>
+                            <button
+                              onClick={() => handleStatusChange(item.request!.id, 'rejected')}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded-lg hover:bg-red-600"
+                            >
+                              <XCircle className="w-3.5 h-3.5" /> Reject
+                            </button>
                           </>
+                        )}
+                        {item.tool && (
+                          <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                            <CheckCircle className="w-3.5 h-3.5" /> In Inventory
+                          </span>
                         )}
                       </div>
                     </td>
