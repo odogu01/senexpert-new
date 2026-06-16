@@ -23,6 +23,7 @@ export default function RequestsPage() {
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showModal, setShowModal] = useState(false);
+  const [printTool, setPrintTool] = useState<Tool | null>(null);
   const itemsPerPage = 10;
   const [incomingPage, setIncomingPage] = useState(1);
   const [outgoingPage, setOutgoingPage] = useState(1);
@@ -438,10 +439,14 @@ export default function RequestsPage() {
                             </button>
                           </>
                         )}
-                        {item.tool && !item.request && (
-                          <span className="text-xs text-green-600 font-medium flex items-center gap-1">
-                            <CheckCircle className="w-3.5 h-3.5" /> In Inventory
-                          </span>
+                        {item.tool && (
+                          <button
+                            onClick={() => setPrintTool(item.tool!)}
+                            className="p-1 hover:bg-gray-100 rounded text-[#0B3C6D]"
+                            title="Print tool receipt"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
                         )}
                       </div>
                     </td>
@@ -743,6 +748,129 @@ export default function RequestsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Print Preview Modal */}
+      <AnimatePresence>
+        {printTool && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setPrintTool(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              <div id="print-content">
+                <div className="p-6 border-b border-gray-200 no-print">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-semibold text-gray-900">Print Preview</h2>
+                    <button onClick={() => setPrintTool(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                      <X className="w-5 h-5 text-gray-500" />
+                    </button>
+                  </div>
+                </div>
+                <div className="p-6 space-y-6" id="print-area">
+                  <div className="text-center border-b border-gray-300 pb-4 mb-4">
+                    <h1 className="text-2xl font-bold text-gray-900">SenExpert Global Energies</h1>
+                    <p className="text-sm text-gray-500">Tool Receiving Receipt</p>
+                  </div>
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Tool Specifications</h3>
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">W/O</span>
+                        <span className="text-sm text-gray-900">{printTool.work_order_number}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Size/Thread</span>
+                        <span className="text-sm text-gray-900">{printTool.size_thread || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Material</span>
+                        <span className="text-sm text-gray-900">{printTool.material || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Model</span>
+                        <span className="text-sm text-gray-900">{printTool.model || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Material No</span>
+                        <span className="text-sm text-gray-900">{printTool.material_no || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Part No</span>
+                        <span className="text-sm text-gray-900">{printTool.part_number || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Location</span>
+                        <span className="text-sm text-gray-900">{printTool.location || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Tool Name</span>
+                        <span className="text-sm text-gray-900">{printTool.name}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Quantity</span>
+                        <span className="text-sm text-gray-900">{printTool.quantity}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-3 pt-4 border-t border-gray-200">
+                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">Receiving Information</h3>
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Received From</span>
+                        <span className="text-sm text-gray-900">{printTool.received_from || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Received By</span>
+                        <span className="text-sm text-gray-900">{printTool.received_by || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Vehicle No</span>
+                        <span className="text-sm text-gray-900">{printTool.vehicle_number || '-'}</span>
+                      </div>
+                      <div className="flex items-center border-b border-gray-100 pb-2">
+                        <span className="text-xs font-semibold text-gray-500 w-32">Date</span>
+                        <span className="text-sm text-gray-900">{printTool.created_at ? new Date(printTool.created_at).toLocaleDateString('en-GB') : '-'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-4 border-t border-gray-200 text-center text-xs text-gray-400">
+                    <p>Generated by SenExpert Global Energies - SGE System</p>
+                  </div>
+                </div>
+              </div>
+              <div className="p-6 border-t border-gray-200 flex gap-3 no-print">
+                <button onClick={() => setPrintTool(null)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
+                <button onClick={() => window.print()} className="flex-1 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] flex items-center justify-center gap-2">
+                  <Printer className="w-4 h-4" /> Print
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #print-content, #print-content * { visibility: visible; }
+          #print-content {
+            position: fixed; left: 0; top: 0; width: 100%; height: 100%;
+            background: white; z-index: 99999; overflow: auto;
+          }
+          #print-area { padding: 40px !important; }
+          .no-print { display: none !important; }
+          @page { margin: 15mm; size: A4 portrait; }
+        }
+      `}</style>
     </div>
   );
 }
