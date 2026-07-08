@@ -33,6 +33,14 @@ async function migrate() {
   );
   console.log('✓ Created index users: { email: 1 }');
 
+  // Audit logs collection: TTL index for 90-day auto-expiry
+  // Prevents MongoDB Atlas free tier (512MB) from filling up
+  await db.collection('audit_logs').createIndex(
+    { created_at: 1 },
+    { name: 'idx_audit_logs_ttl', expireAfterSeconds: 90 * 24 * 60 * 60 },
+  );
+  console.log('✓ Created TTL index audit_logs: { created_at: 1 } (90-day expiry)');
+
   await closeDatabase();
   console.log('\nMigration complete.');
 }

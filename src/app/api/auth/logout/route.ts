@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logout as authLogout, verifyToken } from '@/services/authService';
-
-function getClientIp(request: NextRequest): string | undefined {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || request.headers.get('x-real-ip')
-    || undefined;
-}
+import { applyRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
   try {
+    const rl = applyRateLimit(request, { maxRequests: 30 });
+    if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
+
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
 
     if (token) {
       const decoded = await verifyToken(token);
       if (decoded) {
-        // Log the logout event
         await authLogout(getClientIp(request));
       }
     }
@@ -22,7 +19,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Logout API error:', error);
-    // Even if server-side logout fails, client should still clear local state
     return NextResponse.json({ success: true });
   }
 }

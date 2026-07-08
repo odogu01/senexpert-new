@@ -129,6 +129,38 @@ export class BaseRepository<T extends Record<string, any>> {
   }
 
   /**
+   * Atomically increment a numeric field. Avoids read-then-write race conditions.
+   */
+  async increment(id: string, field: string, amount: number): Promise<boolean> {
+    const mongodb = await this.getMongoDb();
+    const col = await this.getCollection();
+    let oid: any;
+    try { oid = new mongodb.ObjectId(id); } catch { return false; }
+    const result = await col.updateOne(
+      { _id: oid },
+      { $inc: { [field]: amount }, $set: { updated_at: new Date() } },
+    );
+    return result.matchedCount > 0;
+  }
+
+  /**
+   * Update using raw MongoDB operators (e.g., { $inc, $set }).
+   * Does NOT auto-wrap in $set — you control the operators.
+   * Use for atomic operations like increment + status change.
+   */
+  async updateOneRawOperators(id: string, operators: Record<string, any>): Promise<{ matchedCount: number }> {
+    const mongodb = await this.getMongoDb();
+    const col = await this.getCollection();
+    let oid: any;
+    try { oid = new mongodb.ObjectId(id); } catch { return { matchedCount: 0 }; }
+    const result = await col.updateOne(
+      { _id: oid },
+      { ...operators, $set: { ...(operators.$set || {}), updated_at: new Date() } },
+    );
+    return { matchedCount: result.matchedCount };
+  }
+
+  /**
    * Advanced findOneAndUpdate — useful when you need the old document for audit.
    */
   async findOneAndUpdate(

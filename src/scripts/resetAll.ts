@@ -1,0 +1,196 @@
+/**
+ * Database Reset Script — clears all data but keeps users/profiles
+ * Run with: npx tsx -r dotenv/config src/scripts/resetAll.ts
+ */
+require('dotenv').config();
+const { connectToDatabase, getCollection } = require('../lib/mongodb');
+const { ObjectId } = require('mongodb');
+
+const DATA_COLLECTIONS = ['tools', 'tool_requests', 'financial_requests', 'maintenance', 'alerts', 'audit_logs'];
+
+async function reset() {
+  console.log('🗑️  Starting full database reset...\n');
+
+  try {
+    await connectToDatabase();
+    console.log('✅ Connected to MongoDB\n');
+
+    // 1. Clear all data collections (keep users + profiles)
+    for (const name of DATA_COLLECTIONS) {
+      const col = getCollection(name);
+      const count = await col.countDocuments();
+      if (count > 0) {
+        await col.deleteMany({});
+        console.log(`  🧹 Cleared ${name} (${count} documents deleted)`);
+      } else {
+        console.log(`  ➖ ${name} already empty, skipped`);
+      }
+    }
+
+    console.log('\n✅ All data collections cleared. Users and profiles preserved.');
+    console.log('\n📊 Remaining collections:');
+    console.log(`   - users: ${await getCollection('users').countDocuments()}`);
+    console.log(`   - profiles: ${await getCollection('profiles').countDocuments()}`);
+
+    // 2. Now seed fresh inventory
+    console.log('\n🌱 Seeding fresh inventory...\n');
+
+    const toolsCollection = getCollection('tools');
+    const toolRequestsCollection = getCollection('tool_requests');
+    const maintenanceCollection = getCollection('maintenance');
+    const alertsCollection = getCollection('alerts');
+    const financialRequestsCollection = getCollection('financial_requests');
+
+    // Get a test user for relationships
+    const profilesCollection = getCollection('profiles');
+    const testUser = await profilesCollection.findOne({ role: 'super_admin' });
+    const testUserId = testUser?._id?.toString() || (await getCollection('users').findOne({}))?._id?.toString() || '507f1f77bcf86cd799439011';
+
+    // ===== SEED TOOLS =====
+    const seedTools = [
+      { name: 'Casing Tubing', work_order_number: 'WO-001', size_thread: '7"', material: 'Steel', model: 'CT-7000', part_number: 'PT-001', category: 'Casing', quantity: 150, min_quantity: 50, status: 'available', location: 'Warehouse A', description: 'High-grade casing tubing for oil wells' },
+      { name: 'Drill Pipe', work_order_number: 'WO-002', size_thread: '5"', material: 'Steel', model: 'DP-5000', part_number: 'PT-002', category: 'Drilling', quantity: 80, min_quantity: 30, status: 'available', location: 'Warehouse A', description: 'Premium drill pipe for deep drilling' },
+      { name: 'Wellhead Equipment', work_order_number: 'WO-003', size_thread: '18-3/4"', material: 'Carbon Steel', model: 'WHE-1800', part_number: 'PT-003', category: 'Wellhead', quantity: 12, min_quantity: 5, status: 'available', location: 'Yard B', description: 'Wellhead assembly equipment' },
+      { name: 'Christmas Tree', work_order_number: 'WO-004', size_thread: '13-5/8"', material: 'Stainless Steel', model: 'CT-1300', part_number: 'PT-004', category: 'Wellhead', quantity: 8, min_quantity: 3, status: 'in_use', location: 'Site Alpha', description: 'Surface christmas tree assembly' },
+      { name: 'Tubing String', work_order_number: 'WO-005', size_thread: '2-7/8"', material: 'Steel', model: 'TS-2800', part_number: 'PT-005', category: 'Tubing', quantity: 200, min_quantity: 75, status: 'available', location: 'Warehouse A', description: 'Production tubing string' },
+      { name: 'Safety Valve', work_order_number: 'WO-006', size_thread: '3-1/2"', material: 'Alloy', model: 'SV-3500', part_number: 'PT-006', category: 'Safety', quantity: 25, min_quantity: 10, status: 'maintenance', location: 'Workshop', description: 'Subsurface safety valve' },
+      { name: 'Wireline Equipment', work_order_number: 'WO-007', material: 'Steel', model: 'WL-2000', part_number: 'PT-007', category: 'Wireline', quantity: 15, min_quantity: 5, status: 'available', location: 'Warehouse B', description: 'Electric line logging equipment' },
+      { name: 'Pump Assembly', work_order_number: 'WO-008', material: 'Iron', model: 'PA-5000', part_number: 'PT-008', category: 'Pumping', quantity: 6, min_quantity: 3, status: 'in_use', location: 'Site Beta', description: 'ESP pump assembly' },
+      { name: 'Flow Control', work_order_number: 'WO-009', size_thread: '4-1/2"', material: 'Steel', model: 'FC-4500', part_number: 'PT-009', category: 'Control', quantity: 45, min_quantity: 15, status: 'available', location: 'Warehouse A', description: 'Flow control valves' },
+      { name: 'Completion Tools', work_order_number: 'WO-010', material: 'Various', model: 'CT-100', part_number: 'PT-010', category: 'Completion', quantity: 100, min_quantity: 40, status: 'available', location: 'Warehouse C', description: 'Various completion tools' },
+      { name: 'Sanding Equipment', work_order_number: 'WO-011', material: 'Steel', model: 'SE-3000', part_number: 'PT-011', category: 'Sand Control', quantity: 30, min_quantity: 10, status: 'available', location: 'Warehouse B', description: 'Sand screen filtration' },
+      { name: 'Intervention Tools', work_order_number: 'WO-012', material: 'Steel', model: 'IT-1500', part_number: 'PT-012', category: 'Intervention', quantity: 20, min_quantity: 8, status: 'in_use', location: 'Site Gamma', description: 'Well intervention tools' },
+    ];
+
+    console.log('📦 Seeding tools...');
+    for (const toolData of seedTools) {
+      const tool = {
+        _id: new ObjectId(),
+        ...toolData,
+        initial_quantity: toolData.quantity,
+        created_by: testUserId,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+      await toolsCollection.insertOne(tool);
+      console.log(`  ✅ Created tool: ${tool.name}`);
+    }
+
+    // Get tool IDs for relationships
+    const tools = await toolsCollection.find({}).toArray();
+    const toolIds = tools.map(t => t._id.toString());
+
+    // ===== SEED TOOL REQUESTS =====
+    const seedToolRequests = [
+      { tool_id: toolIds[0], movement_type: 'outgoing', requested_by: testUserId, quantity: 20, status: 'pending', notes: 'Urgent request for Site Alpha' },
+      { tool_id: toolIds[1], movement_type: 'outgoing', requested_by: testUserId, quantity: 10, status: 'pending', notes: 'Routine maintenance request' },
+      { tool_id: toolIds[2], movement_type: 'incoming', requested_by: testUserId, quantity: 50, status: 'approved', notes: 'Restocking from supplier' },
+      { tool_id: toolIds[3], movement_type: 'outgoing', requested_by: testUserId, quantity: 5, status: 'completed', notes: 'Completed project return' },
+    ];
+
+    console.log('\n📋 Seeding tool requests...');
+    for (const reqData of seedToolRequests) {
+      const request = {
+        _id: new ObjectId(),
+        tool_id: reqData.tool_id,
+        movement_type: reqData.movement_type,
+        requested_by: reqData.requested_by,
+        assigned_to: null,
+        quantity: reqData.quantity,
+        status: reqData.status,
+        notes: reqData.notes,
+        request_date: new Date().toISOString(),
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+      await toolRequestsCollection.insertOne(request);
+      console.log(`  ✅ Created tool request: ${reqData.movement_type} - ${reqData.quantity} units (${reqData.status})`);
+    }
+
+    // ===== SEED MAINTENANCE =====
+    const seedMaintenance = [
+      { tool_id: toolIds[4], maintenance_type: 'inspection', description: 'Quarterly inspection of safety valves', status: 'scheduled', scheduled_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), cost: 500 },
+      { tool_id: toolIds[5], maintenance_type: 'repair', description: 'Repair damaged pump assembly', status: 'in_progress', scheduled_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), cost: 2500 },
+      { tool_id: toolIds[6], maintenance_type: 'calibration', description: 'Calibrate wireline equipment', status: 'scheduled', scheduled_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), cost: 800 },
+    ];
+
+    console.log('\n🔧 Seeding maintenance records...');
+    for (const maintData of seedMaintenance) {
+      const maintenance = {
+        _id: new ObjectId(),
+        ...maintData,
+        performed_by: null,
+        notes: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+      await maintenanceCollection.insertOne(maintenance);
+      console.log(`  ✅ Created maintenance: ${maintData.maintenance_type} for tool`);
+    }
+
+    // ===== SEED ALERTS =====
+    const seedAlerts = [
+      { title: 'Low Stock Alert', description: 'Safety valve inventory below minimum threshold', type: 'warning', category: 'Inventory' },
+      { title: 'Maintenance Due', description: 'Pump assembly maintenance overdue', type: 'critical', category: 'Maintenance' },
+      { title: 'New Tool Request', description: 'New tool request awaiting approval', type: 'info', category: 'Requests' },
+    ];
+
+    console.log('\n🔔 Seeding alerts...');
+    for (const alertData of seedAlerts) {
+      const alert = {
+        _id: new ObjectId(),
+        ...alertData,
+        tool_id: null,
+        is_read: false,
+        created_by: testUserId,
+        created_at: new Date(),
+      };
+      await alertsCollection.insertOne(alert);
+      console.log(`  ✅ Created alert: ${alert.title}`);
+    }
+
+    // ===== SEED FINANCIAL REQUESTS =====
+    const seedFinancialRequests = [
+      { title: 'Emergency Equipment Purchase', description: 'Urgent need for replacement pump assembly', amount: 15000, category: 'Equipment', requested_by: testUserId, status: 'pending' },
+      { title: 'Routine Maintenance Budget', description: 'Q2 maintenance and inspection services', amount: 8500, category: 'Maintenance', requested_by: testUserId, status: 'pending' },
+      { title: 'Safety Equipment Upgrade', description: 'Upgrade safety valves to latest standards', amount: 22000, category: 'Safety', requested_by: testUserId, status: 'approved' },
+    ];
+
+    console.log('\n💰 Seeding financial requests...');
+    for (const finData of seedFinancialRequests) {
+      const financialRequest = {
+        _id: new ObjectId(),
+        title: finData.title,
+        description: finData.description,
+        amount: finData.amount,
+        category: finData.category,
+        requested_by: finData.requested_by,
+        approved_by: finData.status === 'approved' ? testUserId : null,
+        approved_at: finData.status === 'approved' ? new Date() : null,
+        status: finData.status,
+        notes: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+      await financialRequestsCollection.insertOne(financialRequest);
+      console.log(`  ✅ Created financial request: ${finData.title} - $${finData.amount}`);
+    }
+
+    console.log('\n✅✅✅ Reset complete! Fresh data seeded. ✅✅✅');
+    console.log('\n📊 Summary:');
+    console.log(`   - Users: ${await getCollection('users').countDocuments()} (preserved)`);
+    console.log(`   - Profiles: ${await getCollection('profiles').countDocuments()} (preserved)`);
+    console.log(`   - Tools: ${await toolsCollection.countDocuments()}`);
+    console.log(`   - Tool Requests: ${await toolRequestsCollection.countDocuments()}`);
+    console.log(`   - Maintenance: ${await maintenanceCollection.countDocuments()}`);
+    console.log(`   - Alerts: ${await alertsCollection.countDocuments()}`);
+    console.log(`   - Financial Requests: ${await financialRequestsCollection.countDocuments()}`);
+    console.log(`   - Audit Logs: ${await getCollection('audit_logs').countDocuments()}`);
+
+  } catch (error) {
+    console.error('\n❌ Reset failed:', error);
+    process.exit(1);
+  }
+}
+
+reset();

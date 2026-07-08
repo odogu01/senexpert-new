@@ -114,6 +114,16 @@
   background: var(--color-primary);
 }
 
+/* Print section title */
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+
 /* Print-specific styles */
 @media print {
   .no-print {

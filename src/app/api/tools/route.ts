@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTools, getToolsPaginated, createTool, updateTool, deleteTool, getToolById, getCategories, getLocations } from '@/services/toolsService';
+import { verifyToken, getTokenFromHeader } from '@/services/authService';
+import { validate, createToolSchema, updateToolSchema } from '@/lib/validation';
+import { applyRateLimit } from '@/lib/rateLimit';
 
 function getClientIp(request: NextRequest): string | undefined {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
@@ -7,13 +10,26 @@ function getClientIp(request: NextRequest): string | undefined {
     || undefined;
 }
 
+async function authenticate(request: NextRequest): Promise<{ userId: string; role: string } | NextResponse> {
+  const authHeader = request.headers.get('Authorization');
+  const token = getTokenFromHeader(authHeader);
+  if (!token) {
+    return NextResponse.json({ success: false, error: { message: 'Unauthorized' } }, { status: 401 });
+  }
+  const decoded = await verifyToken(token);
+  if (!decoded) {
+    return NextResponse.json({ success: false, error: { message: 'Invalid token' } }, { status: 401 });
+  }
+  return decoded;
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return NextResponse.json({ success: false, error: { message: 'Unauthorized' } }, { status: 401 });
-    }
+    const rl = applyRateLimit(request);
+    if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
+
+    const auth = await authenticate(request);
+    if (auth instanceof NextResponse) return auth;
 
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category') || undefined;
@@ -60,14 +76,18 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return NextResponse.json({ success: false, error: { message: 'Unauthorized' } }, { status: 401 });
-    }
+    const rl = applyRateLimit(request, { maxRequests: 30 });
+    if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
+
+    const auth = await authenticate(request);
+    if (auth instanceof NextResponse) return auth;
 
     const body = await request.json();
-    const response = await createTool(body, getClientIp(request));
+    const parsed = validate(createToolSchema, body);
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: { message: parsed.error } }, { status: 400 });
+    }
+    const response = await createTool(parsed.data as any, getClientIp(request));
     return NextResponse.json(response);
   } catch (error) {
     console.error('Tools API create error:', error);
@@ -77,11 +97,11 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return NextResponse.json({ success: false, error: { message: 'Unauthorized' } }, { status: 401 });
-    }
+    const rl = applyRateLimit(request, { maxRequests: 30 });
+    if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
+
+    const auth = await authenticate(request);
+    if (auth instanceof NextResponse) return auth;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -91,7 +111,11 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const response = await updateTool(id, body, getClientIp(request));
+    const parsed = validate(updateToolSchema, body);
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: { message: parsed.error } }, { status: 400 });
+    }
+    const response = await updateTool(id, parsed.data as any, getClientIp(request));
     return NextResponse.json(response);
   } catch (error) {
     console.error('Tools API update error:', error);
@@ -101,11 +125,11 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return NextResponse.json({ success: false, error: { message: 'Unauthorized' } }, { status: 401 });
-    }
+    const rl = applyRateLimit(request, { maxRequests: 30 });
+    if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
+
+    const auth = await authenticate(request);
+    if (auth instanceof NextResponse) return auth;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

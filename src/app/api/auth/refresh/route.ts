@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { refreshToken, isTokenExpiringSoon } from '@/services/authService';
+import { applyRateLimit } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
   try {
+    const rl = applyRateLimit(request, { maxRequests: 30 });
+    if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
+
     const authHeader = request.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(

@@ -33,7 +33,10 @@ async function getBcryptModule() {
   return import('bcryptjs');
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'senexpert-jwt-secret-key-2024';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
 const JWT_EXPIRES_IN = '7d';
 
 async function generateToken(user: User): Promise<string> {

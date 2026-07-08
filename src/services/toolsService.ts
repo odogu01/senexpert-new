@@ -212,6 +212,17 @@ export async function getLocations(): Promise<{ success: boolean; data?: string[
 // TOOL REQUESTS
 // ============================================
 
+export async function getToolRequestById(id: string): Promise<{ success: boolean; data?: ToolRequest; error?: string }> {
+  try {
+    const data = await toolRequestRepo.findById(id);
+    if (!data) return { success: false, error: 'Request not found' };
+    return { success: true, data: data as any };
+  } catch (error) {
+    console.error('Get tool request error:', error);
+    return { success: false, error: 'Failed to fetch tool request' };
+  }
+}
+
 export async function getToolRequests(filters?: {
   status?: string;
   movement_type?: string;
@@ -297,32 +308,26 @@ export async function updateToolRequestStatus(
       updates.approved_by = approved_by;
       updates.approved_at = new Date();
       
-      // Handle tool quantity logic for approved outgoing requests
+      // Handle tool quantity logic for approved outgoing requests (atomic $inc)
       if (oldRequest?.movement_type === 'outgoing' && oldRequest?.tool_id) {
-        const tool = await toolRepo.findById(oldRequest.tool_id);
-        if (tool) {
-          if (oldRequest.transaction_type === 'sold') {
-            // Reduce quantity for sold tools (stays in DB at qty 0 for records)
-            const newQuantity = Math.max(0, tool.quantity - oldRequest.quantity);
-            await toolRepo.updateOneRaw(oldRequest.tool_id, { quantity: newQuantity });
-          } else if (oldRequest.transaction_type === 'rented') {
-            // Reduce quantity + mark as rentals (stays in DB at qty 0 for records)
-            const newQuantity = Math.max(0, tool.quantity - oldRequest.quantity);
-            await toolRepo.updateOneRaw(oldRequest.tool_id, { quantity: newQuantity, status: 'rentals' });
-          }
+        if (oldRequest.transaction_type === 'sold') {
+          await toolRepo.increment(oldRequest.tool_id, 'quantity', -oldRequest.quantity);
+        } else if (oldRequest.transaction_type === 'rented') {
+          await toolRepo.updateOneRawOperators(oldRequest.tool_id, {
+            $inc: { quantity: -oldRequest.quantity },
+            $set: { status: 'rentals' },
+          });
         }
       }
     } else if (status === 'completed') {
       updates.completed_at = new Date();
       
-      // Handle incoming requests (returns)
-      if (oldRequest?.movement_type === 'incoming' && oldRequest?.tool_id) {
-        const tool = await toolRepo.findById(oldRequest.tool_id);
-        if (tool && oldRequest.transaction_type === 'rented') {
-          // Return rented tool - add quantity back + mark as available
-          const newQuantity = tool.quantity + oldRequest.quantity;
-          await toolRepo.updateOneRaw(oldRequest.tool_id, { quantity: newQuantity, status: 'available' });
-        }
+      // Handle incoming requests (returns) — atomic $inc
+      if (oldRequest?.movement_type === 'incoming' && oldRequest?.tool_id && oldRequest.transaction_type === 'rented') {
+        await toolRepo.updateOneRawOperators(oldRequest.tool_id, {
+          $inc: { quantity: oldRequest.quantity },
+          $set: { status: 'available' },
+        });
       }
     }
 
@@ -581,6 +586,17 @@ export async function getFinancialRequests(filters?: {
   } catch (error) {
     console.error('Get financial requests error:', error);
     return { success: false, error: 'Failed to fetch financial requests' };
+  }
+}
+
+export async function getFinancialRequestById(id: string): Promise<{ success: boolean; data?: FinancialRequest; error?: string }> {
+  try {
+    const data = await financialRequestRepo.findById(id);
+    if (!data) return { success: false, error: 'Request not found' };
+    return { success: true, data: data as any };
+  } catch (error) {
+    console.error('Get financial request error:', error);
+    return { success: false, error: 'Failed to fetch financial request' };
   }
 }
 

@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProfile, updateProfile, getUsers, changePassword } from '@/services/authService';
 import { verifyToken } from '@/services/authService';
+import { applyRateLimit } from '@/lib/rateLimit';
 
 export async function GET(request: NextRequest) {
   try {
+    const rl = applyRateLimit(request);
+    if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
+
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
     
     if (!token) {
@@ -25,6 +29,9 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const rl = applyRateLimit(request, { maxRequests: 30 });
+    if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
+
     const token = request.headers.get('Authorization')?.replace('Bearer ', '');
     
     if (!token) {
