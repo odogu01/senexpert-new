@@ -47,8 +47,8 @@ export default function DashboardShell({ children }: DashboardShellProps) {
     }
   }, [authLoading, router]);
 
-  // Auto-logout after 5 minutes of inactivity (only when authenticated)
-  useAutoLogout(logout, 5 * 60 * 1000, !!user);
+  // Auto-logout after 45 minutes of inactivity (only when authenticated)
+  useAutoLogout(logout, 45 * 60 * 1000, !!user);
 
   const handleLogout = async () => {
     await logout();
