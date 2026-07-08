@@ -66,6 +66,7 @@ export function getTokenFromHeader(authHeader: string | null): string | null {
 
 async function logAuditEvent(params: {
   userId?: string;
+  user_name?: string;
   action: 'LOGIN' | 'LOGIN_FAILED' | 'LOGOUT' | 'INSERT' | 'UPDATE' | 'DELETE';
   tableName?: string;
   recordId?: string;
@@ -75,8 +76,18 @@ async function logAuditEvent(params: {
   ipAddress?: string;
 }) {
   try {
+    // Resolve user full name if not provided but userId is
+    let userName = params.user_name;
+    if (!userName && params.userId) {
+      try {
+        const u = await userRepo.findById(params.userId);
+        userName = (u as any)?.full_name;
+      } catch { /* best-effort */ }
+    }
+
     await auditRepo.insertOne({
       user_id: params.userId,
+      user_name: userName || null,
       action: params.action,
       table_name: params.tableName,
       record_id: params.recordId,
@@ -189,6 +200,11 @@ export async function login(credentials: LoginCredentials, ipAddress?: string): 
     }
 
     if (!user.is_active) {
+      await logAuditEvent({
+        userId: user.id, action: 'LOGIN_FAILED',
+        details: `Failed login attempt for email: ${credentials.email}. Account is suspended.`,
+        ipAddress,
+      });
       return { success: false, error: { message: 'This account has been suspended. Please contact support.', status: 403 } };
     }
 
@@ -198,6 +214,11 @@ export async function login(credentials: LoginCredentials, ipAddress?: string): 
 
     if (lockedUntil && lockedUntil > new Date()) {
       const remainingMin = Math.ceil((lockedUntil.getTime() - Date.now()) / 60_000);
+      await logAuditEvent({
+        userId: user.id, action: 'LOGIN_FAILED',
+        details: `Failed login attempt for email: ${credentials.email}. Account locked (${remainingMin} min remaining).`,
+        ipAddress,
+      });
       return {
         success: false,
         error: {
@@ -273,9 +294,9 @@ export async function login(credentials: LoginCredentials, ipAddress?: string): 
 
 // ───────── Logout ─────────
 
-export async function logout(ipAddress?: string): Promise<{ success: boolean; error?: AuthError }> {
+export async function logout(actingUserId?: string, ipAddress?: string): Promise<{ success: boolean; error?: AuthError }> {
   try {
-    await logAuditEvent({ action: 'LOGOUT', details: 'User logged out', ipAddress });
+    await logAuditEvent({ userId: actingUserId, action: 'LOGOUT', details: 'User logged out', ipAddress });
     return { success: true };
   } catch (error) {
     console.error('Logout error:', error);
@@ -347,7 +368,11 @@ export async function getUsers(): Promise<{ success: boolean; data?: User[]; err
   }
 }
 
-export async function createUser(userData: { email: string; password: string; full_name: string; role: UserRole }): Promise<{ success: boolean; data?: User; error?: string }> {
+export async function createUser(
+  userData: { email: string; password: string; full_name: string; role: UserRole },
+  actingUserId?: string,
+  ipAddress?: string,
+): Promise<{ success: boolean; data?: User; error?: string }> {
   try {
     const bcrypt = await getBcryptModule();
 
@@ -372,6 +397,15 @@ export async function createUser(userData: { email: string; password: string; fu
       role: userData.role,
     });
 
+    await logAuditEvent({
+      userId: actingUserId,
+      action: 'INSERT',
+      tableName: 'users',
+      recordId: created.id,
+      newValues: { email: userData.email.toLowerCase(), full_name: userData.full_name, role: userData.role },
+      ipAddress,
+    });
+
     // Strip password_hash before returning
     const { password_hash: _, ...safeUser } = created as any;
     return { success: true, data: safeUser };
@@ -381,7 +415,12 @@ export async function createUser(userData: { email: string; password: string; fu
   }
 }
 
-export async function changePassword(userId: string, currentPassword: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+export async function changePassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string,
+  ipAddress?: string,
+): Promise<{ success: boolean; error?: string }> {
   try {
     const bcrypt = await getBcryptModule();
     const user = await userRepo.findById(userId);
@@ -393,6 +432,15 @@ export async function changePassword(userId: string, currentPassword: string, ne
     const newHash = await bcrypt.hash(newPassword, 12);
     await userRepo.updatePassword(userId, newHash);
 
+    await logAuditEvent({
+      userId,
+      action: 'UPDATE',
+      tableName: 'users',
+      recordId: userId,
+      details: 'Password changed by user',
+      ipAddress,
+    });
+
     return { success: true };
   } catch (error) {
     console.error('Change password error:', error);
@@ -400,7 +448,11 @@ export async function changePassword(userId: string, currentPassword: string, ne
   }
 }
 
-export async function deleteUser(userId: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteUser(
+  userId: string,
+  actingUserId?: string,
+  ipAddress?: string,
+): Promise<{ success: boolean; error?: string }> {
   try {
     const user = await userRepo.findById(userId);
     if (!user) return { success: false, error: 'User not found' };
@@ -409,6 +461,15 @@ export async function deleteUser(userId: string): Promise<{ success: boolean; er
     await userRepo.deleteOne(userId);
     await profileRepo.deleteOne(userId);
 
+    await logAuditEvent({
+      userId: actingUserId,
+      action: 'DELETE',
+      tableName: 'users',
+      recordId: userId,
+      oldValues: { email: user.email, full_name: user.full_name, role: user.role },
+      ipAddress,
+    });
+
     return { success: true };
   } catch (error) {
     console.error('Delete user error:', error);
@@ -416,7 +477,12 @@ export async function deleteUser(userId: string): Promise<{ success: boolean; er
   }
 }
 
-export async function resetUserPassword(userId: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+export async function resetUserPassword(
+  userId: string,
+  newPassword: string,
+  actingUserId?: string,
+  ipAddress?: string,
+): Promise<{ success: boolean; error?: string }> {
   try {
     const bcrypt = await getBcryptModule();
     const user = await userRepo.findById(userId);
@@ -424,6 +490,15 @@ export async function resetUserPassword(userId: string, newPassword: string): Pr
 
     const newHash = await bcrypt.hash(newPassword, 12);
     await userRepo.updatePassword(userId, newHash);
+
+    await logAuditEvent({
+      userId: actingUserId,
+      action: 'UPDATE',
+      tableName: 'users',
+      recordId: userId,
+      details: 'Password reset by admin',
+      ipAddress,
+    });
 
     return { success: true };
   } catch (error) {

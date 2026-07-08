@@ -102,7 +102,7 @@ export async function getToolById(id: string): Promise<{ success: boolean; data?
   }
 }
 
-export async function createTool(tool: ToolInsert, ipAddress?: string): Promise<{ success: boolean; data?: Tool; error?: string }> {
+export async function createTool(tool: ToolInsert, actingUserId?: string, ipAddress?: string): Promise<{ success: boolean; data?: Tool; error?: string }> {
   try {
     const qty = tool.quantity || 1;
     const newTool = await toolRepo.insertOne({
@@ -144,8 +144,11 @@ export async function createTool(tool: ToolInsert, ipAddress?: string): Promise<
   }
 }
 
-export async function updateTool(id: string, updates: ToolUpdate, ipAddress?: string): Promise<{ success: boolean; data?: Tool; error?: string }> {
+export async function updateTool(id: string, updates: ToolUpdate, actingUserId?: string, ipAddress?: string): Promise<{ success: boolean; data?: Tool; error?: string }> {
   try {
+    // Capture old values BEFORE the update for audit logging
+    const oldTool = await toolRepo.findById(id).catch(() => null) as any;
+
     // Never allow initial_quantity to be changed via update
     const { initial_quantity, ...safeUpdates } = updates as any;
     const result = await toolRepo.updateWithAutoDelete(id, safeUpdates);
@@ -153,10 +156,11 @@ export async function updateTool(id: string, updates: ToolUpdate, ipAddress?: st
     if (result.error) return { success: false, error: result.error };
 
     await logAuditEvent({
+      userId: actingUserId,
       action: 'UPDATE',
       tableName: 'tools',
       recordId: id,
-      oldValues: await toolRepo.findById(id).catch(() => null) as any,
+      oldValues: oldTool,
       newValues: updates as any,
       ipAddress,
     });
@@ -168,12 +172,13 @@ export async function updateTool(id: string, updates: ToolUpdate, ipAddress?: st
   }
 }
 
-export async function deleteTool(id: string, ipAddress?: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteTool(id: string, actingUserId?: string, ipAddress?: string): Promise<{ success: boolean; error?: string }> {
   try {
     const oldTool = await toolRepo.deleteOneWithDoc(id);
     if (!oldTool) return { success: false, error: 'Tool not found' };
 
     await logAuditEvent({
+      userId: actingUserId,
       action: 'DELETE',
       tableName: 'tools',
       recordId: id,
@@ -251,7 +256,7 @@ export async function createToolRequest(request: {
   received_by?: string;
   received_from?: string;
   new_tool_data?: Record<string, unknown>;
-}, ipAddress?: string): Promise<{ success: boolean; data?: ToolRequest; error?: string }> {
+}, actingUserId?: string, ipAddress?: string): Promise<{ success: boolean; data?: ToolRequest; error?: string }> {
   try {
     const insertData: Record<string, unknown> = {
       tool_id: request.tool_id || '',
@@ -280,6 +285,7 @@ export async function createToolRequest(request: {
     const newRequest = await toolRequestRepo.insertOne(insertData);
 
     await logAuditEvent({
+      userId: actingUserId,
       action: 'INSERT',
       tableName: 'tool_requests',
       recordId: newRequest.id,
@@ -298,6 +304,7 @@ export async function updateToolRequestStatus(
   id: string,
   status: 'approved' | 'rejected' | 'completed',
   approved_by?: string,
+  actingUserId?: string,
   ipAddress?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -363,6 +370,7 @@ export async function updateToolRequestStatus(
     }
 
     await logAuditEvent({
+      userId: actingUserId,
       action: 'UPDATE',
       tableName: 'tool_requests',
       recordId: id,
@@ -402,7 +410,7 @@ export async function createMaintenanceRecord(record: {
   scheduled_date: string;
   cost?: number;
   notes?: string;
-}, ipAddress?: string): Promise<{ success: boolean; data?: Maintenance; error?: string }> {
+}, actingUserId?: string, ipAddress?: string): Promise<{ success: boolean; data?: Maintenance; error?: string }> {
   try {
     const newRecord = await maintenanceRepo.insertOne({
       tool_id: record.tool_id,
@@ -415,6 +423,7 @@ export async function createMaintenanceRecord(record: {
     });
 
     await logAuditEvent({
+      userId: actingUserId,
       action: 'INSERT',
       tableName: 'maintenance',
       recordId: newRecord.id,
@@ -433,6 +442,7 @@ export async function updateMaintenanceStatus(
   id: string,
   status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled',
   performed_by?: string,
+  actingUserId?: string,
   ipAddress?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -448,6 +458,7 @@ export async function updateMaintenanceStatus(
     if (!matchedCount) return { success: false, error: 'Maintenance record not found' };
 
     await logAuditEvent({
+      userId: actingUserId,
       action: 'UPDATE',
       tableName: 'maintenance',
       recordId: id,
@@ -606,7 +617,7 @@ export async function createFinancialRequest(request: {
   amount: number;
   category: string;
   requested_by?: string;
-}, ipAddress?: string): Promise<{ success: boolean; data?: FinancialRequest; error?: string }> {
+}, actingUserId?: string, ipAddress?: string): Promise<{ success: boolean; data?: FinancialRequest; error?: string }> {
   try {
     const newRequest = await financialRequestRepo.insertOne({
       title: request.title,
@@ -618,6 +629,7 @@ export async function createFinancialRequest(request: {
     });
 
     await logAuditEvent({
+      userId: actingUserId,
       action: 'INSERT',
       tableName: 'financial_requests',
       recordId: newRequest.id,
@@ -637,6 +649,7 @@ export async function updateFinancialRequestStatus(
   status: 'approved' | 'rejected',
   approved_by?: string,
   notes?: string,
+  actingUserId?: string,
   ipAddress?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -652,7 +665,7 @@ export async function updateFinancialRequestStatus(
     if (!matchedCount) return { success: false, error: 'Request not found' };
 
     await logAuditEvent({
-      userId: approved_by,
+      userId: actingUserId,
       action: 'UPDATE',
       tableName: 'financial_requests',
       recordId: id,

@@ -194,6 +194,7 @@ export interface FinancialRequest {
 export interface AuditLog {
   id: string;
   user_id?: string;
+  user_name?: string;
   action: string;
   table_name?: string;
   record_id?: string;

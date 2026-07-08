@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ success: false, error: { message: parsed.error } }, { status: 400 });
     }
-    const response = await createToolRequest(parsed.data as any, getClientIp(request));
+    const response = await createToolRequest(parsed.data as any, auth.userId, getClientIp(request));
     return NextResponse.json(response);
   } catch (error) {
     console.error('Tool Requests API create error:', error);
@@ -80,7 +80,7 @@ export async function PATCH(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ success: false, error: { message: parsed.error } }, { status: 400 });
     }
-    const response = await updateToolRequestStatus(id, parsed.data.status, parsed.data.approved_by, getClientIp(request));
+    const response = await updateToolRequestStatus(id, parsed.data.status, parsed.data.approved_by, auth.userId, getClientIp(request));
     return NextResponse.json(response);
   } catch (error) {
     console.error('Tool Requests API update error:', error);

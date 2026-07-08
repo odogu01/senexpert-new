@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUsers, createUser, deleteUser, resetUserPassword, verifyToken } from '@/services/authService';
-import { applyRateLimit } from '@/lib/rateLimit';
+import { applyRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const response = await createUser(body);
+    const response = await createUser(body, decoded.userId, getClientIp(request));
     return NextResponse.json(response);
   } catch (error) {
     console.error('Users POST error:', error);
@@ -78,7 +78,7 @@ export async function PATCH(request: NextRequest) {
     let response;
     if (action === 'reset-password') {
       const body = await request.json();
-      response = await resetUserPassword(userId, body.newPassword);
+      response = await resetUserPassword(userId, body.newPassword, decoded.userId, getClientIp(request));
     } else {
       return NextResponse.json({ success: false, error: { message: 'Invalid action' } }, { status: 400 });
     }
@@ -113,7 +113,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: { message: 'User ID required' } }, { status: 400 });
     }
 
-    const response = await deleteUser(userId);
+    const response = await deleteUser(userId, decoded.userId, getClientIp(request));
     return NextResponse.json(response);
   } catch (error) {
     console.error('Users DELETE error:', error);

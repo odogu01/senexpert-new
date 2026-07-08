@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     if (token) {
       const decoded = await verifyToken(token);
       if (decoded) {
-        await authLogout(getClientIp(request));
+        await authLogout(decoded.userId, getClientIp(request));
       }
     }
 

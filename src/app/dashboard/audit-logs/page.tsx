@@ -7,10 +7,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import type { AuditLog } from '@/lib/database.types';
 
-interface AuditLogEntry extends AuditLog {
-  user_name?: string;
-}
-
 export default function AuditLogsPage() {
   const router = useRouter();
   const { data: logs = [] } = useRecentActivity(100);
@@ -25,9 +21,9 @@ export default function AuditLogsPage() {
   }
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
-  const searchFiltered = (logs as AuditLogEntry[]).filter(log => {
+  const searchFiltered = (logs as AuditLog[]).filter(log => {
     if (!searchTerm) return true;
     const q = searchTerm.toLowerCase();
     return (
@@ -67,7 +63,7 @@ export default function AuditLogsPage() {
             </tr>
           </thead>
           <tbody>
-            {searchFiltered.slice(0, 50).map((log: AuditLogEntry) => (
+            {searchFiltered.slice(0, 50).map((log: AuditLog) => (
               <motion.tr key={log.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="border-t border-gray-100 hover:bg-gray-50">
                 <td className="px-4 py-3 text-sm">{log.action}</td>
                 <td className="px-4 py-3 text-sm">{log.table_name || '-'}</td>

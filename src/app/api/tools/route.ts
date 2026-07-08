@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ success: false, error: { message: parsed.error } }, { status: 400 });
     }
-    const response = await createTool(parsed.data as any, getClientIp(request));
+    const response = await createTool(parsed.data as any, auth.userId, getClientIp(request));
     return NextResponse.json(response);
   } catch (error) {
     console.error('Tools API create error:', error);
@@ -115,7 +115,7 @@ export async function PATCH(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ success: false, error: { message: parsed.error } }, { status: 400 });
     }
-    const response = await updateTool(id, parsed.data as any, getClientIp(request));
+    const response = await updateTool(id, parsed.data as any, auth.userId, getClientIp(request));
     return NextResponse.json(response);
   } catch (error) {
     console.error('Tools API update error:', error);
@@ -138,7 +138,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: false, error: { message: 'Tool ID required' } }, { status: 400 });
     }
 
-    const response = await deleteTool(id, getClientIp(request));
+    const response = await deleteTool(id, auth.userId, getClientIp(request));
     return NextResponse.json(response);
   } catch (error) {
     console.error('Tools API delete error:', error);
