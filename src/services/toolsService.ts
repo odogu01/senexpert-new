@@ -18,7 +18,72 @@ import {
   MaintenanceRepository,
   AlertRepository,
   AuditLogRepository,
+  UserRepository,
+  NotificationRepository,
 } from './repositories';
+
+// ───────── Notification helpers ─────────
+
+/**
+ * Create notifications for all users with given roles.
+ */
+async function notifyRoles(roles: string[], notification: {
+  sender_id?: string;
+  sender_name?: string;
+  type: string;
+  title: string;
+  message: string;
+  link?: string;
+  related_id?: string;
+}) {
+  try {
+    const users = await userRepo.findAll({ role: { $in: roles }, is_active: true });
+    for (const u of users) {
+      await notificationRepo.insertOne({
+        recipient_id: u.id,
+        sender_id: notification.sender_id,
+        sender_name: notification.sender_name,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        link: notification.link,
+        related_id: notification.related_id,
+        is_read: false,
+      });
+    }
+  } catch (error) {
+    console.error('Failed to send role notifications:', error);
+  }
+}
+
+/**
+ * Create a notification for a single user.
+ */
+async function notifyUser(recipientId: string, notification: {
+  sender_id?: string;
+  sender_name?: string;
+  type: string;
+  title: string;
+  message: string;
+  link?: string;
+  related_id?: string;
+}) {
+  try {
+    await notificationRepo.insertOne({
+      recipient_id: recipientId,
+      sender_id: notification.sender_id,
+      sender_name: notification.sender_name,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      link: notification.link,
+      related_id: notification.related_id,
+      is_read: false,
+    });
+  } catch (error) {
+    console.error('Failed to send user notification:', error);
+  }
+}
 
 // ───────── Shared instances ─────────
 const toolRepo = new ToolRepository();
@@ -27,6 +92,8 @@ const financialRequestRepo = new FinancialRequestRepository();
 const maintenanceRepo = new MaintenanceRepository();
 const alertRepo = new AlertRepository();
 const auditRepo = new AuditLogRepository();
+const userRepo = new UserRepository();
+const notificationRepo = new NotificationRepository();
 
 // ───────── Audit log helper ─────────
 
@@ -293,6 +360,17 @@ export async function createToolRequest(request: {
       ipAddress,
     });
 
+    // Notify super_admins and admins about new tool request
+    const requesterName = request.requested_by === actingUserId ? undefined : undefined; // name resolved later
+    notifyRoles(['super_admin', 'admin'], {
+      sender_id: actingUserId,
+      type: 'tool_request_created',
+      title: 'New Tool Request',
+      message: `A new tool request has been submitted and needs approval.`,
+      link: '/dashboard/approvals',
+      related_id: newRequest.id,
+    });
+
     return { success: true, data: newRequest as any };
   } catch (error) {
     console.error('Create tool request error:', error);
@@ -378,6 +456,19 @@ export async function updateToolRequestStatus(
       newValues: { status, ...(approved_by && { approved_by }) },
       ipAddress,
     });
+
+    // Notify the requester about status change
+    if (oldRequest?.requested_by && oldRequest.requested_by !== actingUserId) {
+      const statusLabels = { approved: 'Approved', rejected: 'Rejected', completed: 'Completed' };
+      notifyUser(oldRequest.requested_by, {
+        sender_id: actingUserId,
+        type: `tool_request_${status}`,
+        title: `Tool Request ${statusLabels[status] || status}`,
+        message: `Your tool request has been ${status}.`,
+        link: '/dashboard/requests',
+        related_id: id,
+      });
+    }
 
     return { success: true };
   } catch (error) {
@@ -637,6 +728,16 @@ export async function createFinancialRequest(request: {
       ipAddress,
     });
 
+    // Notify all super_admins about new financial request
+    notifyRoles(['super_admin'], {
+      sender_id: actingUserId,
+      type: 'financial_request_created',
+      title: 'New Financial Request',
+      message: `A new financial request "${request.title}" has been submitted and needs approval.`,
+      link: '/dashboard/approvals',
+      related_id: newRequest.id,
+    });
+
     return { success: true, data: newRequest as any };
   } catch (error) {
     console.error('Create financial request error:', error);
@@ -673,6 +774,19 @@ export async function updateFinancialRequestStatus(
       newValues: { status, notes },
       ipAddress,
     });
+
+    // Notify the requester about status change
+    if (oldRequest?.requested_by && oldRequest.requested_by !== actingUserId) {
+      const statusLabels = { approved: 'Approved', rejected: 'Rejected' };
+      notifyUser(oldRequest.requested_by, {
+        sender_id: actingUserId,
+        type: `financial_request_${status}`,
+        title: `Financial Request ${statusLabels[status] || status}`,
+        message: `Your financial request "${oldRequest.title || ''}" has been ${status}.`,
+        link: '/dashboard/financial-requests',
+        related_id: id,
+      });
+    }
 
     return { success: true };
   } catch (error) {

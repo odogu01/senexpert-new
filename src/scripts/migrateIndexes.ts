@@ -41,6 +41,20 @@ async function migrate() {
   );
   console.log('✓ Created TTL index audit_logs: { created_at: 1 } (90-day expiry)');
 
+  // Notifications: index for per-user notification queries
+  await db.collection('notifications').createIndex(
+    { recipient_id: 1, created_at: -1 },
+    { name: 'idx_notif_recipient_created' },
+  );
+  console.log('✓ Created index notifications: { recipient_id: 1, created_at: -1 }');
+
+  // Notifications: partial filter for unread count queries
+  await db.collection('notifications').createIndex(
+    { recipient_id: 1, is_read: 1 },
+    { name: 'idx_notif_recipient_unread' },
+  );
+  console.log('✓ Created index notifications: { recipient_id: 1, is_read: 1 }');
+
   await closeDatabase();
   console.log('\nMigration complete.');
 }

@@ -12,6 +12,8 @@ export type { MaintenanceFilters } from './useMaintenance';
 
 export { useAlerts, useMarkAlertAsRead } from './useAlerts';
 
+export { useNotifications, useUnreadCount, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from './useNotifications';
+
 export { useRecentActivity } from './useAuditLogs';
 
 export { useDashboardStats } from './useDashboard';

@@ -137,14 +137,9 @@ export default function InventoryPage() {
     if (!editForm.name || !editForm.work_order_number || !currentUserId) return;
     setSaving(true);
     try {
-      // Create an incoming receipt request (requires approval before tool is added)
-      await createToolRequest({
-        movement_type: 'incoming',
-        quantity: editForm.quantity || 1,
-        location: editForm.location || '',
-        notes: `New tool receipt: ${editForm.name}`,
-        requested_by: currentUserId,
-        new_tool_data: {
+      if (canAddTool && (userRole === 'super_admin' || userRole === 'admin')) {
+        // Admins/super_admins add tools directly
+        await createTool({
           name: editForm.name,
           work_order_number: editForm.work_order_number,
           size_thread: editForm.size_thread,
@@ -152,18 +147,45 @@ export default function InventoryPage() {
           model: editForm.model,
           part_number: editForm.part_number,
           material_no: editForm.material_no,
-          category: editForm.category || 'General',
-          quantity: editForm.quantity,
+          category: editForm.category || 'Saleable',
+          quantity: editForm.quantity || 1,
           min_quantity: editForm.min_quantity,
-          status: editForm.status,
+          status: editForm.status || 'available',
           location: editForm.location,
           description: editForm.description,
-          created_by: currentUserId,
           received_from: editForm.received_from,
           received_by: editForm.received_by,
           vehicle_number: editForm.vehicle_number,
-        },
-      });
+        });
+      } else {
+        // Operators create an incoming receipt request (requires approval)
+        await createToolRequest({
+          movement_type: 'incoming',
+          quantity: editForm.quantity || 1,
+          location: editForm.location || '',
+          notes: `New tool receipt: ${editForm.name}`,
+          requested_by: currentUserId,
+          new_tool_data: {
+            name: editForm.name,
+            work_order_number: editForm.work_order_number,
+            size_thread: editForm.size_thread,
+            material: editForm.material,
+            model: editForm.model,
+            part_number: editForm.part_number,
+            material_no: editForm.material_no,
+            category: editForm.category || 'General',
+            quantity: editForm.quantity,
+            min_quantity: editForm.min_quantity,
+            status: editForm.status,
+            location: editForm.location,
+            description: editForm.description,
+            created_by: currentUserId,
+            received_from: editForm.received_from,
+            received_by: editForm.received_by,
+            vehicle_number: editForm.vehicle_number,
+          },
+        });
+      }
       setIsAddModalOpen(false);
       setEditForm({
         name: '',
@@ -177,7 +199,7 @@ export default function InventoryPage() {
         vehicle_number: '',
       });
     } catch (err) {
-      console.error('Failed to submit receipt request:', err);
+      console.error('Failed to add tool:', err);
     } finally {
       setSaving(false);
     }

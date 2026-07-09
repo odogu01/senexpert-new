@@ -45,6 +45,11 @@ export const queryKeys = {
   users: {
     all: ['users'] as const,
   },
+  notifications: {
+    all: ['notifications'] as const,
+    list: (recipientId: string) => ['notifications', 'list', recipientId] as const,
+    unreadCount: (recipientId: string) => ['notifications', 'unread', recipientId] as const,
+  },
   dashboard: {
     stats: ['dashboard', 'stats'] as const,
   },

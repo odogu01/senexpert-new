@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   LayoutDashboard, 
   Package, 
   RotateCcw, 
@@ -19,7 +19,8 @@ import {
   Users,
   X,
   CheckCircle,
-  DollarSign
+  DollarSign,
+  Bell
 } from 'lucide-react';
 import type { UserRole } from '@/lib/database.types';
 
@@ -38,6 +39,7 @@ interface SidebarProps {
 // Navigation items with icons and labels
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'accountant', 'hr', 'field', 'operator'] },
+  { label: 'Notifications', href: '/dashboard/notifications', icon: Bell, roles: ['super_admin', 'admin', 'accountant', 'hr', 'field', 'operator'] },
   { label: 'Inventory', href: '/dashboard/inventory', icon: Package, roles: ['super_admin', 'admin', 'operator'] },
   { label: 'Requests', href: '/dashboard/requests', icon: RotateCcw, roles: ['super_admin', 'admin', 'field', 'operator'] },
   { label: 'Financial Requests', href: '/dashboard/financial-requests', icon: DollarSign, roles: ['super_admin', 'admin', 'accountant'] },

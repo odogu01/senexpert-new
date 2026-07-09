@@ -17,8 +17,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/authContext';
 import { useRouter } from 'next/navigation';
+import { useNotifications, useUnreadCount, useMarkAllNotificationsAsRead } from '@/hooks/api';
 import type { UserRole } from '@/lib/database.types';
-import type { Alert } from '@/lib/database.types';
+import type { Notification } from '@/lib/database.types';
 
 interface TopbarProps {
   userRole?: UserRole;
@@ -110,28 +111,11 @@ export default function Topbar({
     router.push('/login');
   };
 
-  // Load alerts from API
-  useEffect(() => {
-    async function loadAlerts() {
-      try {
-        const token = localStorage.getItem('senexpert_token');
-        const response = await fetch('/api/alerts', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await response.json();
-        if (data.success && data.data) {
-          setAlerts(data.data);
-        }
-      } catch (error) {
-        console.error('Failed to load alerts:', error);
-      }
-    }
-    loadAlerts();
-  }, []);
-
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-
-  const unreadAlerts = alerts.filter(a => a.type === 'critical' || a.type === 'warning').length;
+  // Notifications
+  const { data: notifications = [] } = useNotifications(10);
+  const { data: unreadCount = 0 } = useUnreadCount();
+  const { mutateAsync: markAllRead } = useMarkAllNotificationsAsRead();
+  const notifList = notifications as Notification[];
 
   return (
     <header 
@@ -196,9 +180,9 @@ export default function Topbar({
             className="relative p-2 text-gray-600 hover:text-[#0B3C6D] hover:bg-gray-50 rounded-lg transition-colors"
           >
             <Bell className="w-5 h-5" />
-            {unreadAlerts > 0 && (
+            {unreadCount > 0 && (
               <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                {unreadAlerts}
+                {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
           </button>
@@ -211,29 +195,41 @@ export default function Topbar({
                 exit={{ opacity: 0, y: 10 }}
                 className="fixed left-2 right-2 top-[4.5rem] max-w-sm mx-auto bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50"
               >
-                <div className="px-4 py-2 border-b border-gray-100">
+                <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
                   <h3 className="font-semibold text-gray-800">Notifications</h3>
+                  {unreadCount > 0 && (
+                    <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">{unreadCount} new</span>
+                  )}
                 </div>
                 <div className="max-h-80 overflow-y-auto">
-                  {alerts.slice(0, 5).map((alert) => (
-                    <div key={alert.id} className="px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                  {notifList.length === 0 && (
+                    <div className="px-4 py-6 text-center text-sm text-gray-500">No notifications</div>
+                  )}
+                  {notifList.slice(0, 5).map((n) => (
+                    <Link key={n.id} href={n.link || '#'} className="block px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-0">
                       <div className="flex items-start gap-3">
                         <div className={`w-2 h-2 mt-2 rounded-full flex-shrink-0 ${
-                          alert.type === 'critical' ? 'bg-red-500' : 
-                          alert.type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
+                          n.is_read ? 'bg-gray-300' : 'bg-[#0B3C6D]'
                         }`} />
-                        <div>
-                          <p className="text-sm font-medium text-gray-800">{alert.title}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">{alert.description}</p>
-                          <p className="text-xs text-gray-400 mt-1">{alert.created_at ? new Date(alert.created_at).toLocaleDateString() : ''}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm ${n.is_read ? 'text-gray-600' : 'font-medium text-gray-800'}`}>{n.title}</p>
+                          <p className="text-xs text-gray-500 mt-0.5 truncate">{n.message}</p>
+                          <p className="text-xs text-gray-400 mt-1">{n.created_at ? new Date(n.created_at).toLocaleDateString() : ''}</p>
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
-                <Link href="/dashboard/notifications" className="block px-4 py-2 text-sm text-center text-[#0B3C6D] hover:bg-gray-50 border-t border-gray-100">
-                  View All Notifications
-                </Link>
+                <div className="border-t border-gray-100 flex">
+                  {unreadCount > 0 && (
+                    <button onClick={() => markAllRead()} className="flex-1 px-4 py-2 text-xs text-center text-[#0B3C6D] hover:bg-gray-50 border-r border-gray-100">
+                      Mark All Read
+                    </button>
+                  )}
+                  <Link href="/dashboard/notifications" className="flex-1 px-4 py-2 text-sm text-center text-[#0B3C6D] hover:bg-gray-50">
+                    View All
+                  </Link>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -369,9 +365,9 @@ export default function Topbar({
             className="relative p-2 text-gray-600 hover:text-[#0B3C6D] hover:bg-gray-50 rounded-lg transition-colors"
           >
             <Bell className="w-5 h-5" />
-            {unreadAlerts > 0 && (
+            {unreadCount > 0 && (
               <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                {unreadAlerts}
+                {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
           </button>
@@ -384,29 +380,41 @@ export default function Topbar({
                 exit={{ opacity: 0, y: 10 }}
                 className="absolute right-0 top-12 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50"
               >
-                <div className="px-4 py-2 border-b border-gray-100">
+                <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
                   <h3 className="font-semibold text-gray-800">Notifications</h3>
+                  {unreadCount > 0 && (
+                    <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">{unreadCount} new</span>
+                  )}
                 </div>
                 <div className="max-h-80 overflow-y-auto">
-                  {alerts.slice(0, 5).map((alert) => (
-                    <div key={alert.id} className="px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                  {notifList.length === 0 && (
+                    <div className="px-4 py-6 text-center text-sm text-gray-500">No notifications</div>
+                  )}
+                  {notifList.slice(0, 5).map((n) => (
+                    <Link key={n.id} href={n.link || '#'} className="block px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-0">
                       <div className="flex items-start gap-3">
                         <div className={`w-2 h-2 mt-2 rounded-full flex-shrink-0 ${
-                          alert.type === 'critical' ? 'bg-red-500' : 
-                          alert.type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
+                          n.is_read ? 'bg-gray-300' : 'bg-[#0B3C6D]'
                         }`} />
-                        <div>
-                          <p className="text-sm font-medium text-gray-800">{alert.title}</p>
-                          <p className="text-xs text-gray-500 mt-0.5">{alert.description}</p>
-                          <p className="text-xs text-gray-400 mt-1">{alert.created_at ? new Date(alert.created_at).toLocaleDateString() : ''}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm ${n.is_read ? 'text-gray-600' : 'font-medium text-gray-800'}`}>{n.title}</p>
+                          <p className="text-xs text-gray-500 mt-0.5 truncate">{n.message}</p>
+                          <p className="text-xs text-gray-400 mt-1">{n.created_at ? new Date(n.created_at).toLocaleDateString() : ''}</p>
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
-                <Link href="/dashboard/notifications" className="block px-4 py-2 text-sm text-center text-[#0B3C6D] hover:bg-gray-50 border-t border-gray-100">
-                  View All Notifications
-                </Link>
+                <div className="border-t border-gray-100 flex">
+                  {unreadCount > 0 && (
+                    <button onClick={() => markAllRead()} className="flex-1 px-4 py-2 text-xs text-center text-[#0B3C6D] hover:bg-gray-50 border-r border-gray-100">
+                      Mark All Read
+                    </button>
+                  )}
+                  <Link href="/dashboard/notifications" className="flex-1 px-4 py-2 text-sm text-center text-[#0B3C6D] hover:bg-gray-50">
+                    View All
+                  </Link>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>

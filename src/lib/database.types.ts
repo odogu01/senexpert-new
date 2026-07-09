@@ -13,6 +13,14 @@ export type MovementType = 'incoming' | 'outgoing';
 export type MaintenanceType = 'inspection' | 'repair' | 'calibration' | 'replacement' | 'cleaning' | 'other';
 export type MaintenanceStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
 export type AlertType = 'info' | 'warning' | 'critical' | 'success';
+export type NotificationType =
+  | 'tool_request_created'
+  | 'tool_request_approved'
+  | 'tool_request_rejected'
+  | 'tool_request_completed'
+  | 'financial_request_created'
+  | 'financial_request_approved'
+  | 'financial_request_rejected';
 
 export function toObjectId(id: string): ObjectId {
   return new ObjectId(id);
@@ -189,6 +197,22 @@ export interface FinancialRequest {
   requester_name?: string;
   requested_by_profile?: { full_name: string };
   approved_by_profile?: { full_name: string };
+}
+
+export interface Notification {
+  id: string;
+  recipient_id: string;
+  sender_id?: string;
+  sender_name?: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link?: string;
+  related_id?: string;
+  is_read: boolean;
+  read_at?: Date;
+  created_at: Date;
+  updated_at?: Date;
 }
 
 export interface AuditLog {
