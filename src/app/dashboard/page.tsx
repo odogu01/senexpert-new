@@ -8,6 +8,7 @@ import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import AlertsPanel from '@/components/dashboard/AlertsPanel';
 import StatusBadge, { ProgressBar } from '@/components/dashboard/StatusBadge';
 import { useDashboardStats, useAlerts, useTools } from '@/hooks/api';
+import { useAuth } from '@/lib/authContext';
 
 interface CategoryData {
   name: string;
@@ -25,6 +26,8 @@ export default function DashboardPage() {
   const { data: stats, isLoading: statsLoading, isError: statsError } = useDashboardStats();
   const { data: alerts } = useAlerts();
   const { data: toolsData } = useTools();
+  const { user } = useAuth();
+  const canViewFinancial = user && ['super_admin', 'admin', 'accountant'].includes(user.role);
 
   // Derive status distribution from stats
   const statusDistribution = useMemo<StatusData[]>(() => {
@@ -107,7 +110,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Financial Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {canViewFinancial && <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -154,7 +157,7 @@ export default function DashboardPage() {
             <TrendingUp className="w-12 h-12 text-blue-200" />
           </div>
         </motion.div>
-      </div>
+      </div>}
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">

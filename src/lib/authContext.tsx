@@ -196,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       accountant: ['approve_financial_requests', 'view_financial_requests'],
       hr: [],
       field: [],
-      operator: ['view_inventory', 'add_inventory', 'view_own_inventory', 'make_tool_request', 'make_financial_request'],
+      operator: ['view_inventory', 'add_inventory', 'view_own_inventory', 'make_tool_request'],
     };
 
     return ROLE_PERMISSIONS[user.role]?.includes(permission) ?? false;

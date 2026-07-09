@@ -19,6 +19,15 @@ function getClientIp(request: NextRequest): string | undefined {
     || undefined;
 }
 
+const ALLOWED_ROLES = ['super_admin', 'admin', 'accountant'];
+
+function checkRole(role: string): NextResponse | null {
+  if (!ALLOWED_ROLES.includes(role)) {
+    return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
+  }
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const rl = applyRateLimit(request);
@@ -26,6 +35,8 @@ export async function GET(request: NextRequest) {
 
     const auth = await authenticate(request);
     if (auth instanceof NextResponse) return auth;
+    const roleCheck = checkRole(auth.role);
+    if (roleCheck) return roleCheck;
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || undefined;
@@ -46,6 +57,8 @@ export async function POST(request: NextRequest) {
 
     const auth = await authenticate(request);
     if (auth instanceof NextResponse) return auth;
+    const roleCheck = checkRole(auth.role);
+    if (roleCheck) return roleCheck;
 
     const body = await request.json();
     const parsed = validate(createFinancialRequestSchema, body);
@@ -67,6 +80,8 @@ export async function PATCH(request: NextRequest) {
 
     const auth = await authenticate(request);
     if (auth instanceof NextResponse) return auth;
+    const roleCheck = checkRole(auth.role);
+    if (roleCheck) return roleCheck;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

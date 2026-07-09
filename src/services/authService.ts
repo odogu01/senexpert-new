@@ -120,7 +120,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   field: [],
   operator: [
     'view_inventory', 'add_inventory', 'view_own_inventory',
-    'make_tool_request', 'make_financial_request',
+    'make_tool_request',
   ],
 };
 
