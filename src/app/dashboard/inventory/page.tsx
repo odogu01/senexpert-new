@@ -3,10 +3,11 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Download, Plus, X, ChevronLeft, ChevronRight, Eye, Edit, Trash2, HelpCircle } from 'lucide-react';
+import { Search, Download, Plus, X, Eye, Edit, Trash2, HelpCircle } from 'lucide-react';
 import { useToolsPaginated, useCategories, useLocations, useCreateTool, useUpdateTool, useDeleteTool, useProfile, useCreateToolRequest } from '@/hooks/api';
 import { getAuthHeaders } from '@/lib/query';
 import StatusBadge from '@/components/dashboard/StatusBadge';
+import PaginationBar from '@/components/dashboard/PaginationBar';
 import type { Tool, ToolStatus, ToolInsert } from '@/lib/database.types';
 
 export default function InventoryPage() {
@@ -68,10 +69,12 @@ export default function InventoryPage() {
   const operatorTools = useMemo(() => {
     if (canViewAllInventory) return [];
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
-    return operatorAllTools.filter(tool => {
-      const createdAt = tool.created_at ? new Date(tool.created_at) : null;
-      return createdAt && createdAt > fourHoursAgo && tool.created_by === currentUserId;
-    });
+    return operatorAllTools
+      .filter(tool => {
+        const createdAt = tool.created_at ? new Date(tool.created_at) : null;
+        return createdAt && createdAt > fourHoursAgo && tool.created_by === currentUserId;
+      })
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [operatorAllTools, canViewAllInventory, currentUserId]);
 
   // ───── Admin: server-paginated data for main table ─────
@@ -82,7 +85,7 @@ export default function InventoryPage() {
       status: statusFilter !== 'all' ? statusFilter : undefined,
       category: categoryFilter !== 'all' ? categoryFilter : undefined,
       location: locationFilter !== 'all' ? locationFilter : undefined,
-      sort: '-created_at',
+      sort: 'name',
       page: currentPage,
       limit: itemsPerPage,
     };
@@ -347,6 +350,10 @@ export default function InventoryPage() {
             <thead className="bg-gray-50 border-b border-gray-200 hidden lg:table-header-group">
               <tr>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Tool Name</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Quantity</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Size/Thread</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Material</th>
+                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Model</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">
                   <span className="flex items-center gap-1">
                     W/O
@@ -358,9 +365,6 @@ export default function InventoryPage() {
                     </div>
                   </span>
                 </th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Size/Thread</th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Material</th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Model</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Material No</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Part Number</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Category</th>
@@ -375,7 +379,6 @@ export default function InventoryPage() {
                     </div>
                   </span>
                 </th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Quantity</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Location</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-right text-xs font-semibold text-gray-500 uppercase">Actions</th>
@@ -395,7 +398,10 @@ export default function InventoryPage() {
                       <div className="flex items-start justify-between">
                         <div>
                           <p className="font-medium text-gray-800">{tool.name}</p>
-                          <p className="text-xs text-gray-500">W/O: {tool.work_order_number}</p>
+                          <p className="text-xs text-gray-500">Qty: {tool.quantity}</p>
+                          {tool.min_quantity && tool.quantity <= tool.min_quantity && (
+                            <p className="text-xs text-red-500">Min: {tool.min_quantity}</p>
+                          )}
                         </div>
                         <div className="flex items-center gap-1">
                           <button onClick={() => setSelectedTool(tool)} className="p-2 text-gray-500 hover:text-[#0B3C6D] hover:bg-gray-100 rounded-lg">
@@ -424,10 +430,16 @@ export default function InventoryPage() {
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4">
                     <p className="font-medium text-gray-800">{tool.name}</p>
                   </td>
-                  <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.work_order_number}</td>
+                  <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4">
+                    <div className="text-sm font-medium text-gray-800">{tool.quantity}</div>
+                    {tool.min_quantity && tool.quantity <= tool.min_quantity && (
+                      <div className="text-xs text-red-500">Min: {tool.min_quantity}</div>
+                    )}
+                  </td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.size_thread || '-'}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.material || '-'}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.model || '-'}</td>
+                  <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.work_order_number}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.material_no || '-'}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.part_number || '-'}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4">
@@ -437,12 +449,6 @@ export default function InventoryPage() {
                   </td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4">
                     <div className="text-sm font-medium text-gray-800">{tool.initial_quantity ?? tool.quantity}</div>
-                  </td>
-                  <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4">
-                    <div className="text-sm font-medium text-gray-800">{tool.quantity}</div>
-                    {tool.min_quantity && tool.quantity <= tool.min_quantity && (
-                      <div className="text-xs text-red-500">Min: {tool.min_quantity}</div>
-                    )}
                   </td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4">
                     <StatusBadge status={tool.status} size="sm" />
@@ -468,38 +474,12 @@ export default function InventoryPage() {
         </div>
 
         {totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="flex items-center gap-1 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Previous
-            </button>
-            <div className="flex items-center gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`w-8 h-8 text-sm rounded-lg ${
-                    currentPage === page
-                      ? 'bg-[#0B3C6D] text-white'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="flex items-center gap-1 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-              <ChevronRight className="w-4 h-4" />
-            </button>
+          <div className="px-6 py-4 border-t border-gray-200">
+            <PaginationBar
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
           </div>
         )}
       </div>
@@ -818,3 +798,5 @@ export default function InventoryPage() {
     </div>
   );
 }
+
+

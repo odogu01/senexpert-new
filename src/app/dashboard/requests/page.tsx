@@ -3,10 +3,11 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Clock, AlertTriangle, Package, Printer, CheckCircle, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, X, Clock, AlertTriangle, Package, Printer, CheckCircle, XCircle } from 'lucide-react';
 import { useToolRequests, useCreateToolRequest, useUpdateToolRequestStatus, useTools, useProfile } from '@/hooks/api';
 import { getAuthHeaders } from '@/lib/query';
 import StatusBadge from '@/components/dashboard/StatusBadge';
+import PaginationBar from '@/components/dashboard/PaginationBar';
 import type { ToolRequest, Tool } from '@/lib/database.types';
 
 export default function RequestsPage() {
@@ -93,8 +94,13 @@ export default function RequestsPage() {
       });
     }
 
-    // Sort by created_at descending (most recent first)
-    items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    // Sort: pending first, then by created_at descending
+    items.sort((a, b) => {
+      const aPending = a.status === 'pending' ? 0 : 1;
+      const bPending = b.status === 'pending' ? 0 : 1;
+      if (aPending !== bPending) return aPending - bPending;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
     return items;
   }, [requests, receivedTools]);
 
@@ -122,9 +128,16 @@ export default function RequestsPage() {
   const [maxQuantity, setMaxQuantity] = useState<number | null>(null);
   const [quantityError, setQuantityError] = useState<string | null>(null);
 
-  const filteredOutgoing = (requests as ToolRequest[]).filter(req =>
-    req.movement_type === 'outgoing' && (statusFilter === 'all' || req.status === statusFilter)
-  );
+  const filteredOutgoing = (requests as ToolRequest[])
+    .filter(req =>
+      req.movement_type === 'outgoing' && (statusFilter === 'all' || req.status === statusFilter)
+    )
+    .sort((a, b) => {
+      const aPending = a.status === 'pending' ? 0 : 1;
+      const bPending = b.status === 'pending' ? 0 : 1;
+      if (aPending !== bPending) return aPending - bPending;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
   // ── Pagination ──
   const totalIncomingPages = Math.max(1, Math.ceil(filteredIncoming.length / itemsPerPage));
@@ -338,35 +351,12 @@ export default function RequestsPage() {
         </div>
         {/* Outgoing Pagination */}
         {totalOutgoingPages > 1 && (
-          <div className="px-6 py-3 border-t border-gray-200 flex items-center justify-between">
-            <span className="text-xs text-gray-500">{filteredOutgoing.length} total</span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setOutgoingPage(p => Math.max(1, p - 1))}
-                disabled={outgoingPage === 1}
-                className="p-1.5 text-gray-600 hover:bg-gray-50 rounded disabled:opacity-50"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              {Array.from({ length: totalOutgoingPages }, (_, i) => i + 1).map(page => (
-                <button
-                  key={page}
-                  onClick={() => setOutgoingPage(page)}
-                  className={`w-7 h-7 text-xs rounded ${
-                    outgoingPage === page ? 'bg-[#0B3C6D] text-white' : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
-              <button
-                onClick={() => setOutgoingPage(p => Math.min(totalOutgoingPages, p + 1))}
-                disabled={outgoingPage === totalOutgoingPages}
-                className="p-1.5 text-gray-600 hover:bg-gray-50 rounded disabled:opacity-50"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="px-6 py-3 border-t border-gray-200">
+            <PaginationBar
+              currentPage={outgoingPage}
+              totalPages={totalOutgoingPages}
+              onPageChange={setOutgoingPage}
+            />
           </div>
         )}
       </div>
@@ -459,35 +449,12 @@ export default function RequestsPage() {
         </div>
         {/* Incoming Pagination */}
         {totalIncomingPages > 1 && (
-          <div className="px-6 py-3 border-t border-gray-200 flex items-center justify-between">
-            <span className="text-xs text-gray-500">{filteredIncoming.length} total</span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setIncomingPage(p => Math.max(1, p - 1))}
-                disabled={incomingPage === 1}
-                className="p-1.5 text-gray-600 hover:bg-gray-50 rounded disabled:opacity-50"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              {Array.from({ length: totalIncomingPages }, (_, i) => i + 1).map(page => (
-                <button
-                  key={page}
-                  onClick={() => setIncomingPage(page)}
-                  className={`w-7 h-7 text-xs rounded ${
-                    incomingPage === page ? 'bg-[#0B3C6D] text-white' : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
-              <button
-                onClick={() => setIncomingPage(p => Math.min(totalIncomingPages, p + 1))}
-                disabled={incomingPage === totalIncomingPages}
-                className="p-1.5 text-gray-600 hover:bg-gray-50 rounded disabled:opacity-50"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="px-6 py-3 border-t border-gray-200">
+            <PaginationBar
+              currentPage={incomingPage}
+              totalPages={totalIncomingPages}
+              onPageChange={setIncomingPage}
+            />
           </div>
         )}
       </div>
