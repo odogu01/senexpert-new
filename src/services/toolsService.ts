@@ -323,6 +323,14 @@ export async function createToolRequest(request: {
   received_by?: string;
   received_from?: string;
   new_tool_data?: Record<string, unknown>;
+  items?: Array<{
+    tool_id: string;
+    tool_name?: string;
+    quantity: number;
+    size_thread?: string;
+    material?: string;
+    model?: string;
+  }>;
 }, actingUserId?: string, ipAddress?: string): Promise<{ success: boolean; data?: ToolRequest; error?: string }> {
   try {
     const insertData: Record<string, unknown> = {
@@ -342,6 +350,15 @@ export async function createToolRequest(request: {
       received_from: request.received_from,
       request_date: new Date().toISOString(),
     };
+
+    // Store multi-tool items for outgoing requests
+    if (request.items && request.items.length > 0) {
+      insertData.items = request.items;
+      insertData.tool_name = request.items.map(i => i.tool_name || i.tool_id).join(', ');
+      insertData.quantity = request.items.reduce((sum, i) => sum + i.quantity, 0);
+      // Use first item's tool_id for backward compat
+      if (!insertData.tool_id) insertData.tool_id = request.items[0].tool_id;
+    }
 
     // Store new_tool_data for incoming receipt requests
     if (request.new_tool_data) {
@@ -394,14 +411,33 @@ export async function updateToolRequestStatus(
       updates.approved_at = new Date();
       
       // Handle tool quantity logic for approved outgoing requests (atomic $inc)
-      if (oldRequest?.movement_type === 'outgoing' && oldRequest?.tool_id) {
-        if (oldRequest.transaction_type === 'sold') {
-          await toolRepo.increment(oldRequest.tool_id, 'quantity', -oldRequest.quantity);
-        } else if (oldRequest.transaction_type === 'rented') {
-          await toolRepo.updateOneRawOperators(oldRequest.tool_id, {
-            $inc: { quantity: -oldRequest.quantity },
-            $set: { status: 'rentals' },
-          });
+      if (oldRequest?.movement_type === 'outgoing') {
+        const items = (oldRequest as any).items as Array<{ tool_id: string; quantity: number; tool_name?: string }> | undefined;
+
+        if (items && items.length > 0) {
+          // Multi-tool bundle: deduct quantity for each item
+          for (const item of items) {
+            if (oldRequest.transaction_type === 'sold') {
+              await toolRepo.increment(item.tool_id, 'quantity', -item.quantity);
+            } else {
+              // rented or job — decrement and mark as rentals
+              await toolRepo.updateOneRawOperators(item.tool_id, {
+                $inc: { quantity: -item.quantity },
+                $set: { status: 'rentals' },
+              });
+            }
+          }
+        } else if (oldRequest?.tool_id) {
+          // Single tool (backward compat)
+          if (oldRequest.transaction_type === 'sold') {
+            await toolRepo.increment(oldRequest.tool_id, 'quantity', -oldRequest.quantity);
+          } else {
+            // rented or job — decrement and mark as rentals
+            await toolRepo.updateOneRawOperators(oldRequest.tool_id, {
+              $inc: { quantity: -oldRequest.quantity },
+              $set: { status: 'rentals' },
+            });
+          }
         }
       }
     } else if (status === 'completed') {

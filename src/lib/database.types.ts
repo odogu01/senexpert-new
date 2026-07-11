@@ -119,11 +119,20 @@ export interface ToolUpdate {
   updated_at?: Date;
 }
 
+export interface ToolRequestItem {
+  tool_id: string;
+  tool_name?: string;
+  quantity: number;
+  size_thread?: string;
+  material?: string;
+  model?: string;
+}
+
 export interface ToolRequest {
   id: string;
   tool_id?: string;
   movement_type: MovementType;
-  transaction_type?: 'sold' | 'rented';
+  transaction_type?: 'sold' | 'rented' | 'job';
   requested_by?: string;
   assigned_to?: string;
   quantity: number;
@@ -148,6 +157,7 @@ export interface ToolRequest {
   requested_by_profile?: { full_name: string };
   assigned_to_profile?: { full_name: string };
   new_tool_data?: Record<string, unknown>; // Tool creation payload for incoming receipt requests
+  items?: ToolRequestItem[]; // Multi-tool items for outgoing requests
 }
 
 export interface Maintenance {

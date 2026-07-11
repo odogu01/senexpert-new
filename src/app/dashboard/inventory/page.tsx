@@ -45,7 +45,11 @@ export default function InventoryPage() {
 
   // Permission checks
   const canViewAllInventory = userRole === 'super_admin' || userRole === 'admin';
-  const canAddTool = userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator';
+  // Show Add Tool button optimistically while profile loads (token exists)
+  const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token');
+  const canAddTool = !profile
+    ? hasToken
+    : (userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator');
   const canEditTool = userRole === 'super_admin' || userRole === 'admin';
   const canDeleteTool = userRole === 'super_admin' || userRole === 'admin';
 

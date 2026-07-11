@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Clock, AlertTriangle, Package, Printer, CheckCircle, XCircle } from 'lucide-react';
@@ -19,7 +19,12 @@ export default function RequestsPage() {
   const { mutateAsync: updateStatus } = useUpdateToolRequestStatus();
 
   const userRole = profile?.role ?? null;
-  const canCreateRequest = userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator';
+  // Show New Request button immediately if a token exists (optimistic), then
+  // respect role once profile loads. Most roles can create requests anyway.
+  const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token');
+  const canCreateRequest = !profile
+    ? hasToken
+    : (userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator');
   const canApprove = userRole === 'super_admin' || userRole === 'admin';
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -116,17 +121,67 @@ export default function RequestsPage() {
     model: '',
     quantity: '1',
     movementType: 'outgoing' as 'incoming' | 'outgoing',
-    transactionType: 'sold' as 'sold' | 'rented',
-    location: 'Warehouse A',
+    transactionType: 'sold' as 'sold' | 'rented' | 'job',
+    location: '',
     notes: '',
     vehicleNo: '',
     deliveredTo: '',
     deliveredBy: '',
     receivedBy: '',
     receivedFrom: '',
+    jobName: '',
   });
   const [maxQuantity, setMaxQuantity] = useState<number | null>(null);
   const [quantityError, setQuantityError] = useState<string | null>(null);
+
+  // ── Multi-tool cart (outgoing only) ──
+  interface CartEntry {
+    key: string;
+    toolId: string;
+    toolName: string;
+    sizeThread: string;
+    material: string;
+    model: string;
+    quantity: string;
+    maxQuantity: number | null;
+  }
+  const [cartItems, setCartItems] = useState<CartEntry[]>([]);
+  let cartKeyCounter = useRef(0);
+
+  const addCartItem = () => {
+    cartKeyCounter.current++;
+    setCartItems(prev => [...prev, {
+      key: `cart-${cartKeyCounter.current}`,
+      toolId: '',
+      toolName: '',
+      sizeThread: '',
+      material: '',
+      model: '',
+      quantity: '1',
+      maxQuantity: null,
+    }]);
+  };
+
+  const updateCartItem = (key: string, updates: Partial<CartEntry>) => {
+    setCartItems(prev => prev.map(item => item.key === key ? { ...item, ...updates } : item));
+  };
+
+  const removeCartItem = (key: string) => {
+    setCartItems(prev => prev.filter(item => item.key !== key));
+  };
+
+  // Resolve available quantity for a specific tool selection in a cart row
+  const getCartToolQty = (item: CartEntry): number => {
+    if (!item.toolName) return 0;
+    const match = tools.filter(t => t.name === item.toolName)
+      .filter(t => !item.sizeThread || t.size_thread === item.sizeThread)
+      .filter(t => !item.material || t.material === item.material)
+      .filter(t => !item.model || t.model === item.model);
+    return match[0]?.quantity ?? 0;
+  };
+
+  // Filtered tools for cart rows (exclude rentals for outgoing)
+  const outgoingTools = useMemo(() => tools, [tools]);
 
   const filteredOutgoing = (requests as ToolRequest[])
     .filter(req =>
@@ -149,39 +204,78 @@ export default function RequestsPage() {
   const workflowItems = incomingItems.filter(r => !!r.request);
   const pendingCount = workflowItems.filter(r => r.status === 'pending').length;
   const rejectedCount = workflowItems.filter(r => r.status === 'rejected').length;
-  // Approved Tools = only receipt-type approved (tools successfully created)
-  const approvedToolsCount = workflowItems.filter(r => r.status === 'approved' && r.type === 'receipt').length;
+  // Approved Tools = count all approved requests across both incoming and outgoing
+  const approvedToolsCount = requests.filter(r => r.status === 'approved').length;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate outgoing quantity doesn't exceed available stock
-    const parsedQuantity = parseInt(formData.quantity);
-    if (formData.movementType === 'outgoing' && maxQuantity !== null && parsedQuantity > maxQuantity) {
-      setQuantityError(`Maximum available quantity is ${maxQuantity}. You requested ${parsedQuantity}.`);
-      return;
-    }
-
     try {
       const requestData: Record<string, unknown> = {
-        tool_id: formData.toolId,
         movement_type: formData.movementType,
-        quantity: parseInt(formData.quantity),
         location: formData.location,
         notes: formData.notes || undefined,
       };
+
       if (formData.movementType === 'outgoing') {
-        requestData.vehicle_no = formData.vehicleNo;
-        requestData.delivered_to = formData.deliveredTo;
-        requestData.delivered_by = formData.deliveredBy;
         requestData.transaction_type = formData.transactionType;
+        requestData.vehicle_no = formData.vehicleNo;
+
+        if (formData.transactionType === 'job') {
+          requestData.delivered_by = 'Senexpert';
+          requestData.delivered_to = formData.jobName || 'Job';
+          requestData.notes = `Job: ${formData.jobName || formData.notes || ''}`.trim();
+        } else {
+          requestData.delivered_to = formData.deliveredTo;
+          requestData.delivered_by = formData.deliveredBy;
+        }
+
+        // Multi-tool cart
+        if (cartItems.length > 0) {
+          // Validate all cart entries have a tool selected and valid quantity
+          for (const item of cartItems) {
+            if (!item.toolId) {
+              setQuantityError(`Please complete the tool selection for "${item.toolName || 'a row'}"`);
+              return;
+            }
+            const qty = parseInt(item.quantity);
+            const avail = getCartToolQty(item);
+            if (qty > avail) {
+              setQuantityError(`"${item.toolName}" max available quantity is ${avail}. You requested ${qty}.`);
+              return;
+            }
+          }
+
+          requestData.items = cartItems.map(item => ({
+            tool_id: item.toolId,
+            tool_name: item.toolName,
+            quantity: parseInt(item.quantity),
+            size_thread: item.sizeThread || undefined,
+            material: item.material || undefined,
+            model: item.model || undefined,
+          }));
+          requestData.tool_id = cartItems[0].toolId;
+          requestData.quantity = cartItems.reduce((sum, item) => sum + parseInt(item.quantity), 1);
+        } else {
+          // Single tool (backward compat)
+          const parsedQuantity = parseInt(formData.quantity);
+          if (maxQuantity !== null && parsedQuantity > maxQuantity) {
+            setQuantityError(`Maximum available quantity is ${maxQuantity}. You requested ${parsedQuantity}.`);
+            return;
+          }
+          requestData.tool_id = formData.toolId;
+          requestData.quantity = parsedQuantity;
+        }
       } else {
+        // Incoming
+        requestData.tool_id = formData.toolId;
+        requestData.quantity = parseInt(formData.quantity);
         requestData.vehicle_no = formData.vehicleNo;
         requestData.received_by = formData.receivedBy;
         requestData.received_from = formData.receivedFrom;
-        // Incoming requests for returning rented tools
         requestData.transaction_type = 'rented';
       }
+
       await createRequest(requestData);
       handleCloseModal();
     } catch (err) {
@@ -193,6 +287,7 @@ export default function RequestsPage() {
     setShowModal(false);
     setMaxQuantity(null);
     setQuantityError(null);
+    setCartItems([]);
     setFormData({
       toolId: '',
       toolName: '',
@@ -202,13 +297,14 @@ export default function RequestsPage() {
       quantity: '1',
       movementType: 'outgoing',
       transactionType: 'sold',
-      location: 'Warehouse A',
+      location: '',
       notes: '',
       vehicleNo: '',
       deliveredTo: '',
       deliveredBy: '',
       receivedBy: '',
       receivedFrom: '',
+      jobName: '',
     });
   };
 
@@ -323,9 +419,23 @@ export default function RequestsPage() {
                   <motion.tr key={request.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-gray-50">
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">#{request.id.slice(0, 8)}</td>
                     <td className="px-4 lg:px-6 py-4"><StatusBadge status={request.status} size="sm" /></td>
-                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.tool_name || 'N/A'}</td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">
+                      {request.items && request.items.length > 1
+                        ? <div className="flex flex-col gap-0.5">{request.items.map((item, i) => (
+                            <span key={i}>{item.tool_name || 'N/A'}</span>
+                          ))}</div>
+                        : (request.tool_name || 'N/A')
+                      }
+                    </td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{(request as unknown as Record<string, unknown>).location as string || '-'}</td>
-                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.quantity}</td>
+                    <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">
+                      {request.items && request.items.length > 1
+                        ? <div className="flex flex-col gap-0.5">{request.items.map((item, i) => (
+                            <span key={i}>{item.quantity}</span>
+                          ))}</div>
+                        : request.quantity
+                      }
+                    </td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.vehicle_no || '-'}</td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{request.delivered_by || '-'}</td>
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600 max-w-xs truncate">{request.notes || '-'}</td>
@@ -496,214 +606,340 @@ export default function RequestsPage() {
                 {formData.movementType === 'outgoing' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Transaction Type</label>
-                    <select value={formData.transactionType} onChange={(e) => setFormData({ ...formData, transactionType: e.target.value as 'sold' | 'rented' })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+                    <select value={formData.transactionType} onChange={(e) => setFormData({ ...formData, transactionType: e.target.value as 'sold' | 'rented' | 'job' })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
                       <option value="sold">Sold</option>
                       <option value="rented">Rented</option>
+                      <option value="job">Job</option>
                     </select>
                   </div>
                 )}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tool Name</label>
-                  <select value={formData.toolName} onChange={(e) => {
-                    const toolName = e.target.value;
-                    const filteredTools = formData.movementType === 'incoming' 
-                      ? tools.filter(t => t.status === 'rentals')
-                      : tools;
-                    const matchingTools = filteredTools.filter(t => t.name === toolName);
-                    const firstTool = matchingTools[0];
-                    const toolQuantity = firstTool?.quantity || 0;
-                    setMaxQuantity(toolQuantity);
-                    setFormData({ 
-                      ...formData, 
-                      toolName,
-                      toolId: firstTool?.id || '',
-                      sizeThread: firstTool?.size_thread || '',
-                      material: firstTool?.material || '',
-                      model: firstTool?.model || '',
-                      quantity: formData.movementType === 'outgoing' && toolQuantity > 0
-                        ? Math.min(parseInt(formData.quantity), toolQuantity).toString()
-                        : formData.quantity
-                    });
-                  }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
-                    <option value="">Select tool name...</option>
-                    {Array.from(new Set(
-                      (formData.movementType === 'incoming' 
-                        ? tools.filter(t => t.status === 'rentals')
-                        : tools
-                      ).map(t => t.name)
-                    )).map(name => (
-                      <option key={name} value={name}>{name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Size/Thread</label>
-                  <select value={formData.sizeThread} onChange={(e) => {
-                    const sizeThread = e.target.value;
-                    const filteredTools = formData.movementType === 'incoming' 
-                      ? tools.filter(t => t.status === 'rentals')
-                      : tools;
-                    const matchingTools = filteredTools.filter(t => t.name === formData.toolName && t.size_thread === sizeThread);
-                    const firstTool = matchingTools[0];
-                    const toolQuantity = firstTool?.quantity || 0;
-                    setMaxQuantity(toolQuantity);
-                    setFormData({ 
-                      ...formData, 
-                      sizeThread,
-                      toolId: firstTool?.id || '',
-                      material: firstTool?.material || '',
-                      model: firstTool?.model || '',
-                      quantity: formData.movementType === 'outgoing' && toolQuantity > 0
-                        ? Math.min(parseInt(formData.quantity), toolQuantity).toString()
-                        : formData.quantity
-                    });
-                  }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
-                    <option value="">Select size/thread...</option>
-                    {Array.from(new Set(
-                      (formData.movementType === 'incoming' 
-                        ? tools.filter(t => t.status === 'rentals')
-                        : tools
-                      )
-                      .filter(t => t.name === formData.toolName)
-                      .map(t => t.size_thread || '')
-                      .filter(v => v !== '')
-                    )).map(size => (
-                      <option key={size} value={size}>{size}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Material</label>
-                  <select value={formData.material} onChange={(e) => {
-                    const material = e.target.value;
-                    const filteredTools = formData.movementType === 'incoming' 
-                      ? tools.filter(t => t.status === 'rentals')
-                      : tools;
-                    const matchingTools = filteredTools.filter(t => 
-                      t.name === formData.toolName && 
-                      t.size_thread === formData.sizeThread &&
-                      t.material === material
-                    );
-                    const firstTool = matchingTools[0];
-                    const toolQuantity = firstTool?.quantity || 0;
-                    setMaxQuantity(toolQuantity);
-                    setFormData({ 
-                      ...formData, 
-                      material,
-                      toolId: firstTool?.id || '',
-                      model: firstTool?.model || '',
-                      quantity: formData.movementType === 'outgoing' && toolQuantity > 0
-                        ? Math.min(parseInt(formData.quantity), toolQuantity).toString()
-                        : formData.quantity
-                    });
-                  }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
-                    <option value="">Select material...</option>
-                    {Array.from(new Set(
-                      (formData.movementType === 'incoming' 
-                        ? tools.filter(t => t.status === 'rentals')
-                        : tools
-                      )
-                      .filter(t => t.name === formData.toolName && t.size_thread === formData.sizeThread)
-                      .map(t => t.material || '')
-                      .filter(v => v !== '')
-                    )).map(mat => (
-                      <option key={mat} value={mat}>{mat}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
-                  <select value={formData.model} onChange={(e) => {
-                    const model = e.target.value;
-                    const filteredTools = formData.movementType === 'incoming' 
-                      ? tools.filter(t => t.status === 'rentals')
-                      : tools;
-                    const matchingTools = filteredTools.filter(t => 
-                      t.name === formData.toolName && 
-                      t.size_thread === formData.sizeThread &&
-                      t.material === formData.material &&
-                      t.model === model
-                    );
-                    const firstTool = matchingTools[0];
-                    const toolQuantity = firstTool?.quantity || 0;
-                    setMaxQuantity(toolQuantity);
-                    setFormData({ 
-                      ...formData, 
-                      model,
-                      toolId: firstTool?.id || '',
-                      quantity: formData.movementType === 'outgoing' && toolQuantity > 0
-                        ? Math.min(parseInt(formData.quantity) || 1, toolQuantity).toString()
-                        : formData.quantity
-                    });
-                  }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
-                    <option value="">Select model...</option>
-                    {Array.from(new Set(
-                      (formData.movementType === 'incoming' 
-                        ? tools.filter(t => t.status === 'rentals')
-                        : tools
-                      )
-                      .filter(t => 
-                        t.name === formData.toolName && 
-                        t.size_thread === formData.sizeThread &&
-                        t.material === formData.material
-                      )
-                      .map(t => t.model || '')
-                      .filter(v => v !== '')
-                    )).map(mod => (
-                      <option key={mod} value={mod}>{mod}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                  <select value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
-                    <option value="Warehouse A">Warehouse A</option>
-                    <option value="Warehouse B">Warehouse B</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min="1"
-                      max={maxQuantity !== null ? maxQuantity : undefined}
-                      value={formData.quantity}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFormData({ ...formData, quantity: val });
-                        if (maxQuantity !== null && parseInt(val) > maxQuantity) {
-                          setQuantityError(`Maximum quantity is ${maxQuantity}`);
-                        } else {
-                          setQuantityError(null);
-                        }
-                      }}
-                      className={`w-full px-4 py-2 border rounded-lg ${quantityError ? 'border-red-500' : 'border-gray-300'}`}
-                      required
-                    />
-                    {maxQuantity !== null && (
-                      <span className="text-xs text-gray-500 whitespace-nowrap shrink-0">
-                        {formData.movementType === 'incoming' ? 'Rented:' : 'Available:'} <strong>{maxQuantity}</strong>
-                      </span>
-                    )}
-                  </div>
-                  {quantityError && (
-                    <p className="mt-1 text-sm text-red-600">{quantityError}</p>
-                  )}
-                </div>
+
                 {formData.movementType === 'outgoing' ? (
                   <>
+                    {/* Multi-tool cart */}
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700">Tools ({cartItems.length})</span>
+                        <button type="button" onClick={addCartItem} className="text-xs flex items-center gap-1 px-3 py-1.5 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a]">
+                          <Plus className="w-3.5 h-3.5" /> Add Tool
+                        </button>
+                      </div>
+                      {cartItems.length === 0 ? (
+                        <div className="p-6 text-center text-gray-400 text-sm">
+                          Click "Add Tool" to select tools for this request
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
+                          {cartItems.map((item, idx) => (
+                            <div key={item.key} className="p-4 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-medium text-gray-500">Tool #{idx + 1}</span>
+                                <button type="button" onClick={() => removeCartItem(item.key)} className="p-1 text-gray-400 hover:text-red-500 rounded">
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="col-span-2">
+                                  <select
+                                    value={item.toolName}
+                                    onChange={(e) => {
+                                      const name = e.target.value;
+                                      const match = tools.filter(t => t.name === name);
+                                      const first = match[0];
+                                      updateCartItem(item.key, {
+                                        toolName: name,
+                                        toolId: first?.id || '',
+                                        sizeThread: first?.size_thread || '',
+                                        material: first?.material || '',
+                                        model: first?.model || '',
+                                        quantity: '1',
+                                        maxQuantity: first?.quantity ?? null,
+                                      });
+                                    }}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                                  >
+                                    <option value="">Select tool...</option>
+                                    {Array.from(new Set(tools.map(t => t.name))).map(name => (
+                                      <option key={name} value={name}>{name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-500 mb-1">Size/Thread</label>
+                                  <select
+                                    value={item.sizeThread}
+                                    onChange={(e) => {
+                                      const st = e.target.value;
+                                      const match = tools.filter(t => t.name === item.toolName && t.size_thread === st);
+                                      const first = match[0];
+                                      updateCartItem(item.key, {
+                                        sizeThread: st,
+                                        toolId: first?.id || '',
+                                        material: first?.material || '',
+                                        model: first?.model || '',
+                                        maxQuantity: first?.quantity ?? null,
+                                      });
+                                    }}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                                  >
+                                    <option value="">Size/Thread</option>
+                                    {Array.from(new Set(
+                                      tools.filter(t => t.name === item.toolName)
+                                        .map(t => t.size_thread || '')
+                                        .filter(v => v !== '')
+                                    )).map(v => (
+                                      <option key={v} value={v}>{v}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-500 mb-1">Material</label>
+                                  <select
+                                    value={item.material}
+                                    onChange={(e) => {
+                                      const mat = e.target.value;
+                                      const match = tools.filter(t =>
+                                        t.name === item.toolName &&
+                                        t.size_thread === item.sizeThread &&
+                                        t.material === mat
+                                      );
+                                      const first = match[0];
+                                      updateCartItem(item.key, {
+                                        material: mat,
+                                        toolId: first?.id || '',
+                                        model: first?.model || '',
+                                        maxQuantity: first?.quantity ?? null,
+                                      });
+                                    }}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                                  >
+                                    <option value="">Material</option>
+                                    {Array.from(new Set(
+                                      tools.filter(t =>
+                                        t.name === item.toolName &&
+                                        t.size_thread === item.sizeThread
+                                      )
+                                        .map(t => t.material || '')
+                                        .filter(v => v !== '')
+                                    )).map(v => (
+                                      <option key={v} value={v}>{v}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-500 mb-1">Model</label>
+                                  <select
+                                    value={item.model}
+                                    onChange={(e) => {
+                                      const mod = e.target.value;
+                                      const match = tools.filter(t =>
+                                        t.name === item.toolName &&
+                                        t.size_thread === item.sizeThread &&
+                                        t.material === item.material &&
+                                        t.model === mod
+                                      );
+                                      const first = match[0];
+                                      updateCartItem(item.key, {
+                                        model: mod,
+                                        toolId: first?.id || '',
+                                        maxQuantity: first?.quantity ?? null,
+                                      });
+                                    }}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                                  >
+                                    <option value="">Model</option>
+                                    {Array.from(new Set(
+                                      tools.filter(t =>
+                                        t.name === item.toolName &&
+                                        t.size_thread === item.sizeThread &&
+                                        t.material === item.material
+                                      )
+                                        .map(t => t.model || '')
+                                        .filter(v => v !== '')
+                                    )).map(v => (
+                                      <option key={v} value={v}>{v}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-500 mb-1">Qty (Avail: {getCartToolQty(item)})</label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max={getCartToolQty(item) || 999}
+                                    value={item.quantity}
+                                    onChange={(e) => updateCartItem(item.key, { quantity: e.target.value })}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <div><label className="block text-sm font-medium text-gray-700 mb-1">Vehicle No</label><input type="text" value={formData.vehicleNo} onChange={(e) => setFormData({ ...formData, vehicleNo: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter vehicle number" /></div>
-                    <div><label className="block text-sm font-medium text-gray-700 mb-1">Delivered To</label><input type="text" value={formData.deliveredTo} onChange={(e) => setFormData({ ...formData, deliveredTo: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter recipient location/company" /></div>
-                    <div><label className="block text-sm font-medium text-gray-700 mb-1">Delivered By</label><input type="text" value={formData.deliveredBy} onChange={(e) => setFormData({ ...formData, deliveredBy: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter deliverer's name" /></div>
+                    {formData.transactionType === 'job' ? (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Job Name</label>
+                        <input type="text" value={formData.jobName} onChange={(e) => setFormData({ ...formData, jobName: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="e.g., Well completion Job #123" />
+                      </div>
+                    ) : (
+                      <>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Delivered To</label><input type="text" value={formData.deliveredTo} onChange={(e) => setFormData({ ...formData, deliveredTo: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter recipient location/company" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Delivered By</label><input type="text" value={formData.deliveredBy} onChange={(e) => setFormData({ ...formData, deliveredBy: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter deliverer's name" /></div>
+                      </>
+                    )}
                   </>
                 ) : (
                   <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tool Name</label>
+                      <select value={formData.toolName} onChange={(e) => {
+                        const toolName = e.target.value;
+                        const filteredTools = tools.filter(t => t.status === 'rentals');
+                        const matchingTools = filteredTools.filter(t => t.name === toolName);
+                        const firstTool = matchingTools[0];
+                        const toolQuantity = firstTool?.quantity || 0;
+                        setMaxQuantity(toolQuantity);
+                        setFormData({ 
+                          ...formData, 
+                          toolName,
+                          toolId: firstTool?.id || '',
+                          sizeThread: firstTool?.size_thread || '',
+                          material: firstTool?.material || '',
+                          model: firstTool?.model || '',
+                          quantity: '1',
+                        });
+                      }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+                        <option value="">Select tool name...</option>
+                        {Array.from(new Set(
+                          tools.filter(t => t.status === 'rentals').map(t => t.name)
+                        )).map(name => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Size/Thread</label>
+                      <select value={formData.sizeThread} onChange={(e) => {
+                        const sizeThread = e.target.value;
+                        const match = tools.filter(t =>
+                          t.status === 'rentals' &&
+                          t.name === formData.toolName &&
+                          t.size_thread === sizeThread
+                        );
+                        const first = match[0];
+                        setMaxQuantity(first?.quantity || 0);
+                        setFormData({ ...formData, sizeThread, toolId: first?.id || '', material: first?.material || '', model: first?.model || '' });
+                      }} className="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                        <option value="">Select size/thread...</option>
+                        {Array.from(new Set(
+                          tools.filter(t => t.status === 'rentals' && t.name === formData.toolName)
+                            .map(t => t.size_thread || '')
+                            .filter(v => v !== '')
+                        )).map(v => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Material</label>
+                      <select value={formData.material} onChange={(e) => {
+                        const material = e.target.value;
+                        const match = tools.filter(t =>
+                          t.status === 'rentals' &&
+                          t.name === formData.toolName &&
+                          t.size_thread === formData.sizeThread &&
+                          t.material === material
+                        );
+                        const first = match[0];
+                        setMaxQuantity(first?.quantity || 0);
+                        setFormData({ ...formData, material, toolId: first?.id || '', model: first?.model || '' });
+                      }} className="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                        <option value="">Select material...</option>
+                        {Array.from(new Set(
+                          tools.filter(t =>
+                            t.status === 'rentals' &&
+                            t.name === formData.toolName &&
+                            t.size_thread === formData.sizeThread
+                          )
+                            .map(t => t.material || '')
+                            .filter(v => v !== '')
+                        )).map(v => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                      <select value={formData.model} onChange={(e) => {
+                        const model = e.target.value;
+                        const match = tools.filter(t =>
+                          t.status === 'rentals' &&
+                          t.name === formData.toolName &&
+                          t.size_thread === formData.sizeThread &&
+                          t.material === formData.material &&
+                          t.model === model
+                        );
+                        const first = match[0];
+                        setMaxQuantity(first?.quantity || 0);
+                        setFormData({ ...formData, model, toolId: first?.id || '' });
+                      }} className="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                        <option value="">Select model...</option>
+                        {Array.from(new Set(
+                          tools.filter(t =>
+                            t.status === 'rentals' &&
+                            t.name === formData.toolName &&
+                            t.size_thread === formData.sizeThread &&
+                            t.material === formData.material
+                          )
+                            .map(t => t.model || '')
+                            .filter(v => v !== '')
+                        )).map(v => (
+                          <option key={v} value={v}>{v}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max={maxQuantity !== null ? maxQuantity : undefined}
+                          value={formData.quantity}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setFormData({ ...formData, quantity: val });
+                            if (maxQuantity !== null && parseInt(val) > maxQuantity) {
+                              setQuantityError(`Maximum quantity is ${maxQuantity}`);
+                            } else {
+                              setQuantityError(null);
+                            }
+                          }}
+                          className={`w-full px-4 py-2 border rounded-lg ${quantityError ? 'border-red-500' : 'border-gray-300'}`}
+                          required
+                        />
+                        {maxQuantity !== null && (
+                          <span className="text-xs text-gray-500 whitespace-nowrap shrink-0">
+                            Rented: <strong>{maxQuantity}</strong>
+                          </span>
+                        )}
+                      </div>
+                      {quantityError && (
+                        <p className="mt-1 text-sm text-red-600">{quantityError}</p>
+                      )}
+                    </div>
                     <div><label className="block text-sm font-medium text-gray-700 mb-1">Vehicle No</label><input type="text" value={formData.vehicleNo} onChange={(e) => setFormData({ ...formData, vehicleNo: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter vehicle number" /></div>
                     <div><label className="block text-sm font-medium text-gray-700 mb-1">Received By</label><input type="text" value={formData.receivedBy} onChange={(e) => setFormData({ ...formData, receivedBy: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter receiver's name" /></div>
                     <div><label className="block text-sm font-medium text-gray-700 mb-1">Received From</label><input type="text" value={formData.receivedFrom} onChange={(e) => setFormData({ ...formData, receivedFrom: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter sender location/company" /></div>
                   </>
                 )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <input type="text" value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="e.g., Warehouse A, Site address" required />
+                </div>
                 <div><label className="block text-sm font-medium text-gray-700 mb-1">Notes</label><textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" rows={3} /></div>
               </form>
               <div className="p-5 border-t border-gray-200 flex-shrink-0">

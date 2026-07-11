@@ -76,10 +76,19 @@ export const updateToolSchema = z.object({
 // ============================================
 // Tool Requests
 // ============================================
+const toolRequestItemSchema = z.object({
+  tool_id: z.string().min(1, 'Tool ID is required'),
+  tool_name: z.string().optional(),
+  quantity: z.number().int().min(1, 'Quantity must be >= 1'),
+  size_thread: z.string().optional(),
+  material: z.string().optional(),
+  model: z.string().optional(),
+});
+
 export const createToolRequestSchema = z.object({
   tool_id: z.string().optional().default(''),
   movement_type: z.enum(['incoming', 'outgoing']),
-  transaction_type: z.enum(['sold', 'rented']).optional(),
+  transaction_type: z.enum(['sold', 'rented', 'job']).optional(),
   requested_by: z.string().optional(),
   assigned_to: z.string().optional(),
   quantity: z.number().int().min(1, 'Quantity must be >= 1').optional().default(1),
@@ -91,6 +100,7 @@ export const createToolRequestSchema = z.object({
   received_by: z.string().max(200).optional(),
   received_from: z.string().max(200).optional(),
   new_tool_data: z.record(z.string(), z.unknown()).optional(),
+  items: z.array(toolRequestItemSchema).optional(),
 });
 
 export type CreateToolRequestInput = z.infer<typeof createToolRequestSchema>;
