@@ -39,11 +39,13 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
 
   const handlePrint = () => {
     setPrinting(true);
-    // Small delay for state to settle, then print
+    // Add printing class to body so @media print CSS can isolate the overlay
+    document.body.classList.add('printing');
+    // setTimeout gives React time to flush the class, then print dialog opens (blocks)
     setTimeout(() => {
       window.print();
-      // Reset printing state after print dialog closes
-      setTimeout(() => setPrinting(false), 500);
+      document.body.classList.remove('printing');
+      setPrinting(false);
     }, 100);
   };
 
@@ -56,14 +58,13 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
         @page { margin: 15mm; size: A4 portrait; }
 
         @media print {
-          body > *:not(.print-overlay) { display: none !important; }
-          body > .print-overlay { display: block !important; position: static !important; }
-          .print-overlay { background: white !important; }
-          .print-overlay .no-print { display: none !important; }
-          .print-overlay .print-receipt input { border: none !important; background: transparent !important; padding: 0 !important; font-family: inherit; font-size: inherit; color: inherit; width: auto !important; box-shadow: none !important; border-bottom: 1px solid #000 !important; }
-          .print-overlay .print-receipt .sig-line { border-bottom: 1px solid #000 !important; min-width: 180px; display: inline-block; }
-          .print-overlay .print-receipt .print-only { display: block !important; }
-          .print-overlay-backdrop { display: none !important; }
+          body.printing > * { visibility: hidden !important; }
+          body.printing .print-overlay { visibility: visible !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: auto !important; background: white !important; z-index: 999999 !important; overflow: visible !important; }
+          body.printing .print-overlay * { visibility: visible !important; }
+          body.printing .print-overlay .no-print { display: none !important; }
+          body.printing .print-overlay .print-receipt input { border: none !important; background: transparent !important; padding: 0 !important; font-family: inherit; font-size: inherit; color: inherit; width: auto !important; box-shadow: none !important; border-bottom: 1px solid #000 !important; }
+          body.printing .print-overlay .print-receipt .print-only { display: block !important; }
+          body.printing .print-overlay-backdrop { background: white !important; }
         }
 
         .print-receipt .print-only { display: none; }
@@ -71,9 +72,9 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
         .print-receipt input:focus { border-color: #0B3C6D; box-shadow: 0 0 0 2px rgba(11,60,109,0.1); }
       `}</style>
 
-      {/* Backdrop */}
-      <div className="print-overlay-backdrop fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60">
-        <div className="print-overlay relative w-full max-w-3xl mx-auto my-8 bg-white rounded-xl shadow-2xl">
+      {/* Backdrop — print-overlay class on the outermost element */}
+      <div className="print-overlay-backdrop print-overlay fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60">
+        <div className="relative w-full max-w-3xl mx-auto my-8 bg-white rounded-xl shadow-2xl">
           {/* Toolbar — hidden when printing */}
           <div className="no-print flex items-center justify-between sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-3 rounded-t-xl">
             <button onClick={onClose} className="flex items-center gap-2 text-gray-500 hover:text-gray-700">

@@ -113,7 +113,7 @@ export default function RequestsPage() {
   }, [requests, receivedTools]);
 
   const filteredIncoming = incomingItems.filter(item =>
-    statusFilter === 'all' || item.status === statusFilter
+    item.status === 'rejected'
   );
 
   const [formData, setFormData] = useState({
