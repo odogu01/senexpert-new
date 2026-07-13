@@ -62,7 +62,7 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
           body.printing .print-overlay { visibility: visible !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: auto !important; background: white !important; z-index: 999999 !important; overflow: visible !important; }
           body.printing .print-overlay * { visibility: visible !important; }
           body.printing .print-overlay .no-print { display: none !important; }
-          body.printing .print-overlay .print-receipt input { border: none !important; background: transparent !important; padding: 0 !important; font-family: inherit; font-size: inherit; color: inherit; width: auto !important; box-shadow: none !important; border-bottom: 1px solid #000 !important; }
+          body.printing .print-overlay .print-receipt input { border: none !important; background: transparent !important; padding: 0 !important; font-family: inherit; font-size: inherit; color: inherit; width: auto !important; box-shadow: none !important; }
           body.printing .print-overlay .print-receipt .print-only { display: block !important; }
           body.printing .print-overlay-backdrop { background: white !important; }
         }
@@ -91,7 +91,7 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
           </div>
 
           {/* Content */}
-          <div className="p-6">
+          <div className="px-6 pt-1 pb-6">
             {isLoading && (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-[#0B3C6D]" />
