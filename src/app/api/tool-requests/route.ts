@@ -68,6 +68,10 @@ export async function PATCH(request: NextRequest) {
     const auth = await authenticate(request);
     if (auth instanceof NextResponse) return auth;
 
+    if (auth.role !== 'super_admin' && auth.role !== 'admin') {
+      return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 

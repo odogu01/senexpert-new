@@ -448,7 +448,7 @@ export default function RequestsPage() {
                         <button onClick={() => setPrintRequestId(request.id)} className="p-1 hover:bg-gray-100 rounded text-[#0B3C6D]">
                           <Printer className="w-4 h-4" />
                         </button>
-                        {request.status === 'pending' && (
+                        {canApprove && request.status === 'pending' && (
                           <>
                             <button onClick={() => handleStatusChange(request.id, 'approved')} className="px-3 py-1 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600">Approve</button>
                             <button onClick={() => handleStatusChange(request.id, 'rejected')} className="px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600">Reject</button>
@@ -527,7 +527,7 @@ export default function RequestsPage() {
                             <Printer className="w-4 h-4" />
                           </button>
                         )}
-                        {item.request && item.request.status === 'pending' && (
+                        {canApprove && item.request && item.request.status === 'pending' && (
                           <>
                             <button
                               onClick={() => handleStatusChange(item.request!.id, 'approved')}
