@@ -434,9 +434,11 @@ export default function RequestsPage() {
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{new Date(request.created_at).toLocaleDateString()}</td>
                     <td className="px-4 lg:px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => setPrintRequestId(request.id)} className="p-1 hover:bg-gray-100 rounded text-[#0B3C6D]">
-                          <Printer className="w-4 h-4" />
-                        </button>
+                        {request.status !== 'pending' && (
+                          <button onClick={() => setPrintRequestId(request.id)} className="p-1 hover:bg-gray-100 rounded text-[#0B3C6D]">
+                            <Printer className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </motion.tr>
@@ -505,7 +507,7 @@ export default function RequestsPage() {
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{new Date(item.created_at).toLocaleDateString()}</td>
                     <td className="px-4 lg:px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {(item.request) && (
+                        {(item.request && item.request.status !== 'pending') && (
                           <button onClick={() => setPrintRequestId(item.request!.id)} className="p-1 hover:bg-gray-100 rounded text-[#0B3C6D]">
                             <Printer className="w-4 h-4" />
                           </button>
