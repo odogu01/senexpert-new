@@ -143,11 +143,11 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
       {/* Signature Section */}
       <div className="border-t border-gray-300 pt-8 mt-4">
         <div className="space-y-0.5">
-          {/* Row 1: Delivered by + Received By */}
+          {/* Row 1: Requested By + Received By */}
           <div className="grid grid-cols-2 gap-x-10">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Delivered by:</span>
-              <span className="text-gray-900 text-sm">{r.delivered_by || '-'}</span>
+              <span className="text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Requested By:</span>
+              <span className="text-gray-900 text-sm">{r.requester_name || r.requested_by || '-'}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Received By:</span>
@@ -162,15 +162,15 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
             </div>
           </div>
 
-          {/* Row 2: Vehicle Number + Requested By */}
+          {/* Row 2: Delivered by + Vehicle Number */}
           <div className="grid grid-cols-2 gap-x-10">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Delivered by:</span>
+              <span className="text-gray-900 text-sm">{r.delivered_by || '-'}</span>
+            </div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Vehicle Number:</span>
               <span className="text-gray-900 text-sm">{r.vehicle_no || '-'}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Requested By:</span>
-              <span className="text-gray-900 text-sm">{r.requester_name || r.requested_by || '-'}</span>
             </div>
           </div>
         </div>
