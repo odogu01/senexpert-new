@@ -65,7 +65,7 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
       <div className="flex justify-between items-start mb-4">
         <div>
           <span className="font-semibold text-gray-700">Ref: </span>
-          <span className="text-gray-900 font-medium">{request.ref_number || 'N/A'}</span>
+          <span className="text-gray-900 font-medium">#{request.id?.slice(0, 8) || 'N/A'}</span>
         </div>
         <div className="text-right text-xs text-gray-600 leading-relaxed max-w-[260px]">
           {COMPANY_DETAILS.map((line, i) => (
