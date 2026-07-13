@@ -43,7 +43,7 @@ const navItems = [
   { label: 'Inventory', href: '/dashboard/inventory', icon: Package, roles: ['super_admin', 'admin', 'operator'] },
   { label: 'Requests', href: '/dashboard/requests', icon: RotateCcw, roles: ['super_admin', 'admin', 'field', 'operator'] },
   { label: 'Financial Requests', href: '/dashboard/financial-requests', icon: DollarSign, roles: ['super_admin', 'admin', 'accountant'] },
-  { label: 'Approvals', href: '/dashboard/approvals', icon: CheckCircle, roles: ['super_admin', 'admin', 'hr'] },
+  { label: 'Approvals', href: '/dashboard/approvals', icon: CheckCircle, roles: ['super_admin', 'admin'] },
   { label: 'Maintenance', href: '/dashboard/maintenance', icon: Wrench, roles: ['super_admin', 'admin'] },
   { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, roles: ['super_admin', 'admin'] },
   { label: 'Calendar', href: '/dashboard/calendar', icon: Calendar, roles: ['super_admin', 'admin'] },

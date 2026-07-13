@@ -53,7 +53,7 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
   const [contractNo, setContractNo] = useState('');
 
   return (
-    <div className="print-receipt max-w-2xl mx-auto text-sm leading-relaxed flex flex-col min-h-[650px]">
+    <div className="print-receipt max-w-2xl mx-auto text-sm leading-relaxed flex flex-col min-h-screen">
       {/* Company Header */}
       <div className="text-center border-b border-gray-300 pb-2 mb-2">
         <img src="/title-logo.png" alt="SenExpert Global" className="w-16 h-auto mx-auto mb-1" />
@@ -129,8 +129,8 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
         </tbody>
       </table>
 
-      {/* Enormous spacer to push signature section to bottom */}
-      <div className="flex-1 min-h-[200px]" />
+      {/* Spacer — fills remaining page space to push signature to bottom */}
+      <div className="flex-1" />
 
       {/* Signature Section */}
       <div className="border-t border-gray-300 pt-8 mt-4">

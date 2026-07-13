@@ -3,8 +3,8 @@
 import { useState, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Clock, AlertTriangle, Package, Printer, CheckCircle, XCircle } from 'lucide-react';
-import { useToolRequests, useCreateToolRequest, useUpdateToolRequestStatus, useTools, useProfile } from '@/hooks/api';
+import { Plus, X, Clock, AlertTriangle, Package, Printer } from 'lucide-react';
+import { useToolRequests, useCreateToolRequest, useTools, useProfile } from '@/hooks/api';
 import { getAuthHeaders } from '@/lib/query';
 import StatusBadge from '@/components/dashboard/StatusBadge';
 import PaginationBar from '@/components/dashboard/PaginationBar';
@@ -19,7 +19,6 @@ export default function RequestsPage() {
   const [printRequestId, setPrintRequestId] = useState<string | null>(null);
 
   const { mutateAsync: createRequest } = useCreateToolRequest();
-  const { mutateAsync: updateStatus } = useUpdateToolRequestStatus();
 
   const userRole = profile?.role ?? null;
   // Show New Request button immediately if a token exists (optimistic), then
@@ -28,8 +27,6 @@ export default function RequestsPage() {
   const canCreateRequest = !profile
     ? hasToken
     : (userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator');
-  const canApprove = userRole === 'super_admin' || userRole === 'admin';
-
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showModal, setShowModal] = useState(false);
   const [printTool, setPrintTool] = useState<Tool | null>(null);
@@ -311,14 +308,6 @@ export default function RequestsPage() {
     });
   };
 
-  const handleStatusChange = async (id: string, status: 'approved' | 'rejected' | 'completed') => {
-    try {
-      await updateStatus({ id, status });
-    } catch (err) {
-      console.error('Failed to update request:', err);
-    }
-  };
-
   return (
     <div className="space-y-4 lg:space-y-6">
       {/* Page Header */}
@@ -448,12 +437,6 @@ export default function RequestsPage() {
                         <button onClick={() => setPrintRequestId(request.id)} className="p-1 hover:bg-gray-100 rounded text-[#0B3C6D]">
                           <Printer className="w-4 h-4" />
                         </button>
-                        {canApprove && request.status === 'pending' && (
-                          <>
-                            <button onClick={() => handleStatusChange(request.id, 'approved')} className="px-3 py-1 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600">Approve</button>
-                            <button onClick={() => handleStatusChange(request.id, 'rejected')} className="px-3 py-1 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600">Reject</button>
-                          </>
-                        )}
                       </div>
                     </td>
                   </motion.tr>
@@ -526,22 +509,6 @@ export default function RequestsPage() {
                           <button onClick={() => setPrintRequestId(item.request!.id)} className="p-1 hover:bg-gray-100 rounded text-[#0B3C6D]">
                             <Printer className="w-4 h-4" />
                           </button>
-                        )}
-                        {canApprove && item.request && item.request.status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => handleStatusChange(item.request!.id, 'approved')}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-green-500 text-white rounded-lg hover:bg-green-600"
-                            >
-                              <CheckCircle className="w-3.5 h-3.5" /> Approve
-                            </button>
-                            <button
-                              onClick={() => handleStatusChange(item.request!.id, 'rejected')}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded-lg hover:bg-red-600"
-                            >
-                              <XCircle className="w-3.5 h-3.5" /> Reject
-                            </button>
-                          </>
                         )}
                         {item.tool && (
                           <button

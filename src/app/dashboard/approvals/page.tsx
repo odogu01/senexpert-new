@@ -18,7 +18,7 @@ export default function ApprovalsPage() {
   const userRole = profile?.role ?? null;
 
   // Redirect if not allowed
-  if (userRole && !['hr', 'admin', 'super_admin'].includes(userRole)) {
+  if (userRole && !['admin', 'super_admin'].includes(userRole)) {
     router.push('/dashboard');
     return null;
   }

@@ -55,7 +55,7 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
     <>
       {/* Print-specific styles that isolate the modal content */}
       <style>{`
-        @page { margin: 15mm; size: A4 portrait; }
+        @page { margin: 5mm; size: A4 portrait; }
 
         @media print {
           body.printing > * { visibility: hidden !important; }
@@ -91,7 +91,7 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
           </div>
 
           {/* Content */}
-          <div className="px-6 pt-1 pb-6">
+          <div className="px-6 pb-4">
             {isLoading && (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-[#0B3C6D]" />

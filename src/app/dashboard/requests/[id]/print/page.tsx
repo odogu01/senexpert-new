@@ -55,7 +55,7 @@ export default function PrintToolRequestPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto bg-white min-h-screen">
       <style>{`
-        @page { margin: 15mm; size: A4 portrait; }
+        @page { margin: 5mm; size: A4 portrait; }
         @media print {
           body { background: white !important; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .no-print { display: none !important; }
