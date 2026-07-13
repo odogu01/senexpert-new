@@ -7,6 +7,55 @@ export class ToolRequestRepository extends BaseRepository<any> {
   }
 
   /**
+   * Find by ID, resolving requester_name from the profiles collection.
+   */
+  async findById(id: string): Promise<any> {
+    const mongodb = await this.getMongoDb();
+    let oid: any;
+    try { oid = new mongodb.ObjectId(id); } catch { return null; }
+    const docs = await this.aggregate([
+      { $match: { _id: oid } },
+      {
+        $lookup: {
+          from: 'profiles',
+          let: { requesterIdString: '$requested_by' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $ne: ['$$requesterIdString', ''] },
+                    { $eq: [{ $toString: '$_id' }, '$$requesterIdString'] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'requesterProfile',
+        },
+      },
+      {
+        $addFields: {
+          requester_name: {
+            $let: {
+              vars: { arr: '$requesterProfile' },
+              in: {
+                $cond: [
+                  { $gt: [{ $size: '$$arr' }, 0] },
+                  { $arrayElemAt: ['$$arr.full_name', 0] },
+                  null,
+                ],
+              },
+            },
+          },
+        },
+      },
+      { $project: { requesterProfile: 0 } },
+    ]);
+    return docs.length > 0 ? this.toApp(docs[0]) : null;
+  }
+
+  /**
    * Fetch tool requests with an optional status / movement_type filter.
    * Joins the `tools` collection via $lookup to resolve tool_name.
    */
@@ -52,7 +101,42 @@ export class ToolRequestRepository extends BaseRepository<any> {
           },
         },
       },
-      { $project: { toolDetails: 0 } },
+      {
+        $lookup: {
+          from: 'profiles',
+          let: { requesterIdString: '$requested_by' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $ne: ['$$requesterIdString', ''] },
+                    { $eq: [{ $toString: '$_id' }, '$$requesterIdString'] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'requesterProfile',
+        },
+      },
+      {
+        $addFields: {
+          requester_name: {
+            $let: {
+              vars: { arr: '$requesterProfile' },
+              in: {
+                $cond: [
+                  { $gt: [{ $size: '$$arr' }, 0] },
+                  { $arrayElemAt: ['$$arr.full_name', 0] },
+                  null,
+                ],
+              },
+            },
+          },
+        },
+      },
+      { $project: { toolDetails: 0, requesterProfile: 0 } },
       { $sort: { created_at: -1 } },
     ];
 

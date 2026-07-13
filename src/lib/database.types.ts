@@ -126,6 +126,9 @@ export interface ToolRequestItem {
   size_thread?: string;
   material?: string;
   model?: string;
+  work_order_number?: string;
+  material_no?: string;
+  part_number?: string;
 }
 
 export interface ToolRequest {

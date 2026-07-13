@@ -347,7 +347,7 @@ export async function createToolRequest(request: {
       tool_id: request.tool_id || '',
       movement_type: request.movement_type,
       transaction_type: request.transaction_type,
-      requested_by: request.requested_by,
+      requested_by: request.requested_by || actingUserId || '',
       assigned_to: request.assigned_to,
       quantity: request.quantity || 1,
       status: 'pending',

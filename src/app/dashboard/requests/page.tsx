@@ -142,6 +142,9 @@ export default function RequestsPage() {
     sizeThread: string;
     material: string;
     model: string;
+    workOrderNumber: string;
+    materialNo: string;
+    partNumber: string;
     quantity: string;
     maxQuantity: number | null;
   }
@@ -157,6 +160,9 @@ export default function RequestsPage() {
       sizeThread: '',
       material: '',
       model: '',
+      workOrderNumber: '',
+      materialNo: '',
+      partNumber: '',
       quantity: '1',
       maxQuantity: null,
     }]);
@@ -253,6 +259,9 @@ export default function RequestsPage() {
             size_thread: item.sizeThread || undefined,
             material: item.material || undefined,
             model: item.model || undefined,
+            work_order_number: item.workOrderNumber || undefined,
+            material_no: item.materialNo || undefined,
+            part_number: item.partNumber || undefined,
           }));
           requestData.tool_id = cartItems[0].toolId;
           requestData.quantity = cartItems.reduce((sum, item) => sum + parseInt(item.quantity), 1);
@@ -624,6 +633,9 @@ export default function RequestsPage() {
                                         sizeThread: first?.size_thread || '',
                                         material: first?.material || '',
                                         model: first?.model || '',
+                                        workOrderNumber: first?.work_order_number || '',
+                                        materialNo: first?.material_no || '',
+                                        partNumber: first?.part_number || '',
                                         quantity: '1',
                                         maxQuantity: first?.quantity ?? null,
                                       });
