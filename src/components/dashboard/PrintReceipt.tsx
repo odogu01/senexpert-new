@@ -10,7 +10,6 @@ interface PrintReceiptProps {
 const COMPANY_DETAILS = [
   'KM 17, Aba/Port Harcourt Expressway beside Ferotex Const. Co Ltd',
   'Portharcourt, Rivers State',
-  'Tel: +2349013878329, 07032045961',
   'Email: senexpertglobal@gmail.com',
   'website: www.senexpertglobal.com',
 ];
@@ -59,7 +58,7 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
       <div className="text-center border-b border-gray-300 pb-4 mb-4">
         <img src="/title-logo.png" alt="SenExpert Global" className="w-20 h-auto mx-auto mb-2" />
         <h1 className="text-xl font-bold text-gray-900">SenExpert Global Energies</h1>
-        <p className="text-xs text-gray-500">Tool Request Receipt</p>
+        <p className="text-xs text-gray-500">Receipt</p>
       </div>
 
       {/* Company Details */}
