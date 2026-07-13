@@ -656,13 +656,16 @@ export default function RequestsPage() {
                                       const st = e.target.value;
                                       const match = tools.filter(t => t.name === item.toolName && t.size_thread === st);
                                       const first = match[0];
-                                      updateCartItem(item.key, {
-                                        sizeThread: st,
-                                        toolId: first?.id || '',
-                                        material: first?.material || '',
-                                        model: first?.model || '',
-                                        maxQuantity: first?.quantity ?? null,
-                                      });
+        updateCartItem(item.key, {
+          sizeThread: st,
+          toolId: first?.id || '',
+          material: first?.material || '',
+          model: first?.model || '',
+          workOrderNumber: '',
+          materialNo: '',
+          partNumber: '',
+          maxQuantity: first?.quantity ?? null,
+        });
                                     }}
                                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
                                   >
@@ -688,12 +691,15 @@ export default function RequestsPage() {
                                         t.material === mat
                                       );
                                       const first = match[0];
-                                      updateCartItem(item.key, {
-                                        material: mat,
-                                        toolId: first?.id || '',
-                                        model: first?.model || '',
-                                        maxQuantity: first?.quantity ?? null,
-                                      });
+        updateCartItem(item.key, {
+          material: mat,
+          toolId: first?.id || '',
+          model: first?.model || '',
+          workOrderNumber: '',
+          materialNo: '',
+          partNumber: '',
+          maxQuantity: first?.quantity ?? null,
+        });
                                     }}
                                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
                                   >
@@ -723,11 +729,14 @@ export default function RequestsPage() {
                                         t.model === mod
                                       );
                                       const first = match[0];
-                                      updateCartItem(item.key, {
-                                        model: mod,
-                                        toolId: first?.id || '',
-                                        maxQuantity: first?.quantity ?? null,
-                                      });
+        updateCartItem(item.key, {
+          model: mod,
+          toolId: first?.id || '',
+          workOrderNumber: '',
+          materialNo: '',
+          partNumber: '',
+          maxQuantity: first?.quantity ?? null,
+        });
                                     }}
                                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
                                   >
@@ -755,6 +764,128 @@ export default function RequestsPage() {
                                     onChange={(e) => updateCartItem(item.key, { quantity: e.target.value })}
                                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
                                   />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                  <label className="block text-xs text-gray-500 mb-1">W/O</label>
+                                  <select
+                                    value={item.workOrderNumber}
+                                    onChange={(e) => {
+                                      const won = e.target.value;
+                                      const match = tools.filter(t =>
+                                        t.name === item.toolName &&
+                                        t.size_thread === item.sizeThread &&
+                                        t.material === item.material &&
+                                        t.model === item.model &&
+                                        t.work_order_number === won
+                                      );
+                                      const first = match[0];
+                                      updateCartItem(item.key, {
+                                        workOrderNumber: won,
+                                        materialNo: first?.material_no || '',
+                                        partNumber: first?.part_number || '',
+                                        toolId: first?.id || '',
+                                        maxQuantity: first?.quantity ?? null,
+                                      });
+                                    }}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                                  >
+                                    <option value="">W/O</option>
+                                    {Array.from(new Set(
+                                      tools.filter(t =>
+                                        t.name === item.toolName &&
+                                        t.size_thread === item.sizeThread &&
+                                        t.material === item.material &&
+                                        t.model === item.model
+                                      )
+                                        .map(t => t.work_order_number || '')
+                                        .filter(v => v !== '')
+                                    )).map(v => (
+                                      <option key={v} value={v}>{v}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-500 mb-1">Material No</label>
+                                  <select
+                                    value={item.materialNo}
+                                    onChange={(e) => {
+                                      const mn = e.target.value;
+                                      const match = tools.filter(t =>
+                                        t.name === item.toolName &&
+                                        t.size_thread === item.sizeThread &&
+                                        t.material === item.material &&
+                                        t.model === item.model &&
+                                        t.work_order_number === item.workOrderNumber &&
+                                        t.material_no === mn
+                                      );
+                                      const first = match[0];
+                                      updateCartItem(item.key, {
+                                        materialNo: mn,
+                                        partNumber: first?.part_number || '',
+                                        toolId: first?.id || '',
+                                        maxQuantity: first?.quantity ?? null,
+                                      });
+                                    }}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                                  >
+                                    <option value="">Material No</option>
+                                    {Array.from(new Set(
+                                      tools.filter(t =>
+                                        t.name === item.toolName &&
+                                        t.size_thread === item.sizeThread &&
+                                        t.material === item.material &&
+                                        t.model === item.model &&
+                                        t.work_order_number === item.workOrderNumber
+                                      )
+                                        .map(t => t.material_no || '')
+                                        .filter(v => v !== '')
+                                    )).map(v => (
+                                      <option key={v} value={v}>{v}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-500 mb-1">Part Number</label>
+                                  <select
+                                    value={item.partNumber}
+                                    onChange={(e) => {
+                                      const pn = e.target.value;
+                                      const match = tools.filter(t =>
+                                        t.name === item.toolName &&
+                                        t.size_thread === item.sizeThread &&
+                                        t.material === item.material &&
+                                        t.model === item.model &&
+                                        t.work_order_number === item.workOrderNumber &&
+                                        t.material_no === item.materialNo &&
+                                        t.part_number === pn
+                                      );
+                                      const first = match[0];
+                                      updateCartItem(item.key, {
+                                        partNumber: pn,
+                                        toolId: first?.id || '',
+                                        maxQuantity: first?.quantity ?? null,
+                                      });
+                                    }}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                                  >
+                                    <option value="">Part Number</option>
+                                    {Array.from(new Set(
+                                      tools.filter(t =>
+                                        t.name === item.toolName &&
+                                        t.size_thread === item.sizeThread &&
+                                        t.material === item.material &&
+                                        t.model === item.model &&
+                                        t.work_order_number === item.workOrderNumber &&
+                                        t.material_no === item.materialNo
+                                      )
+                                        .map(t => t.part_number || '')
+                                        .filter(v => v !== '')
+                                    )).map(v => (
+                                      <option key={v} value={v}>{v}</option>
+                                    ))}
+                                  </select>
                                 </div>
                               </div>
                             </div>
