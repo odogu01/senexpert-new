@@ -59,7 +59,7 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
 
         @media print {
           body.printing > * { visibility: hidden !important; }
-          body.printing .print-overlay { visibility: visible !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: auto !important; background: white !important; z-index: 999999 !important; overflow: visible !important; }
+          body.printing .print-overlay { visibility: visible !important; position: static !important; width: 100% !important; background: white !important; z-index: 999999 !important; overflow: visible !important; }
           body.printing .print-overlay * { visibility: visible !important; }
           body.printing .print-overlay .no-print { display: none !important; }
           body.printing .print-overlay .print-receipt input { border: none !important; background: transparent !important; padding: 0 !important; font-family: inherit; font-size: inherit; color: inherit; width: auto !important; box-shadow: none !important; }
