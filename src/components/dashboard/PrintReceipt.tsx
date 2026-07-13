@@ -43,8 +43,6 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
   const isOutgoing = request.movement_type === 'outgoing';
   const partyLabel = isOutgoing ? 'To' : 'From';
   const partyName = isOutgoing ? (r.delivered_to || '-') : (r.received_from || '-');
-  const clientLabel = isOutgoing ? 'Client Name' : 'Received From';
-
   // Editable signature fields
   const [clientRep, setClientRep] = useState('');
   const [clientDesig, setClientDesig] = useState('');
@@ -53,7 +51,7 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
   const [driverName, setDriverName] = useState('');
 
   return (
-    <div className="print-receipt max-w-2xl mx-auto text-sm leading-relaxed">
+    <div className="print-receipt max-w-2xl mx-auto text-sm leading-relaxed flex flex-col min-h-[650px]">
       {/* Company Header */}
       <div className="text-center border-b border-gray-300 pb-4 mb-4">
         <img src="/title-logo.png" alt="SenExpert Global" className="w-20 h-auto mx-auto mb-2" />
@@ -61,7 +59,7 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
         <p className="text-xs text-gray-500">Receipt</p>
       </div>
 
-      {/* Ref + Company Details + Date */}
+      {/* Ref + Company Details */}
       <div className="flex justify-between items-start mb-4">
         <div>
           <span className="font-semibold text-gray-700">Ref: </span>
@@ -71,10 +69,6 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
           {COMPANY_DETAILS.map((line, i) => (
             <p key={i} className="break-words">{line}</p>
           ))}
-          <div className="mt-1">
-            <span className="text-gray-500">Date: </span>
-            <span className="text-gray-900 font-medium text-sm">{today}</span>
-          </div>
         </div>
       </div>
 
@@ -84,8 +78,11 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
         <span className="text-gray-900 font-medium">{partyName}</span>
       </div>
 
+      {/* DELIVERY MEMO */}
+      <div className="text-center font-bold text-sm text-gray-800 mb-2 uppercase tracking-wide">Delivery Memo</div>
+
       {/* Tools Table */}
-      <table className="w-full border-collapse mb-5">
+      <table className="w-full border-collapse">
         <thead>
           <tr className="bg-[#0B3C6D] text-white">
             <th className="px-3 py-2 text-left text-xs font-semibold uppercase w-12">S/N</th>
@@ -106,21 +103,12 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
         </tbody>
       </table>
 
-      {/* Client Name */}
-      <div className="mb-5">
-        <span className="font-semibold text-gray-700">{clientLabel}: </span>
-        <span className="text-gray-900 font-medium border-b border-gray-400 px-2 pb-0.5">{partyName}</span>
-      </div>
-
-      {/* Vehicle Number */}
-      <div className="mb-6">
-        <span className="font-semibold text-gray-700">Vehicle Number: </span>
-        <span className="text-gray-900 font-medium border-b border-gray-400 px-2 pb-0.5">{r.vehicle_no || '-'}</span>
-      </div>
+      {/* Enormous spacer to push signature section to bottom */}
+      <div className="flex-1 min-h-[200px]" />
 
       {/* Signature Section */}
-      <div className="border-t border-gray-300 pt-5">
-        <div className="grid grid-cols-2 gap-x-10 gap-y-5">
+      <div className="border-t border-gray-300 pt-5 mt-4">
+        <div className="grid grid-cols-2 gap-x-10 gap-y-2">
           {/* Client Rep */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Client Rep</label>
@@ -170,21 +158,26 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
           </div>
 
           {/* Driver's Name */}
-          <div className="col-span-2">
+          <div>
             <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Driver&apos;s Name</label>
             <input
               type="text"
               value={driverName}
               onChange={e => setDriverName(e.target.value)}
               placeholder="_________________________"
-              className="w-full max-w-xs border-0 border-b border-gray-400 pb-1 text-sm text-gray-900 bg-transparent no-print"
+              className="w-full border-0 border-b border-gray-400 pb-1 text-sm text-gray-900 bg-transparent no-print"
             />
             <span className="print-only text-gray-900 border-b border-black min-w-[180px] inline-block">{driverName || '_________________________'}</span>
+          </div>
+          {/* Vehicle Number */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Vehicle Number</label>
+            <span className="text-gray-900 border-b border-gray-400 pb-1 px-2 inline-block min-w-[160px]">{r.vehicle_no || '-'}</span>
           </div>
         </div>
 
         {/* Signature / Date */}
-        <div className="grid grid-cols-2 gap-x-10 gap-y-3 mt-8 pt-4 border-t border-gray-200">
+        <div className="grid grid-cols-2 gap-x-10 gap-y-1 mt-4 pt-2 border-t border-gray-200">
           <div>
             <span className="text-xs font-semibold text-gray-600 uppercase">Signature / Date: </span>
             <span className="text-gray-900">_________________________________</span>
