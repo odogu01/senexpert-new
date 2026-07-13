@@ -1,0 +1,111 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { X, Printer, Loader2 } from 'lucide-react';
+import type { ToolRequest } from '@/lib/database.types';
+import PrintReceipt from './PrintReceipt';
+
+interface PrintModalProps {
+  requestId: string | null;
+  onClose: () => void;
+}
+
+export default function PrintModal({ requestId, onClose }: PrintModalProps) {
+  const [printing, setPrinting] = useState(false);
+
+  const { data: request, isLoading, isError } = useQuery<ToolRequest>({
+    queryKey: ['tool-request', requestId],
+    queryFn: async () => {
+      const res = await fetch(`/api/tool-requests/${requestId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('senexpert_token')}` },
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message || 'Request not found');
+      return json.data;
+    },
+    enabled: !!requestId && typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token'),
+  });
+
+  // Close on Escape
+  useEffect(() => {
+    if (!requestId) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [requestId, onClose]);
+
+  const handlePrint = () => {
+    setPrinting(true);
+    // Small delay for state to settle, then print
+    setTimeout(() => {
+      window.print();
+      // Reset printing state after print dialog closes
+      setTimeout(() => setPrinting(false), 500);
+    }, 100);
+  };
+
+  if (!requestId) return null;
+
+  return (
+    <>
+      {/* Print-specific styles that isolate the modal content */}
+      <style>{`
+        @page { margin: 15mm; size: A4 portrait; }
+
+        @media print {
+          body > *:not(.print-overlay) { display: none !important; }
+          body > .print-overlay { display: block !important; position: static !important; }
+          .print-overlay { background: white !important; }
+          .print-overlay .no-print { display: none !important; }
+          .print-overlay .print-receipt input { border: none !important; background: transparent !important; padding: 0 !important; font-family: inherit; font-size: inherit; color: inherit; width: auto !important; box-shadow: none !important; border-bottom: 1px solid #000 !important; }
+          .print-overlay .print-receipt .sig-line { border-bottom: 1px solid #000 !important; min-width: 180px; display: inline-block; }
+          .print-overlay .print-receipt .print-only { display: block !important; }
+          .print-overlay-backdrop { display: none !important; }
+        }
+
+        .print-receipt .print-only { display: none; }
+        .print-receipt input { outline: none; }
+        .print-receipt input:focus { border-color: #0B3C6D; box-shadow: 0 0 0 2px rgba(11,60,109,0.1); }
+      `}</style>
+
+      {/* Backdrop */}
+      <div className="print-overlay-backdrop fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60">
+        <div className="print-overlay relative w-full max-w-3xl mx-auto my-8 bg-white rounded-xl shadow-2xl">
+          {/* Toolbar — hidden when printing */}
+          <div className="no-print flex items-center justify-between sticky top-0 z-10 bg-white border-b border-gray-200 px-6 py-3 rounded-t-xl">
+            <button onClick={onClose} className="flex items-center gap-2 text-gray-500 hover:text-gray-700">
+              <X className="w-4 h-4" /> Close
+            </button>
+            <button
+              onClick={handlePrint}
+              disabled={printing}
+              className="flex items-center gap-2 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] disabled:opacity-50"
+            >
+              {printing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+              Print
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="p-6">
+            {isLoading && (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="w-8 h-8 animate-spin text-[#0B3C6D]" />
+              </div>
+            )}
+            {isError && (
+              <div className="text-center py-20">
+                <p className="text-red-500 mb-2">Failed to load request</p>
+                <button onClick={onClose} className="text-sm text-[#0B3C6D] hover:underline">Close</button>
+              </div>
+            )}
+            {request && <PrintReceipt request={request} />}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

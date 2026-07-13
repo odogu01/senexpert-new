@@ -130,6 +130,7 @@ export interface ToolRequestItem {
 
 export interface ToolRequest {
   id: string;
+  ref_number?: string;       // Auto-generated: "SEG/000001"
   tool_id?: string;
   movement_type: MovementType;
   transaction_type?: 'sold' | 'rented' | 'job';

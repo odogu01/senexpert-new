@@ -333,7 +333,17 @@ export async function createToolRequest(request: {
   }>;
 }, actingUserId?: string, ipAddress?: string): Promise<{ success: boolean; data?: ToolRequest; error?: string }> {
   try {
+    // Generate unique ref_number: SEG/XXXXXX
+    const lastRef = await toolRequestRepo.findLastWithRef();
+    let nextNum = 1;
+    if (lastRef?.ref_number) {
+      const match = String(lastRef.ref_number).match(/SEG\/(\d+)/);
+      if (match) nextNum = parseInt(match[1], 10) + 1;
+    }
+    const ref_number = `SEG/${String(nextNum).padStart(6, '0')}`;
+
     const insertData: Record<string, unknown> = {
+      ref_number,
       tool_id: request.tool_id || '',
       movement_type: request.movement_type,
       transaction_type: request.transaction_type,

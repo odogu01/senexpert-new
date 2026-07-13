@@ -8,12 +8,15 @@ import { useToolRequests, useCreateToolRequest, useUpdateToolRequestStatus, useT
 import { getAuthHeaders } from '@/lib/query';
 import StatusBadge from '@/components/dashboard/StatusBadge';
 import PaginationBar from '@/components/dashboard/PaginationBar';
+import PrintModal from '@/components/dashboard/PrintModal';
 import type { ToolRequest, Tool } from '@/lib/database.types';
 
 export default function RequestsPage() {
   const { data: requests = [] } = useToolRequests();
   const { data: tools = [] } = useTools();
   const { data: profile } = useProfile();
+
+  const [printRequestId, setPrintRequestId] = useState<string | null>(null);
 
   const { mutateAsync: createRequest } = useCreateToolRequest();
   const { mutateAsync: updateStatus } = useUpdateToolRequestStatus();
@@ -442,7 +445,7 @@ export default function RequestsPage() {
                     <td className="px-4 lg:px-6 py-4 text-sm text-gray-600">{new Date(request.created_at).toLocaleDateString()}</td>
                     <td className="px-4 lg:px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => window.open(`/print/tool-request/${request.id}`, '_blank')} className="p-1 hover:bg-gray-100 rounded text-[#0B3C6D]">
+                        <button onClick={() => setPrintRequestId(request.id)} className="p-1 hover:bg-gray-100 rounded text-[#0B3C6D]">
                           <Printer className="w-4 h-4" />
                         </button>
                         {request.status === 'pending' && (
@@ -520,7 +523,7 @@ export default function RequestsPage() {
                     <td className="px-4 lg:px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         {(item.request) && (
-                          <button onClick={() => window.open(`/print/tool-request/${item.request!.id}`, '_blank')} className="p-1 hover:bg-gray-100 rounded text-[#0B3C6D]">
+                          <button onClick={() => setPrintRequestId(item.request!.id)} className="p-1 hover:bg-gray-100 rounded text-[#0B3C6D]">
                             <Printer className="w-4 h-4" />
                           </button>
                         )}
@@ -1061,6 +1064,8 @@ export default function RequestsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <PrintModal requestId={printRequestId} onClose={() => setPrintRequestId(null)} />
 
       <style>{`
         @media print {

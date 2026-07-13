@@ -59,4 +59,16 @@ export class ToolRequestRepository extends BaseRepository<any> {
     const docs = await this.aggregate(pipeline);
     return this.toAppList(docs);
   }
+
+  /**
+   * Find the last document that has a ref_number (for sequential generation).
+   */
+  async findLastWithRef(): Promise<any | null> {
+    const docs = await this.aggregate([
+      { $match: { ref_number: { $exists: true, $ne: '' } } },
+      { $sort: { ref_number: -1 } },
+      { $limit: 1 },
+    ]);
+    return docs.length > 0 ? this.toApp(docs[0]) : null;
+  }
 }
