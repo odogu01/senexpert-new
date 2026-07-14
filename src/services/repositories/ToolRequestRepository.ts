@@ -51,6 +51,56 @@ export class ToolRequestRepository extends BaseRepository<any> {
         },
       },
       { $project: { requesterProfile: 0 } },
+      // Resolve tool-level details for each item (W/O, Material No, Part Number)
+      {
+        $lookup: {
+          from: 'tools',
+          let: { toolIdStrings: '$items.tool_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $in: [{ $toString: '$_id' }, { $ifNull: ['$$toolIdStrings', []] }]
+                }
+              }
+            }
+          ],
+          as: 'itemToolDetails',
+        },
+      },
+      {
+        $addFields: {
+          items: {
+            $map: {
+              input: { $ifNull: ['$items', []] },
+              as: 'item',
+              in: {
+                $mergeObjects: [
+                  '$$item',
+                  {
+                    $let: {
+                      vars: {
+                        matchedTool: {
+                          $arrayElemAt: [
+                            { $filter: { input: '$itemToolDetails', as: 'td', cond: { $eq: [{ $toString: '$$td._id' }, '$$item.tool_id'] } } },
+                            0,
+                          ],
+                        },
+                      },
+                      in: {
+                        work_order_number: { $ifNull: ['$$item.work_order_number', '$$matchedTool.work_order_number'] },
+                        material_no: { $ifNull: ['$$item.material_no', '$$matchedTool.material_no'] },
+                        part_number: { $ifNull: ['$$item.part_number', '$$matchedTool.part_number'] },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+      { $project: { itemToolDetails: 0 } },
     ]);
     return docs.length > 0 ? this.toApp(docs[0]) : null;
   }

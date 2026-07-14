@@ -59,12 +59,16 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
 
         @media print {
           body.printing > * { visibility: hidden !important; }
-          body.printing .print-overlay { visibility: visible !important; position: static !important; width: 100% !important; background: white !important; z-index: 999999 !important; overflow: visible !important; }
+          body.printing .print-overlay { visibility: visible !important; position: static !important; width: 100% !important; background: white !important; z-index: 999999 !important; overflow: visible !important; top: auto !important; left: auto !important; right: auto !important; bottom: auto !important; height: auto !important; min-height: auto !important; max-width: none !important; margin: 0 !important; padding: 0 !important; display: block !important; }
           body.printing .print-overlay * { visibility: visible !important; }
           body.printing .print-overlay .no-print { display: none !important; }
           body.printing .print-overlay .print-receipt input { border: none !important; background: transparent !important; padding: 0 !important; font-family: inherit; font-size: inherit; color: inherit; width: auto !important; box-shadow: none !important; }
           body.printing .print-overlay .print-receipt .print-only { display: block !important; }
+          body.printing .print-overlay .print-receipt { min-height: auto !important; }
+          body.printing .print-overlay .print-receipt .flex-1 { display: none !important; }
           body.printing .print-overlay-backdrop { background: white !important; }
+          body.printing .print-overlay > div { max-width: none !important; margin: 0 !important; padding: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+          body.printing .print-overlay > div > div { padding: 0 !important; }
         }
 
         .print-receipt .print-only { display: none; }

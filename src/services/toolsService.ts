@@ -683,7 +683,7 @@ export async function getDashboardStats(): Promise<{
   error?: string;
 }> {
   try {
-    const tools = await toolRepo.findRaw({ quantity: { $gt: 0 } });
+    const tools = await toolRepo.findRaw({});
 
     const totalTools = tools.reduce((sum: number, t: any) => sum + t.quantity, 0);
     const available = tools.filter((t: any) => t.status === 'available').length;

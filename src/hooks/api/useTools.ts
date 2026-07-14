@@ -73,6 +73,8 @@ export function useToolsPaginated(filters?: PaginatedFilters) {
     queryKey: [...queryKeys.tools.list(filters as Record<string, string | undefined>), 'paginated'],
     queryFn: () => fetchToolsPaginated(filters),
     enabled: typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token'),
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
   });
 }
 

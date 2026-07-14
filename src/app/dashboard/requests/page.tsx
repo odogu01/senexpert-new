@@ -661,9 +661,9 @@ export default function RequestsPage() {
           toolId: first?.id || '',
           material: first?.material || '',
           model: first?.model || '',
-          workOrderNumber: '',
-          materialNo: '',
-          partNumber: '',
+          workOrderNumber: first?.work_order_number || '',
+          materialNo: first?.material_no || '',
+          partNumber: first?.part_number || '',
           maxQuantity: first?.quantity ?? null,
         });
                                     }}
@@ -695,9 +695,9 @@ export default function RequestsPage() {
           material: mat,
           toolId: first?.id || '',
           model: first?.model || '',
-          workOrderNumber: '',
-          materialNo: '',
-          partNumber: '',
+          workOrderNumber: first?.work_order_number || '',
+          materialNo: first?.material_no || '',
+          partNumber: first?.part_number || '',
           maxQuantity: first?.quantity ?? null,
         });
                                     }}
@@ -732,9 +732,9 @@ export default function RequestsPage() {
         updateCartItem(item.key, {
           model: mod,
           toolId: first?.id || '',
-          workOrderNumber: '',
-          materialNo: '',
-          partNumber: '',
+          workOrderNumber: first?.work_order_number || '',
+          materialNo: first?.material_no || '',
+          partNumber: first?.part_number || '',
           maxQuantity: first?.quantity ?? null,
         });
                                     }}

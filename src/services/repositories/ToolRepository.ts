@@ -15,7 +15,7 @@ export class ToolRepository extends BaseRepository<any> {
     location?: string;
     search?: string;
   }): Record<string, any> {
-    const query: Record<string, any> = { quantity: { $gt: 0 } };
+    const query: Record<string, any> = {};
 
     if (filters?.category) query.category = filters.category;
     if (filters?.status) query.status = filters.status;
@@ -76,11 +76,11 @@ export class ToolRepository extends BaseRepository<any> {
    * Get distinct categories from tools that have quantity > 0.
    */
   async getCategories(): Promise<string[]> {
-    return this.distinct('category', { quantity: { $gt: 0 } });
+    return this.distinct('category');
   }
 
   async getLocations(): Promise<string[]> {
-    return this.distinct('location', { quantity: { $gt: 0 } });
+    return this.distinct('location');
   }
 
   /**

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Download, Plus, X, Eye, Edit, Trash2, HelpCircle } from 'lucide-react';
+import { Search, Download, Plus, X, Eye, Edit, Trash2, HelpCircle, ArrowUpDown } from 'lucide-react';
 import { useToolsPaginated, useCategories, useLocations, useCreateTool, useUpdateTool, useDeleteTool, useProfile, useCreateToolRequest } from '@/hooks/api';
 import { getAuthHeaders } from '@/lib/query';
 import StatusBadge from '@/components/dashboard/StatusBadge';
@@ -41,7 +41,18 @@ export default function InventoryPage() {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [sortBy, setSortBy] = useState<string>('name');
+  const [sortOrder, setSortOrder] = useState<string>('asc');
   const itemsPerPage = 10;
+
+  // Debounce search — only fire API request 300ms after user stops typing
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const debounceTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => {
+    clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(debounceTimer.current);
+  }, [searchQuery]);
 
   // Permission checks
   const canViewAllInventory = userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator';
@@ -84,16 +95,17 @@ export default function InventoryPage() {
   // ───── Admin: server-paginated data for main table ─────
   const paginatedFilters = useMemo(() => {
     if (!canViewAllInventory) return undefined;
+    const sortStr = sortOrder === 'desc' ? `-${sortBy}` : sortBy;
     return {
-      search: searchQuery || undefined,
+      search: debouncedSearch || undefined,
       status: statusFilter !== 'all' ? statusFilter : undefined,
       category: categoryFilter !== 'all' ? categoryFilter : undefined,
       location: locationFilter !== 'all' ? locationFilter : undefined,
-      sort: 'name',
+      sort: sortStr,
       page: currentPage,
       limit: itemsPerPage,
     };
-  }, [canViewAllInventory, searchQuery, statusFilter, categoryFilter, locationFilter, currentPage]);
+  }, [canViewAllInventory, debouncedSearch, statusFilter, categoryFilter, locationFilter, currentPage, sortBy, sortOrder]);
   const { data: paginated, isLoading: paginatedLoading } = useToolsPaginated(paginatedFilters);
 
   // Admins: server-paginated tools. Operators: client-paginated from operatorTools.
@@ -109,9 +121,12 @@ export default function InventoryPage() {
 
   const clearFilters = useCallback(() => {
     setSearchQuery('');
+    setDebouncedSearch('');
     setStatusFilter('all');
     setCategoryFilter('all');
     setLocationFilter('all');
+    setSortBy('name');
+    setSortOrder('asc');
     setCurrentPage(1);
   }, []);
 
@@ -322,6 +337,28 @@ export default function InventoryPage() {
               <option key={loc} value={loc}>{loc}</option>
             ))}
           </select>
+          {/* Sort controls */}
+          <div className="flex items-center gap-1">
+            <select
+              value={sortBy}
+              onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
+              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20"
+            >
+              <option value="name">Name</option>
+              <option value="created_at">Date Entered</option>
+              <option value="category">Category</option>
+              <option value="status">Status</option>
+              <option value="quantity">Quantity</option>
+              <option value="location">Location</option>
+            </select>
+            <button
+              onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+              className="p-2 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+              title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+            >
+              <ArrowUpDown className={`w-4 h-4 text-gray-600 transition-transform ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
