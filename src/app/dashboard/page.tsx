@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Package, CheckCircle, Clock, Wrench, AlertTriangle, FolderOpen, TrendingUp, DollarSign, FileCheck } from 'lucide-react';
 import StatCard from '@/components/dashboard/StatCard';
@@ -104,9 +105,17 @@ export default function DashboardPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
-        {statCards.map((stat, index) => (
-          <StatCard key={stat.title} {...stat} index={index} />
-        ))}
+        {statCards.map((stat, index) => {
+          const card = <StatCard key={stat.title} {...stat} index={index} />;
+          if (stat.title === 'Low Stock') {
+            return (
+              <Link key={stat.title} href="/dashboard/low-stock" className="block cursor-pointer">
+                {card}
+              </Link>
+            );
+          }
+          return card;
+        })}
       </div>
 
       {/* Financial Stats Row */}

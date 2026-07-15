@@ -53,14 +53,58 @@ export default function PrintToolRequestPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto bg-white min-h-screen">
+    <div className="print-page-wrapper p-6 max-w-4xl mx-auto bg-white min-h-screen">
       <style>{`
-        @page { margin: 5mm; size: A4 portrait; }
+        @page { margin: 8mm; size: A4 portrait; }
         @media print {
-          body { background: white !important; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          html, body {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            height: auto !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .print-page-wrapper {
+            min-height: 0 !important;
+            height: auto !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+          }
           .no-print { display: none !important; }
-          .print-receipt { padding: 0 !important; }
-          .print-receipt input { border: none !important; background: transparent !important; padding: 0 !important; font-family: inherit; font-size: inherit; color: inherit; width: auto !important; box-shadow: none !important; border-bottom: 1px solid #000 !important; }
+          .print-receipt {
+            padding: 0 !important;
+            max-width: 100% !important;
+            min-height: calc(297mm - 45mm);
+            display: flex;
+            flex-direction: column;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          .print-receipt table,
+          .print-receipt tr,
+          .print-receipt td,
+          .print-receipt th {
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          .signature-section {
+            margin-top: auto !important;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          .print-receipt input {
+            border: none !important;
+            background: transparent !important;
+            padding: 0 !important;
+            font-family: inherit;
+            font-size: inherit;
+            color: inherit;
+            width: auto !important;
+            box-shadow: none !important;
+            border-bottom: 1px solid #000 !important;
+          }
           .print-receipt .print-only { display: block !important; }
         }
         .print-receipt .print-only { display: none; }

@@ -130,6 +130,7 @@ export async function getTools(filters?: {
   status?: string;
   location?: string;
   search?: string;
+  lowStock?: boolean;
 }): Promise<{ success: boolean; data?: Tool[]; error?: string }> {
   try {
     const { data } = await toolRepo.findAllFiltered(filters);
@@ -148,6 +149,7 @@ export async function getToolsPaginated(filters?: {
   page?: number;
   limit?: number;
   sort?: string;
+  lowStock?: boolean;
 }): Promise<{ success: boolean; data?: Tool[]; total?: number; error?: string }> {
   try {
     const { data, total } = await toolRepo.findAllFiltered(filters);

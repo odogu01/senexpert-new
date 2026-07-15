@@ -61,45 +61,45 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
 
   return (
     <>
-    <div className="print-receipt max-w-2xl mx-auto text-sm leading-relaxed flex flex-col min-h-screen">
+    <div className="print-receipt max-w-2xl mx-auto text-xs leading-tight flex flex-col">
       {/* Company Header */}
-      <div className="text-center border-b border-gray-300 pb-2 mb-2">
-        <img src="/title-logo.png" alt="SenExpert Global" className="w-16 h-auto mx-auto mb-1" />
-        <h1 className="text-lg font-bold text-gray-900">SenExpert Global Energies</h1>
+      <div className="text-center border-b border-gray-300 pb-0.5 mb-0.5">
+        <img src="/title-logo.png" alt="SenExpert Global" className="w-10 h-auto mx-auto mb-0.5" />
+        <h1 className="text-sm font-bold text-gray-900">SenExpert Global Energies</h1>
         <p className="text-xs text-gray-500">Receipt</p>
       </div>
 
       {/* Ref + Po No + Contract No + Company Details */}
-      <div className="flex justify-between items-start mb-2">
-        <div className="space-y-0.5">
+      <div className="flex justify-between items-start mb-0.5">
+        <div className="space-y-px">
           <div>
             <span className="font-semibold text-gray-700">Ref: </span>
             <span className="text-gray-900 font-medium">#{request.id?.slice(0, 8) || 'N/A'}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-gray-700 text-xs">Po No:</span>
+          <div className="flex items-center gap-1">
+            <span className="font-semibold text-gray-700 text-[10px]">Po No:</span>
             <input
               type="text"
               value={poNo}
               onChange={e => setPoNo(e.target.value)}
               placeholder="_________________"
-              className="border-0 text-sm text-gray-900 bg-transparent no-print flex-1"
+              className="border-0 text-xs text-gray-900 bg-transparent no-print flex-1"
             />
-            <span className="print-only text-gray-900 text-xs">{poNo || '_________________'}</span>
+            <span className="print-only text-gray-900 text-[10px]">{poNo || '_________________'}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-gray-700 text-xs">Contract No:</span>
+          <div className="flex items-center gap-1">
+            <span className="font-semibold text-gray-700 text-[10px]">Contract No:</span>
             <input
               type="text"
               value={contractNo}
               onChange={e => setContractNo(e.target.value)}
               placeholder="_________________"
-              className="border-0 text-sm text-gray-900 bg-transparent no-print flex-1"
+              className="border-0 text-xs text-gray-900 bg-transparent no-print flex-1"
             />
-            <span className="print-only text-gray-900 text-xs">{contractNo || '_________________'}</span>
+            <span className="print-only text-gray-900 text-[10px]">{contractNo || '_________________'}</span>
           </div>
         </div>
-        <div className="text-right text-xs text-gray-600 leading-relaxed max-w-[260px]">
+        <div className="text-right text-[10px] text-gray-600 leading-tight max-w-[240px]">
           {COMPANY_DETAILS.map((line, i) => (
             <p key={i} className="break-words">{line}</p>
           ))}
@@ -107,85 +107,82 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
       </div>
 
       {/* To/From */}
-      <div className="mb-2">
+      <div className="mb-0.5">
         <span className="font-semibold text-gray-700">{partyLabel}: </span>
         <span className="text-gray-900 font-medium">{partyName}</span>
       </div>
 
       {/* DELIVERY MEMO */}
-      <div className="text-center font-bold text-sm text-gray-800 mb-1 uppercase tracking-wide">Delivery Memo / Waybill</div>
+      <div className="text-center font-bold text-xs text-gray-800 mb-0.5 uppercase tracking-wide">Delivery Memo / Waybill</div>
 
       {/* Tools Table */}
       <table className="w-full border-collapse border border-gray-300">
         <thead>
           <tr className="bg-[#0B3C6D] text-white">
-            <th className="px-2 py-1.5 text-left text-xs font-semibold uppercase w-12 border border-gray-300">S/N</th>
-            <th className="px-2 py-1.5 text-left text-xs font-semibold uppercase border border-gray-300">Description of Item</th>
-            <th className="px-2 py-1.5 text-center text-xs font-semibold uppercase w-16 border border-gray-300">Quantity</th>
-            <th className="px-2 py-1.5 text-left text-xs font-semibold uppercase border border-gray-300">Remark</th>
+            <th className="px-1.5 py-1 text-left text-[10px] font-semibold uppercase w-10 border border-gray-300">S/N</th>
+            <th className="px-1.5 py-1 text-left text-[10px] font-semibold uppercase border border-gray-300">Description of Item</th>
+            <th className="px-1.5 py-1 text-center text-[10px] font-semibold uppercase w-14 border border-gray-300">Qty</th>
+            <th className="px-1.5 py-1 text-left text-[10px] font-semibold uppercase border border-gray-300">Remark</th>
           </tr>
         </thead>
         <tbody>
           {toolRows.map(row => (
             <tr key={row.sn} className="even:bg-gray-50">
-              <td className="px-2 py-2 text-gray-900 font-medium border border-gray-300">{row.sn}</td>
-              <td className="px-2 py-2 text-gray-800 border border-gray-300">{row.description}</td>
-              <td className="px-2 py-2 text-center text-gray-900 font-medium border border-gray-300">{row.quantity}</td>
-              <td className="px-2 py-2 text-gray-600 text-xs border border-gray-300">{row.remark}</td>
+              <td className="px-1.5 py-0.5 text-gray-900 font-medium border border-gray-300">{row.sn}</td>
+              <td className="px-1.5 py-0.5 text-gray-800 border border-gray-300">{row.description}</td>
+              <td className="px-1.5 py-0.5 text-center text-gray-900 font-medium border border-gray-300">{row.quantity}</td>
+              <td className="px-1.5 py-0.5 text-gray-600 text-[10px] border border-gray-300">{row.remark}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      {/* Spacer — fills remaining page space to push signature to bottom */}
-      <div className="flex-1" />
-
       {/* Signature Section */}
-      <div className="border-t border-gray-300 pt-8 mt-4">
-        <div className="space-y-0.5">
+      <div className="signature-section border-t border-gray-300 pt-3 mt-10">
+        <div className="space-y-px">
           {/* Row 1: Requested By + Received By */}
-          <div className="grid grid-cols-2 gap-x-10">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Requested By:</span>
-              <span className="text-gray-900 text-sm">{r.requester_name || r.requested_by || '-'}</span>
+          <div className="grid grid-cols-2 gap-x-6">
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Requested By:</span>
+              <span className="text-gray-900 text-xs">{r.requester_name || r.requested_by || '-'}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Received By:</span>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Received By:</span>
               <input
                 type="text"
                 value={receivedBy}
                 onChange={e => setReceivedBy(e.target.value)}
                 placeholder="_________________________"
-                className="flex-1 border-0 text-sm text-gray-900 bg-transparent no-print"
+                className="flex-1 border-0 text-xs text-gray-900 bg-transparent no-print"
               />
-              <span className="print-only text-gray-900">{receivedBy || '_________________________'}</span>
+              <span className="print-only text-gray-900 text-xs">{receivedBy || '_________________________'}</span>
             </div>
           </div>
 
           {/* Row 2: Delivered by + Vehicle Number */}
-          <div className="grid grid-cols-2 gap-x-10">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Delivered by:</span>
-              <span className="text-gray-900 text-sm">{r.delivered_by || '-'}</span>
+          <div className="grid grid-cols-2 gap-x-6">
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Delivered by:</span>
+              <span className="text-gray-900 text-xs">{r.delivered_by || '-'}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-600 uppercase whitespace-nowrap">Vehicle Number:</span>
-              <span className="text-gray-900 text-sm">{r.vehicle_no || '-'}</span>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Vehicle No:</span>
+              <span className="text-gray-900 text-xs">{r.vehicle_no || '-'}</span>
             </div>
           </div>
         </div>
 
         {/* Signature / Date */}
-        <div className="grid grid-cols-2 gap-x-10 gap-y-1 mt-[10px] pt-[4px] border-t border-gray-200">
+        <div className="grid grid-cols-2 gap-x-6 mt-0.5 pt-0.5 border-t border-gray-200">
           <div>
-            <span className="text-xs font-semibold text-gray-600 uppercase">Signature / Date: </span>
-            <span className="text-gray-900">_________________________________</span>
-            <span className="text-gray-500 ml-2 text-xs">({today})</span>
+            <span className="text-[10px] font-semibold text-gray-600 uppercase">Signature / Date: </span>
+            <span className="text-gray-900 text-[10px]">_________________________________</span>
+            <span className="text-gray-500 ml-1 text-[10px]">({today})</span>
           </div>
           <div>
-            <span className="text-xs font-semibold text-gray-600 uppercase">Signature / Date: </span>
-            <span className="text-gray-900">_________________________________</span>
-            <span className="text-gray-500 ml-2 text-xs">({today})</span>
+            <span className="text-[10px] font-semibold text-gray-600 uppercase">Signature / Date: </span>
+            <span className="text-gray-900 text-[10px]">_________________________________</span>
+            <span className="text-gray-500 ml-1 text-[10px]">({today})</span>
           </div>
         </div>
       </div>

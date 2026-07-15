@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
     const page = searchParams.get('page') ? Number(searchParams.get('page')) : undefined;
     const limit = searchParams.get('limit') ? Number(searchParams.get('limit')) : undefined;
     const sort = searchParams.get('sort') || undefined;
+    const lowStock = searchParams.get('lowStock') === 'true' || undefined;
 
     // Get single tool by ID
     if (id) {
@@ -61,12 +62,12 @@ export async function GET(request: NextRequest) {
 
     // Paginated mode — when page or limit is explicitly provided
     if (page !== undefined || limit !== undefined) {
-      const response = await getToolsPaginated({ category, status, location, search, page, limit, sort });
+      const response = await getToolsPaginated({ category, status, location, search, page, limit, sort, lowStock });
       return NextResponse.json(response);
     }
 
     // Get all tools with filters (backward-compatible)
-    const response = await getTools({ category, status, location, search });
+    const response = await getTools({ category, status, location, search, lowStock });
     return NextResponse.json(response);
   } catch (error) {
     console.error('Tools API error:', error);

@@ -14,6 +14,7 @@ export class ToolRepository extends BaseRepository<any> {
     status?: string;
     location?: string;
     search?: string;
+    lowStock?: boolean;
   }): Record<string, any> {
     const query: Record<string, any> = {};
 
@@ -27,6 +28,9 @@ export class ToolRepository extends BaseRepository<any> {
         { part_number: { $regex: filters.search, $options: 'i' } },
       ];
     }
+    if (filters?.lowStock) {
+      query.$expr = { $lte: ['$quantity', { $ifNull: ['$min_quantity', 1] }] };
+    }
 
     return query;
   }
@@ -39,10 +43,12 @@ export class ToolRepository extends BaseRepository<any> {
   async findAllFiltered(filters?: {
     category?: string;
     status?: string;
+    location?: string;
     search?: string;
     page?: number;
     limit?: number;
     sort?: string; // e.g. "name" or "-created_at" (descending)
+    lowStock?: boolean;
   }): Promise<{ data: any[]; total?: number }> {
     const query = this._buildFilterQuery(filters);
     const col = await this.getCollection();

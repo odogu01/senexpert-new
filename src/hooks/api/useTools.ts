@@ -11,6 +11,7 @@ export interface ToolFilters {
   status?: string;
   location?: string;
   search?: string;
+  lowStock?: boolean;
 }
 
 export interface PaginatedFilters extends ToolFilters {
@@ -26,6 +27,7 @@ async function fetchTools(filters?: ToolFilters): Promise<Tool[]> {
   if (filters?.status) params.set('status', filters.status);
   if (filters?.location) params.set('location', filters.location);
   if (filters?.search) params.set('search', filters.search);
+  if (filters?.lowStock) params.set('lowStock', 'true');
   const qs = params.toString();
   const res = await fetch(`/api/tools${qs ? `?${qs}` : ''}`, { headers: getAuthHeaders() });
   return throwIfError<Tool[]>(await res.json());
@@ -55,6 +57,7 @@ async function fetchToolsPaginated(filters?: PaginatedFilters): Promise<Paginate
   if (filters?.page) params.set('page', String(filters.page));
   if (filters?.limit) params.set('limit', String(filters.limit));
   if (filters?.sort) params.set('sort', filters.sort);
+  if (filters?.lowStock) params.set('lowStock', 'true');
   const qs = params.toString();
   const res = await fetch(`/api/tools${qs ? `?${qs}` : ''}`, { headers: getAuthHeaders() });
   const json = await res.json();
