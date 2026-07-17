@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 
-type Status = 'available' | 'in_use' | 'maintenance' | 'damaged' | 'lost' | 'retired' | 'rentals' | 'pending' | 'approved' | 'rejected' | 'scheduled' | 'repair' | 'inspection' | 'completed' | 'in_progress' | 'cancelled';
+type Status = 'available' | 'in_use' | 'maintenance' | 'damaged' | 'lost' | 'retired' | 'rentals' | 'pending' | 'approved' | 'rejected' | 'added' | 'scheduled' | 'repair' | 'inspection' | 'completed' | 'in_progress' | 'cancelled';
 
 interface StatusBadgeProps {
   status: Status;
@@ -23,6 +23,8 @@ const statusConfig: Record<Status, { bg: string; text: string; label: string }> 
   pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Pending' },
   approved: { bg: 'bg-green-100', text: 'text-green-700', label: 'Approved' },
   rejected: { bg: 'bg-red-100', text: 'text-red-700', label: 'Rejected' },
+  
+  added: { bg: 'bg-[#0B3C6D]/10', text: 'text-[#0B3C6D]', label: 'Added' },
   
   // Maintenance statuses
   scheduled: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Scheduled' },
@@ -48,7 +50,7 @@ export default function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
       animate={{ opacity: 1, scale: 1 }}
       className={`inline-flex items-center font-medium rounded-full ${config.bg} ${config.text} ${sizeClasses[size]}`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${status === 'available' ? 'bg-green-500' : status === 'in_use' ? 'bg-blue-500' : status === 'maintenance' ? 'bg-yellow-500' : status === 'damaged' || status === 'lost' || status === 'rejected' ? 'bg-red-500' : 'bg-gray-500'}`} />
+      <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${status === 'available' ? 'bg-green-500' : status === 'in_use' ? 'bg-blue-500' : status === 'maintenance' ? 'bg-yellow-500' : status === 'damaged' || status === 'lost' || status === 'rejected' ? 'bg-red-500' : status === 'added' ? 'bg-[#0B3C6D]' : 'bg-gray-500'}`} />
       {config.label}
     </motion.span>
   );

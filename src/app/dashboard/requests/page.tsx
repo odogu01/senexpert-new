@@ -84,12 +84,12 @@ export default function RequestsPage() {
       });
     }
 
-    // Receiving history (already-added tools shown as approved)
+    // Receiving history (already-added tools shown as added)
     for (const tool of receivedTools) {
       items.push({
         id: `tool-${tool.id}`,
         type: 'receipt',
-        status: 'approved',
+        status: 'added',
         tool_name: tool.name,
         location: tool.location,
         quantity: tool.quantity,
@@ -110,7 +110,7 @@ export default function RequestsPage() {
   }, [requests, receivedTools]);
 
   const filteredIncoming = incomingItems.filter(item =>
-    item.status === 'rejected'
+    statusFilter === 'all' || item.status === statusFilter
   );
 
   const [formData, setFormData] = useState({
