@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Download, Plus, X, Eye, Edit, Trash2, HelpCircle, ArrowUpDown } from 'lucide-react';
@@ -11,6 +12,7 @@ import PaginationBar from '@/components/dashboard/PaginationBar';
 import type { Tool, ToolStatus, ToolInsert } from '@/lib/database.types';
 
 export default function InventoryPage() {
+  const searchParams = useSearchParams();
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { mutateAsync: createTool } = useCreateTool();
   const { mutateAsync: updateTool } = useUpdateTool();
@@ -20,6 +22,7 @@ export default function InventoryPage() {
   const userRole = profile?.role ?? null;
   const currentUserId = profile?.id ?? null;
 
+  // Initialize filters — read initial status from URL search params (e.g. ?status=available)
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<ToolStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -44,6 +47,14 @@ export default function InventoryPage() {
   const [sortBy, setSortBy] = useState<string>('name');
   const [sortOrder, setSortOrder] = useState<string>('asc');
   const itemsPerPage = 10;
+
+  // Read initial status filter from URL search params (e.g. ?status=available)
+  useEffect(() => {
+    const status = searchParams.get('status');
+    if (status && ['available', 'in_use', 'maintenance', 'retired'].includes(status)) {
+      setStatusFilter(status as ToolStatus);
+    }
+  }, []);
 
   // Debounce search — only fire API request 300ms after user stops typing
   const [debouncedSearch, setDebouncedSearch] = useState('');

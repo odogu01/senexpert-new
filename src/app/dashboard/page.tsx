@@ -81,12 +81,12 @@ export default function DashboardPage() {
   const maintenancePercentage = totalToolsCount > 0 ? Math.round((stats.maintenance / totalToolsCount) * 100) : 0;
 
   const statCards = [
-    { title: 'Total Tools', value: stats.totalTools, icon: Package, color: 'blue' as const, subtitle: `${totalToolsCount} items in stock` },
-    { title: 'Available', value: stats.available, icon: CheckCircle, color: 'green' as const, subtitle: `${availablePercentage}% of total` },
-    { title: 'In Use', value: stats.inUse, icon: Clock, color: 'blue' as const, subtitle: `${inUsePercentage}% of total` },
-    { title: 'Maintenance', value: stats.maintenance, icon: Wrench, color: 'orange' as const, subtitle: `${maintenancePercentage}% of total` },
-    { title: 'Low Stock', value: stats.lowStock, icon: AlertTriangle, color: 'red' as const, subtitle: 'Items below minimum' },
-    { title: 'Pending Requests', value: stats.pendingRequests, icon: FolderOpen, color: 'purple' as const, subtitle: 'Tool requests awaiting' },
+    { title: 'Total Tools', value: stats.totalTools, icon: Package, color: 'blue' as const, subtitle: `${totalToolsCount} items in stock`, href: '/dashboard/inventory' },
+    { title: 'Available', value: stats.available, icon: CheckCircle, color: 'green' as const, subtitle: `${availablePercentage}% of total`, href: '/dashboard/inventory?status=available' },
+    { title: 'In Use', value: stats.inUse, icon: Clock, color: 'blue' as const, subtitle: `${inUsePercentage}% of total`, href: '/dashboard/inventory?status=in_use' },
+    { title: 'Maintenance', value: stats.maintenance, icon: Wrench, color: 'orange' as const, subtitle: `${maintenancePercentage}% of total`, href: '/dashboard/maintenance' },
+    { title: 'Low Stock', value: stats.lowStock, icon: AlertTriangle, color: 'red' as const, subtitle: 'Items below minimum', href: '/dashboard/low-stock' },
+    { title: 'Pending Requests', value: stats.pendingRequests, icon: FolderOpen, color: 'purple' as const, subtitle: 'Tool requests awaiting', href: '/dashboard/approvals' },
   ];
 
   return (
@@ -105,17 +105,11 @@ export default function DashboardPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
-        {statCards.map((stat, index) => {
-          const card = <StatCard key={stat.title} {...stat} index={index} />;
-          if (stat.title === 'Low Stock') {
-            return (
-              <Link key={stat.title} href="/dashboard/low-stock" className="block cursor-pointer">
-                {card}
-              </Link>
-            );
-          }
-          return card;
-        })}
+        {statCards.map((stat, index) => (
+          <Link key={stat.title} href={stat.href} className="block cursor-pointer">
+            <StatCard title={stat.title} value={stat.value} icon={stat.icon} color={stat.color} subtitle={stat.subtitle} index={index} />
+          </Link>
+        ))}
       </div>
 
       {/* Financial Stats Row */}
