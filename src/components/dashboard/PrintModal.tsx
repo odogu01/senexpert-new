@@ -55,22 +55,37 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
     <>
       {/* Print-specific styles that isolate the modal content */}
       <style>{`
-        @page { margin: 8mm; size: A4 portrait; }
+        @page { margin: 10mm; size: A4 portrait; }
         @media print {
+          html, body {
+            height: 297mm !important;
+            min-height: 297mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
           body.printing > * { visibility: hidden !important; }
-          body.printing .print-overlay { visibility: visible !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; background: white !important; z-index: 999999 !important; overflow: visible !important; max-width: none !important; margin: 0 !important; padding: 0 !important; display: block !important; }
+          body.printing .print-overlay {
+            visibility: visible !important;
+            position: fixed !important;
+            inset: 0 !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            height: 297mm !important;
+            background: white !important;
+            z-index: 999999 !important;
+            overflow: visible !important;
+            max-width: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: block !important;
+          }
           body.printing .print-overlay * { visibility: visible !important; }
           body.printing .print-overlay .no-print { display: none !important; }
           body.printing .print-overlay > div { max-width: none !important; margin: 0 !important; padding: 0 !important; border-radius: 0 !important; box-shadow: none !important; display: block !important; }
           body.printing .print-overlay > div > div { padding: 0 !important; display: block !important; }
-          body.printing .print-overlay .print-receipt {
-            display: flex !important;
-            flex-direction: column !important;
-            min-height: calc(297mm - 45mm) !important;
-            max-width: 100% !important;
-            page-break-inside: avoid;
-            break-inside: avoid;
-          }
+          body.printing .print-overlay .print-receipt { max-width: 100% !important; }
           body.printing .print-overlay .print-receipt table,
           body.printing .print-overlay .print-receipt tr,
           body.printing .print-overlay .print-receipt td,
@@ -79,7 +94,11 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
             break-inside: avoid;
           }
           body.printing .print-overlay .signature-section {
-            margin-top: auto !important;
+            position: fixed !important;
+            bottom: 10mm !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
             page-break-inside: avoid;
             break-inside: avoid;
           }

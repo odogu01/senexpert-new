@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import type { ToolRequest } from '@/lib/database.types';
+import type { ToolRequest, Tool } from '@/lib/database.types';
 
 interface PrintReceiptProps {
-  request: ToolRequest;
+  request?: ToolRequest;
+  tool?: Tool; // For direct tool additions (no request)
 }
 
 const COMPANY_DETAILS = [
@@ -14,46 +15,58 @@ const COMPANY_DETAILS = [
   'website: www.senexpertglobal.com',
 ];
 
-export default function PrintReceipt({ request }: PrintReceiptProps) {
-  const r = request as unknown as Record<string, string>;
-  const items = (request as any).items as Array<{
-    tool_name?: string;
-    size_thread?: string;
-    material?: string;
-    model?: string;
-    quantity: number;
-    work_order_number?: string;
-    material_no?: string;
-    part_number?: string;
-  }> | undefined;
+export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
+  // Determine if this is from a request or a direct tool
+  const isTool = !!tool;
+  const req = request as unknown as Record<string, string> | undefined;
 
-  // Helper to build description parts skipping N/A values
-  const descParts = (...vals: (string | undefined | null)[]) =>
-    vals.filter(v => v && v !== 'N/A' && v !== 'n/a');
-
-  // Build table rows
-  const notes = request.notes || '-';
+  // ── Build table rows ──
   const toolRows: { sn: number; description: string; quantity: number; remark: string }[] = [];
-  if (items && items.length > 0) {
-    items.forEach((item, i) => {
-      const parts = descParts(item.tool_name, item.size_thread, item.material,
-        item.work_order_number ? `W/O:${item.work_order_number}` : null,
-        item.material_no ? `Mat No:${item.material_no}` : null,
-        item.part_number ? `Part No:${item.part_number}` : null);
-      toolRows.push({ sn: i + 1, description: parts.join('; ') || 'N/A', quantity: item.quantity, remark: notes });
-    });
-  } else if (request.tool_name) {
-    const desc = [request.tool_name, r.size_thread, r.material].filter(Boolean).join('; ');
-    toolRows.push({ sn: 1, description: desc || 'N/A', quantity: request.quantity, remark: notes });
+
+  if (isTool && tool) {
+    // Direct tool addition — single row
+    const parts = [tool.name, tool.size_thread, tool.material,
+      tool.work_order_number ? `W/O:${tool.work_order_number}` : null,
+      tool.material_no ? `Mat No:${tool.material_no}` : null,
+      tool.part_number ? `Part No:${tool.part_number}` : null].filter(Boolean);
+    toolRows.push({ sn: 1, description: parts.join('; ') || 'N/A', quantity: tool.quantity, remark: tool.description || '-' });
+  } else if (request) {
+    const items = (request as any).items as Array<{
+      tool_name?: string; size_thread?: string; material?: string; model?: string;
+      quantity: number; work_order_number?: string; material_no?: string; part_number?: string;
+    }> | undefined;
+
+    const descParts = (...vals: (string | undefined | null)[]) =>
+      vals.filter(v => v && v !== 'N/A' && v !== 'n/a');
+
+    const notes = request.notes || '-';
+    if (items && items.length > 0) {
+      items.forEach((item, i) => {
+        const parts = descParts(item.tool_name, item.size_thread, item.material,
+          item.work_order_number ? `W/O:${item.work_order_number}` : null,
+          item.material_no ? `Mat No:${item.material_no}` : null,
+          item.part_number ? `Part No:${item.part_number}` : null);
+        toolRows.push({ sn: i + 1, description: parts.join('; ') || 'N/A', quantity: item.quantity, remark: notes });
+      });
+    } else if (request.tool_name) {
+      const desc = [request.tool_name, req?.size_thread, req?.material].filter(Boolean).join('; ');
+      toolRows.push({ sn: 1, description: desc || 'N/A', quantity: request.quantity, remark: notes });
+    }
   }
 
   const today = new Date().toLocaleDateString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric',
   });
 
-  const isOutgoing = request.movement_type === 'outgoing';
+  // ── Party info ──
+  const isOutgoing = isTool ? false : request?.movement_type === 'outgoing';
   const partyLabel = isOutgoing ? 'To' : 'From';
-  const partyName = isOutgoing ? (r.delivered_to || '-') : (r.received_from || '-');
+  const partyName = isOutgoing
+    ? (req?.delivered_to || '-')
+    : isTool
+      ? (tool?.received_from || '-')
+      : (req?.received_from || '-');
+
   // Editable fields
   const [receivedBy, setReceivedBy] = useState('');
   const [poNo, setPoNo] = useState('');
@@ -74,7 +87,7 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
         <div className="space-y-px">
           <div>
             <span className="font-semibold text-gray-700">Ref: </span>
-            <span className="text-gray-900 font-medium">#{request.id?.slice(0, 8) || 'N/A'}</span>
+            <span className="text-gray-900 font-medium">#{(isTool ? (tool?.id || '') : (request?.id || '')).toString().slice(0, 8) || 'N/A'}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="font-semibold text-gray-700 text-[10px]">Po No:</span>
@@ -83,9 +96,8 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
               value={poNo}
               onChange={e => setPoNo(e.target.value)}
               placeholder="_________________"
-              className="border-0 text-xs text-gray-900 bg-transparent no-print flex-1"
+              className="flex-1 border-0 text-xs text-gray-900 bg-transparent"
             />
-            <span className="print-only text-gray-900 text-[10px]">{poNo || '_________________'}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="font-semibold text-gray-700 text-[10px]">Contract No:</span>
@@ -94,9 +106,8 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
               value={contractNo}
               onChange={e => setContractNo(e.target.value)}
               placeholder="_________________"
-              className="border-0 text-xs text-gray-900 bg-transparent no-print flex-1"
+              className="flex-1 border-0 text-xs text-gray-900 bg-transparent"
             />
-            <span className="print-only text-gray-900 text-[10px]">{contractNo || '_________________'}</span>
           </div>
         </div>
         <div className="text-right text-[10px] text-gray-600 leading-tight max-w-[240px]">
@@ -138,13 +149,15 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
       </table>
 
       {/* Signature Section */}
-      <div className="signature-section border-t border-gray-300 pt-3 mt-10">
+      <div className="signature-section border-t border-gray-300 pt-2">
         <div className="space-y-px">
           {/* Row 1: Requested By + Received By */}
           <div className="grid grid-cols-2 gap-x-6">
             <div className="flex items-center gap-1">
               <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Requested By:</span>
-              <span className="text-gray-900 text-xs">{r.requester_name || r.requested_by || '-'}</span>
+              <span className="text-gray-900 text-xs">
+                {isTool ? (tool?.received_by || '-') : (req?.requester_name || req?.requested_by || '-')}
+              </span>
             </div>
             <div className="flex items-center gap-1">
               <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Received By:</span>
@@ -153,21 +166,26 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
                 value={receivedBy}
                 onChange={e => setReceivedBy(e.target.value)}
                 placeholder="_________________________"
-                className="flex-1 border-0 text-xs text-gray-900 bg-transparent no-print"
+                className="flex-1 border-0 text-xs text-gray-900 bg-transparent"
               />
-              <span className="print-only text-gray-900 text-xs">{receivedBy || '_________________________'}</span>
             </div>
           </div>
 
-          {/* Row 2: Delivered by + Vehicle Number */}
+          {/* Row 2: Delivered by / Received from + Vehicle Number */}
           <div className="grid grid-cols-2 gap-x-6">
             <div className="flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Delivered by:</span>
-              <span className="text-gray-900 text-xs">{r.delivered_by || '-'}</span>
+              <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">
+                {isOutgoing ? 'Delivered by:' : 'Received from:'}
+              </span>
+              <span className="text-gray-900 text-xs">
+                {isTool ? (tool?.received_from || '-') : (req?.delivered_by || '-')}
+              </span>
             </div>
             <div className="flex items-center gap-1">
               <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Vehicle No:</span>
-              <span className="text-gray-900 text-xs">{r.vehicle_no || '-'}</span>
+              <span className="text-gray-900 text-xs">
+                {isTool ? (tool?.vehicle_number || '-') : (req?.vehicle_no || '-')}
+              </span>
             </div>
           </div>
         </div>
@@ -189,7 +207,7 @@ export default function PrintReceipt({ request }: PrintReceiptProps) {
     </div>
 
     {/* REJECTED watermark */}
-    {request.status === 'rejected' && (
+    {request?.status === 'rejected' && (
       <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center" style={{ transform: 'rotate(-30deg)' }}>
         <span className="text-[120px] font-bold text-red-600/20 select-none">REJECTED</span>
       </div>

@@ -15,10 +15,18 @@ export default async function PrintToolRequestPage({ params }: { params: Promise
   return (
     <div className="print-page">
       <style>{`
-        @page { margin: 15mm; size: A4 portrait; }
+        @page { margin: 10mm; size: A4 portrait; }
         body { background: white !important; }
         @media print {
-          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          html, body {
+            height: 297mm !important;
+            min-height: 297mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
           .no-print { display: none !important; }
         }
       `}</style>

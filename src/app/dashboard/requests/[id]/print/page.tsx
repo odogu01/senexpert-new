@@ -55,13 +55,14 @@ export default function PrintToolRequestPage() {
   return (
     <div className="print-page-wrapper p-6 max-w-4xl mx-auto bg-white min-h-screen">
       <style>{`
-        @page { margin: 8mm; size: A4 portrait; }
+        @page { margin: 10mm; size: A4 portrait; }
         @media print {
           html, body {
-            background: white !important;
+            height: 297mm !important;
+            min-height: 297mm !important;
             margin: 0 !important;
             padding: 0 !important;
-            height: auto !important;
+            background: white !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
@@ -76,11 +77,6 @@ export default function PrintToolRequestPage() {
           .print-receipt {
             padding: 0 !important;
             max-width: 100% !important;
-            min-height: calc(297mm - 45mm);
-            display: flex;
-            flex-direction: column;
-            page-break-inside: avoid;
-            break-inside: avoid;
           }
           .print-receipt table,
           .print-receipt tr,
@@ -90,7 +86,11 @@ export default function PrintToolRequestPage() {
             break-inside: avoid;
           }
           .signature-section {
-            margin-top: auto !important;
+            position: fixed !important;
+            bottom: 10mm !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
             page-break-inside: avoid;
             break-inside: avoid;
           }
