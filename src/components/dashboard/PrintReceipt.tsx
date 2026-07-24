@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ToolRequest, Tool } from '@/lib/database.types';
 
 interface PrintReceiptProps {
@@ -67,10 +67,19 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
       ? (tool?.received_from || '-')
       : (req?.received_from || '-');
 
-  // Editable fields
-  const [receivedBy, setReceivedBy] = useState('');
-  const [poNo, setPoNo] = useState('');
-  const [contractNo, setContractNo] = useState('');
+  // ── Persist editable fields per transaction ──
+  const txId = (isTool ? tool?.id : request?.id) || 'new';
+  const storageKey = (field: string) => `print_receipt_${field}_${txId}`;
+  const ls = (key: string, def: string) => typeof window !== 'undefined' ? (localStorage.getItem(key) ?? def) : def;
+
+  const [receivedBy, setReceivedBy] = useState(ls(storageKey('received_by'), ''));
+  const [poNo, setPoNo] = useState(ls(storageKey('po_no'), ''));
+  const [contractNo, setContractNo] = useState(ls(storageKey('contract_no'), ''));
+
+  // Persist to localStorage whenever values change
+  useEffect(() => { localStorage.setItem(storageKey('received_by'), receivedBy); }, [receivedBy, txId]);
+  useEffect(() => { localStorage.setItem(storageKey('po_no'), poNo); }, [poNo, txId]);
+  useEffect(() => { localStorage.setItem(storageKey('contract_no'), contractNo); }, [contractNo, txId]);
 
   return (
     <>
