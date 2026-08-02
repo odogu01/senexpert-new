@@ -58,6 +58,15 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
     day: '2-digit', month: 'short', year: 'numeric',
   });
 
+  // Transaction date (from created_at of the tool/request)
+  const txDate = (() => {
+    const raw = isTool ? tool?.created_at : request?.created_at;
+    if (!raw) return today;
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return today;
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  })();
+
   // ── Party info ──
   const isOutgoing = isTool ? false : request?.movement_type === 'outgoing';
   const partyLabel = isOutgoing ? 'To' : 'From';
@@ -190,11 +199,17 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
                 {isTool ? (tool?.received_from || '-') : (req?.delivered_by || '-')}
               </span>
             </div>
-            <div className="flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Vehicle No:</span>
-              <span className="text-gray-900 text-xs">
-                {isTool ? (tool?.vehicle_number || '-') : (req?.vehicle_no || '-')}
-              </span>
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Vehicle No:</span>
+                <span className="text-gray-900 text-xs">
+                  {isTool ? (tool?.vehicle_number || '-') : (req?.vehicle_no || '-')}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Date:</span>
+                <span className="text-gray-900 text-xs">{txDate}</span>
+              </div>
             </div>
           </div>
         </div>
