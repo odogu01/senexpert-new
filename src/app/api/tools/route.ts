@@ -10,6 +10,28 @@ function getClientIp(request: NextRequest): string | undefined {
     || undefined;
 }
 
+// Roles allowed to create / update / delete tools. Operators are restricted
+// to tools they created (checked per request below).
+const TOOL_EDIT_ROLES = ['super_admin', 'admin', 'operator', 'dev'];
+
+// Operators may only see tools they added within this window (for review/edits).
+const OPERATOR_VISIBILITY_WINDOW_HOURS = 7;
+
+function canEditTools(role: string): boolean {
+  return TOOL_EDIT_ROLES.includes(role);
+}
+
+async function assertOperatorOwnership(toolId: string, userId: string): Promise<NextResponse | null> {
+  const tool = await getToolById(toolId);
+  if (!tool.success || String((tool.data as any)?.created_by) !== userId) {
+    return NextResponse.json(
+      { success: false, error: { message: 'Forbidden: you can only manage tools you created' } },
+      { status: 403 },
+    );
+  }
+  return null;
+}
+
 async function authenticate(request: NextRequest): Promise<{ userId: string; role: string } | NextResponse> {
   const authHeader = request.headers.get('Authorization');
   const token = getTokenFromHeader(authHeader);
@@ -42,6 +64,14 @@ export async function GET(request: NextRequest) {
     const sort = searchParams.get('sort') || undefined;
     const lowStock = searchParams.get('lowStock') === 'true' || undefined;
 
+    // Operators only see tools they added within the visibility window (server-enforced).
+    const operatorScope = auth.role === 'operator'
+      ? {
+          created_by: auth.userId,
+          created_after: new Date(Date.now() - OPERATOR_VISIBILITY_WINDOW_HOURS * 60 * 60 * 1000).toISOString(),
+        }
+      : undefined;
+
     // Get single tool by ID
     if (id) {
       const response = await getToolById(id);
@@ -62,12 +92,12 @@ export async function GET(request: NextRequest) {
 
     // Paginated mode — when page or limit is explicitly provided
     if (page !== undefined || limit !== undefined) {
-      const response = await getToolsPaginated({ category, status, location, search, page, limit, sort, lowStock });
+      const response = await getToolsPaginated({ category, status, location, search, page, limit, sort, lowStock, ...operatorScope });
       return NextResponse.json(response);
     }
 
     // Get all tools with filters (backward-compatible)
-    const response = await getTools({ category, status, location, search, lowStock });
+    const response = await getTools({ category, status, location, search, lowStock, ...operatorScope });
     return NextResponse.json(response);
   } catch (error) {
     console.error('Tools API error:', error);
@@ -82,6 +112,10 @@ export async function POST(request: NextRequest) {
 
     const auth = await authenticate(request);
     if (auth instanceof NextResponse) return auth;
+
+    if (!canEditTools(auth.role)) {
+      return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
+    }
 
     const body = await request.json();
     const parsed = validate(createToolSchema, body);
@@ -104,11 +138,21 @@ export async function PATCH(request: NextRequest) {
     const auth = await authenticate(request);
     if (auth instanceof NextResponse) return auth;
 
+    if (!canEditTools(auth.role)) {
+      return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) {
       return NextResponse.json({ success: false, error: { message: 'Tool ID required' } }, { status: 400 });
+    }
+
+    // Operators may only edit tools they created
+    if (auth.role === 'operator') {
+      const ownershipCheck = await assertOperatorOwnership(id, auth.userId);
+      if (ownershipCheck) return ownershipCheck;
     }
 
     const body = await request.json();
@@ -132,11 +176,21 @@ export async function DELETE(request: NextRequest) {
     const auth = await authenticate(request);
     if (auth instanceof NextResponse) return auth;
 
+    if (!canEditTools(auth.role)) {
+      return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) {
       return NextResponse.json({ success: false, error: { message: 'Tool ID required' } }, { status: 400 });
+    }
+
+    // Operators may only delete tools they created
+    if (auth.role === 'operator') {
+      const ownershipCheck = await assertOperatorOwnership(id, auth.userId);
+      if (ownershipCheck) return ownershipCheck;
     }
 
     const response = await deleteTool(id, auth.userId, getClientIp(request));

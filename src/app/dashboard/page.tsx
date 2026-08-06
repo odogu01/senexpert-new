@@ -28,7 +28,7 @@ export default function DashboardPage() {
   const { data: alerts } = useAlerts();
   const { data: toolsData } = useTools();
   const { user } = useAuth();
-  const canViewFinancial = user && ['super_admin', 'admin', 'accountant'].includes(user.role);
+  const canViewFinancial = user && ['super_admin', 'admin', 'accountant', 'dev'].includes(user.role);
 
   // Derive status distribution from stats
   const statusDistribution = useMemo<StatusData[]>(() => {

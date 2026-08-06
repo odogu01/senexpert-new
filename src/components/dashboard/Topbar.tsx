@@ -40,6 +40,7 @@ const roleDisplayNames: Record<UserRole, string> = {
   hr: 'HR',
   field: 'Field',
   operator: 'Operator',
+  dev: 'Developer',
 };
 
 export default function Topbar({ 

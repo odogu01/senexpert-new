@@ -33,8 +33,8 @@ export default function FinancialRequestsPage() {
   const [formError, setFormError] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<FinancialRequest | null>(null);
 
-  const canRequest = currentUser?.role === 'super_admin' || currentUser?.role === 'admin' || currentUser?.role === 'operator';
-  const canApprove = currentUser?.role === 'super_admin' || currentUser?.role === 'accountant';
+  const canRequest = currentUser?.role === 'super_admin' || currentUser?.role === 'admin' || currentUser?.role === 'operator' || currentUser?.role === 'dev';
+  const canApprove = currentUser?.role === 'super_admin' || currentUser?.role === 'accountant' || currentUser?.role === 'dev';
 
   const filteredRequests = statusFilter
     ? (requests as FinancialRequest[]).filter(r => r.status === statusFilter)

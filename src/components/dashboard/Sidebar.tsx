@@ -36,21 +36,21 @@ interface SidebarProps {
   onViewAsChange?: (role: UserRole | null) => void;
 }
 
-// Navigation items with icons and labels
+// Navigation items with icons and labels. 'dev' is a wildcard role — added to every item.
 const navItems = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'accountant', 'hr', 'field', 'operator'] },
-  { label: 'Notifications', href: '/dashboard/notifications', icon: Bell, roles: ['super_admin', 'admin', 'accountant', 'hr', 'field', 'operator'] },
-  { label: 'Inventory', href: '/dashboard/inventory', icon: Package, roles: ['super_admin', 'admin', 'operator'] },
-  { label: 'Requests', href: '/dashboard/requests', icon: RotateCcw, roles: ['super_admin', 'admin', 'field', 'operator'] },
-  { label: 'Financial Requests', href: '/dashboard/financial-requests', icon: DollarSign, roles: ['super_admin', 'admin', 'accountant'] },
-  { label: 'Approvals', href: '/dashboard/approvals', icon: CheckCircle, roles: ['super_admin', 'admin'] },
-  { label: 'Maintenance', href: '/dashboard/maintenance', icon: Wrench, roles: ['super_admin', 'admin'] },
-  { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, roles: ['super_admin', 'admin'] },
-  { label: 'Calendar', href: '/dashboard/calendar', icon: Calendar, roles: ['super_admin', 'admin'] },
-  { label: 'Reports', href: '/dashboard/reports', icon: FileText, roles: ['super_admin', 'admin'] },
-  { label: 'Audit Logs', href: '/dashboard/audit-logs', icon: ClipboardList, roles: ['super_admin'] },
-  { label: 'Users', href: '/dashboard/users', icon: Users, roles: ['super_admin', 'admin'] },
-  { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin', 'hr'] },
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'accountant', 'hr', 'field', 'operator', 'dev'] },
+  { label: 'Notifications', href: '/dashboard/notifications', icon: Bell, roles: ['super_admin', 'admin', 'accountant', 'hr', 'field', 'operator', 'dev'] },
+  { label: 'Inventory', href: '/dashboard/inventory', icon: Package, roles: ['super_admin', 'admin', 'operator', 'dev'] },
+  { label: 'Requests', href: '/dashboard/requests', icon: RotateCcw, roles: ['super_admin', 'admin', 'field', 'operator', 'dev'] },
+  { label: 'Financial Requests', href: '/dashboard/financial-requests', icon: DollarSign, roles: ['super_admin', 'admin', 'accountant', 'dev'] },
+  { label: 'Approvals', href: '/dashboard/approvals', icon: CheckCircle, roles: ['super_admin', 'admin', 'dev'] },
+  { label: 'Maintenance', href: '/dashboard/maintenance', icon: Wrench, roles: ['super_admin', 'admin', 'dev'] },
+  { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, roles: ['super_admin', 'admin', 'dev'] },
+  { label: 'Calendar', href: '/dashboard/calendar', icon: Calendar, roles: ['super_admin', 'admin', 'dev'] },
+  { label: 'Reports', href: '/dashboard/reports', icon: FileText, roles: ['super_admin', 'admin', 'dev'] },
+  { label: 'Audit Logs', href: '/dashboard/audit-logs', icon: ClipboardList, roles: ['super_admin', 'dev'] },
+  { label: 'Users', href: '/dashboard/users', icon: Users, roles: ['super_admin', 'admin', 'dev'] },
+  { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin', 'hr', 'dev'] },
 ];
 
 export default function Sidebar({ 

@@ -14,13 +14,13 @@ export default function ReportsPage() {
   const userRole = profile?.role ?? null;
   const toolCount = tools.length;
   const maintenanceCount = maintenance.length;
-  const canExport = userRole && ['super_admin', 'admin'].includes(userRole);
+  const canExport = userRole && ['super_admin', 'admin', 'dev'].includes(userRole);
 
   const quickReports = [
     { name: 'Export All Tools', description: 'Download complete tool inventory', icon: Package, disabled: !canExport, action: () => console.log('Export tools') },
     { name: 'Maintenance Status', description: 'Current maintenance overview', icon: BarChart3, disabled: !canExport, action: () => console.log('Maintenance status') },
     { name: 'Monthly Summary', description: 'Generate monthly report', icon: FileText, disabled: false, action: () => console.log('Monthly summary') },
-    { name: 'Audit Trail', description: 'Complete activity log', icon: Calendar, disabled: userRole !== 'super_admin', action: () => router.push('/dashboard/audit-logs') },
+    { name: 'Audit Trail', description: 'Complete activity log', icon: Calendar, disabled: userRole !== 'super_admin' && userRole !== 'dev', action: () => router.push('/dashboard/audit-logs') },
   ];
 
   return (

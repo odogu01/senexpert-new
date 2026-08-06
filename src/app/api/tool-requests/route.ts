@@ -68,7 +68,7 @@ export async function PATCH(request: NextRequest) {
     const auth = await authenticate(request);
     if (auth instanceof NextResponse) return auth;
 
-    if (auth.role !== 'super_admin' && auth.role !== 'admin') {
+    if (auth.role !== 'super_admin' && auth.role !== 'admin' && auth.role !== 'dev') {
       return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
     }
 

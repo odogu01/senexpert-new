@@ -14,8 +14,8 @@ export default function AuditLogsPage() {
 
   const currentUserRole = profile?.role ?? null;
 
-  // Redirect if not super_admin or admin
-  if (currentUserRole && currentUserRole !== 'super_admin' && currentUserRole !== 'admin') {
+  // Redirect if not super_admin, admin or dev
+  if (currentUserRole && currentUserRole !== 'super_admin' && currentUserRole !== 'admin' && currentUserRole !== 'dev') {
     router.push('/dashboard');
     return null;
   }

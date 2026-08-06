@@ -13,7 +13,7 @@ export default function MaintenancePage() {
   const { mutateAsync: createMaintenance } = useCreateMaintenance();
 
   const userRole = profile?.role ?? null;
-  const canSchedule = userRole && ['super_admin', 'admin'].includes(userRole);
+  const canSchedule = userRole && ['super_admin', 'admin', 'dev'].includes(userRole);
 
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({

@@ -131,6 +131,8 @@ export async function getTools(filters?: {
   location?: string;
   search?: string;
   lowStock?: boolean;
+  created_by?: string;
+  created_after?: string;
 }): Promise<{ success: boolean; data?: Tool[]; error?: string }> {
   try {
     const { data } = await toolRepo.findAllFiltered(filters);
@@ -150,6 +152,8 @@ export async function getToolsPaginated(filters?: {
   limit?: number;
   sort?: string;
   lowStock?: boolean;
+  created_by?: string;
+  created_after?: string;
 }): Promise<{ success: boolean; data?: Tool[]; total?: number; error?: string }> {
   try {
     const { data, total } = await toolRepo.findAllFiltered(filters);
@@ -389,9 +393,9 @@ export async function createToolRequest(request: {
       ipAddress,
     });
 
-    // Notify super_admins and admins about new tool request
+    // Notify super_admins, admins and devs about new tool request
     const requesterName = request.requested_by === actingUserId ? undefined : undefined; // name resolved later
-    notifyRoles(['super_admin', 'admin'], {
+    notifyRoles(['super_admin', 'admin', 'dev'], {
       sender_id: actingUserId,
       type: 'tool_request_created',
       title: 'New Tool Request',
@@ -776,8 +780,8 @@ export async function createFinancialRequest(request: {
       ipAddress,
     });
 
-    // Notify all super_admins about new financial request
-    notifyRoles(['super_admin'], {
+    // Notify all super_admins and devs about new financial request
+    notifyRoles(['super_admin', 'dev'], {
       sender_id: actingUserId,
       type: 'financial_request_created',
       title: 'New Financial Request',

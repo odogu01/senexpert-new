@@ -15,12 +15,18 @@ export class ToolRepository extends BaseRepository<any> {
     location?: string;
     search?: string;
     lowStock?: boolean;
+    created_by?: string;
+    created_after?: string;
   }): Record<string, any> {
     const query: Record<string, any> = {};
 
     if (filters?.category) query.category = filters.category;
     if (filters?.status) query.status = filters.status;
     if (filters?.location) query.location = filters.location;
+    if (filters?.created_by) query.created_by = filters.created_by;
+    if (filters?.created_after) {
+      query.created_at = { $gte: new Date(filters.created_after) };
+    }
     if (filters?.search) {
       query.$or = [
         { name: { $regex: filters.search, $options: 'i' } },
@@ -49,6 +55,8 @@ export class ToolRepository extends BaseRepository<any> {
     limit?: number;
     sort?: string; // e.g. "name" or "-created_at" (descending)
     lowStock?: boolean;
+    created_by?: string;
+    created_after?: string;
   }): Promise<{ data: any[]; total?: number }> {
     const query = this._buildFilterQuery(filters);
     const col = await this.getCollection();

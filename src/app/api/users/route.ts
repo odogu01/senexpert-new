@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getUsers, createUser, deleteUser, resetUserPassword, verifyToken } from '@/services/authService';
 import { applyRateLimit, getClientIp } from '@/lib/rateLimit';
 
+function isUserManager(role: string): boolean {
+  return role === 'super_admin' || role === 'dev';
+}
+
 export async function GET(request: NextRequest) {
   try {
     const rl = applyRateLimit(request);
@@ -14,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     const decoded = await verifyToken(token);
-    if (!decoded || decoded.role !== 'super_admin') {
+    if (!decoded || !isUserManager(decoded.role)) {
       return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
     }
 
@@ -38,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     const decoded = await verifyToken(token);
-    if (!decoded || decoded.role !== 'super_admin') {
+    if (!decoded || !isUserManager(decoded.role)) {
       return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
     }
 
@@ -63,7 +67,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const decoded = await verifyToken(token);
-    if (!decoded || decoded.role !== 'super_admin') {
+    if (!decoded || !isUserManager(decoded.role)) {
       return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
     }
 
@@ -102,7 +106,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const decoded = await verifyToken(token);
-    if (!decoded || decoded.role !== 'super_admin') {
+    if (!decoded || !isUserManager(decoded.role)) {
       return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
     }
 

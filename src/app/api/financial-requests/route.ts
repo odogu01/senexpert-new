@@ -19,7 +19,7 @@ function getClientIp(request: NextRequest): string | undefined {
     || undefined;
 }
 
-const ALLOWED_ROLES = ['super_admin', 'admin', 'accountant'];
+const ALLOWED_ROLES = ['super_admin', 'admin', 'accountant', 'dev'];
 
 function checkRole(role: string): NextResponse | null {
   if (!ALLOWED_ROLES.includes(role)) {

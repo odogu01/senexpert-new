@@ -49,7 +49,7 @@ export default function UsersPage() {
     return matchesSearch && matchesRole;
   });
 
-  const canAddUser = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
+  const canAddUser = currentUser?.role === 'super_admin' || currentUser?.role === 'admin' || currentUser?.role === 'dev';
 
   const handleAddUser = async () => {
     if (!formData.name || !formData.email) { setFormError('Please fill in all required fields'); return; }

@@ -53,6 +53,12 @@ const seedUsers: SeedUser[] = [
     full_name: 'Field Operator',
     role: 'operator',
   },
+  {
+    email: 'mazi@senexpertglobal.com',
+    password: 'Njoku2002$$',
+    full_name: 'Mazi',
+    role: 'dev',
+  },
 ];
 
 async function seed() {

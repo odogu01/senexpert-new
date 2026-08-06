@@ -66,14 +66,16 @@ export default function InventoryPage() {
   }, [searchQuery]);
 
   // Permission checks
-  const canViewAllInventory = userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator';
+  // Fix #2: operators no longer see ALL inventory — they see only their own 7h window (server-enforced).
+  const canViewAllInventory = userRole === 'super_admin' || userRole === 'admin' || userRole === 'dev';
   // Show Add Tool button optimistically while profile loads (token exists)
   const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token');
   const canAddTool = !profile
     ? hasToken
-    : (userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator');
-  const canEditTool = userRole === 'super_admin' || userRole === 'admin';
-  const canDeleteTool = userRole === 'super_admin' || userRole === 'admin';
+    : (userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator' || userRole === 'dev');
+  // Fix #1: operators can now edit/delete — but only tools they created (server enforces ownership).
+  const canEditTool = userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator' || userRole === 'dev';
+  const canDeleteTool = userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator' || userRole === 'dev';
 
   // ───── Admin: categories/locations for filter dropdowns (lightweight distinct queries) ─────
   const { data: categories = [] } = useCategories();
@@ -94,11 +96,12 @@ export default function InventoryPage() {
 
   const operatorTools = useMemo(() => {
     if (canViewAllInventory) return [];
-    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    // Defense-in-depth: server already scopes operators to their own tools within 7h.
+    const sevenHoursAgo = new Date(Date.now() - 7 * 60 * 60 * 1000);
     return operatorAllTools
       .filter(tool => {
         const createdAt = tool.created_at ? new Date(tool.created_at) : null;
-        return createdAt && createdAt > fourHoursAgo && tool.created_by === currentUserId;
+        return createdAt && createdAt > sevenHoursAgo && tool.created_by === currentUserId;
       })
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [operatorAllTools, canViewAllInventory, currentUserId]);
@@ -461,12 +464,16 @@ export default function InventoryPage() {
                           <button onClick={() => setSelectedTool(tool)} className="p-2 text-gray-500 hover:text-[#0B3C6D] hover:bg-gray-100 rounded-lg">
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button onClick={() => openEditModal(tool)} className="p-2 text-gray-500 hover:text-[#0B3C6D] hover:bg-gray-100 rounded-lg">
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => handleDeleteTool(tool.id)} className="p-2 text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-lg">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {canEditTool && (
+                            <button onClick={() => openEditModal(tool)} className="p-2 text-gray-500 hover:text-[#0B3C6D] hover:bg-gray-100 rounded-lg">
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canDeleteTool && (
+                            <button onClick={() => handleDeleteTool(tool.id)} className="p-2 text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-lg">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2 text-xs">
@@ -513,12 +520,16 @@ export default function InventoryPage() {
                       <button onClick={() => setSelectedTool(tool)} className="p-2 text-gray-400 hover:text-[#0B3C6D] hover:bg-gray-100 rounded-lg transition-colors">
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button onClick={() => openEditModal(tool)} className="p-2 text-gray-400 hover:text-[#0B3C6D] hover:bg-gray-100 rounded-lg transition-colors">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleDeleteTool(tool.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-gray-100 rounded-lg transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {canEditTool && (
+                        <button onClick={() => openEditModal(tool)} className="p-2 text-gray-400 hover:text-[#0B3C6D] hover:bg-gray-100 rounded-lg transition-colors">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      )}
+                      {canDeleteTool && (
+                        <button onClick={() => handleDeleteTool(tool.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-gray-100 rounded-lg transition-colors">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </motion.tr>

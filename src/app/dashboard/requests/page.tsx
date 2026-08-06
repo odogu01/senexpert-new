@@ -27,7 +27,7 @@ export default function RequestsPage() {
   const hasToken = typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token');
   const canCreateRequest = !profile
     ? hasToken
-    : (userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator');
+    : (userRole === 'super_admin' || userRole === 'admin' || userRole === 'operator' || userRole === 'dev');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showModal, setShowModal] = useState(false);
   const [printTool, setPrintTool] = useState<Tool | null>(null);

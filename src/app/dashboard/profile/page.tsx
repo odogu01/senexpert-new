@@ -93,7 +93,7 @@ export default function ProfilePage() {
   const getRoleLabel = (role: UserRole) => {
     const labels: Record<UserRole, string> = {
       super_admin: 'Super Admin', admin: 'Administrator', accountant: 'Accountant',
-      hr: 'HR', field: 'Field', operator: 'Operator',
+      hr: 'HR', field: 'Field', operator: 'Operator', dev: 'Developer',
     };
     return labels[role] || role;
   };
@@ -103,6 +103,7 @@ export default function ProfilePage() {
       super_admin: 'bg-purple-100 text-purple-800', admin: 'bg-red-100 text-red-800',
       accountant: 'bg-yellow-100 text-yellow-800', hr: 'bg-blue-100 text-blue-800',
       field: 'bg-green-100 text-green-800', operator: 'bg-orange-100 text-orange-800',
+      dev: 'bg-slate-800 text-white',
     };
     return colors[role] || 'bg-gray-100 text-gray-800';
   };
