@@ -58,16 +58,19 @@ export default function PrintToolRequestPage() {
         @page { margin: 10mm; size: A4 portrait; }
         @media print {
           html, body {
-            height: 297mm !important;
-            min-height: 297mm !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
+            overflow: visible !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
           .print-page-wrapper {
             min-height: 0 !important;
+            max-height: none !important;
             height: auto !important;
             padding: 0 !important;
             margin: 0 !important;
@@ -77,6 +80,13 @@ export default function PrintToolRequestPage() {
           .print-receipt {
             padding: 0 !important;
             max-width: 100% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            /* A4 297mm minus 10mm top/bottom @page margins = 277mm printable height.
+               The receipt fills exactly one page; signature anchors to its bottom. */
+            min-height: 277mm !important;
+            height: auto !important;
+            box-sizing: border-box !important;
           }
           .print-receipt table,
           .print-receipt tr,
@@ -86,11 +96,10 @@ export default function PrintToolRequestPage() {
             break-inside: avoid;
           }
           .signature-section {
-            position: fixed !important;
-            bottom: 10mm !important;
-            left: 0 !important;
-            right: 0 !important;
-            width: 100% !important;
+            /* Static + flex margin pushes it to the bottom of page 1 only
+               (position:fixed would repeat on every printed page). */
+            position: static !important;
+            margin-top: auto !important;
             page-break-inside: avoid;
             break-inside: avoid;
           }

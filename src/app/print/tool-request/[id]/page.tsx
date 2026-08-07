@@ -19,8 +19,8 @@ export default async function PrintToolRequestPage({ params }: { params: Promise
         body { background: white !important; }
         @media print {
           html, body {
-            height: 297mm !important;
-            min-height: 297mm !important;
+            height: auto !important;
+            min-height: auto !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;

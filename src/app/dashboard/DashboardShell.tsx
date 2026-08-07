@@ -126,33 +126,46 @@ export default function DashboardShell({ children }: DashboardShellProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Sidebar 
-        userRole={displayRole} 
-        actualRole={profile?.role}
-        collapsed={isMobile ? false : sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-        isMobileOpen={isMobileMenuOpen}
-        onMobileClose={handleMobileMenuClose}
-        isSuperAdmin={isSuperAdmin}
-        viewAsRole={viewAsRole}
-        onViewAsChange={handleViewAsChange}
-      />
+    <div className="dashboard-shell min-h-screen bg-gray-50">
+      <style>{`
+        @media print {
+          .dashboard-shell { min-height: 0 !important; height: auto !important; }
+          .dashboard-main { padding: 0 !important; margin: 0 !important; }
+          .dashboard-main > div { padding: 0 !important; }
+          .dashboard-shell .no-print { display: none !important; }
+        }
+      `}</style>
+
+      <div className="no-print">
+        <Sidebar 
+          userRole={displayRole} 
+          actualRole={profile?.role}
+          collapsed={isMobile ? false : sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          isMobileOpen={isMobileMenuOpen}
+          onMobileClose={handleMobileMenuClose}
+          isSuperAdmin={isSuperAdmin}
+          viewAsRole={viewAsRole}
+          onViewAsChange={handleViewAsChange}
+        />
+      </div>
       
-      <Topbar 
-        userRole={displayRole}
-        actualRole={profile?.role}
-        sidebarCollapsed={sidebarCollapsed}
-        onMenuClick={handleMenuClick}
-        userName={profile?.full_name}
-        avatarUrl={profileAvatar}
-        isSuperAdmin={isSuperAdmin}
-        viewAsRole={viewAsRole}
-        onViewAsChange={handleViewAsChange}
-      />
+      <div className="no-print">
+        <Topbar 
+          userRole={displayRole}
+          actualRole={profile?.role}
+          sidebarCollapsed={sidebarCollapsed}
+          onMenuClick={handleMenuClick}
+          userName={profile?.full_name}
+          avatarUrl={profileAvatar}
+          isSuperAdmin={isSuperAdmin}
+          viewAsRole={viewAsRole}
+          onViewAsChange={handleViewAsChange}
+        />
+      </div>
       
       <main 
-        className={`pt-20 pb-8 transition-all duration-300 ${
+        className={`dashboard-main pt-20 pb-8 transition-all duration-300 ${
           isMobile ? 'pl-0' : (sidebarCollapsed ? 'pl-20' : 'pl-64')
         }`}
       >

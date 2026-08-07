@@ -219,12 +219,10 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
           <div>
             <span className="text-[10px] font-semibold text-gray-600 uppercase">Signature / Date: </span>
             <span className="text-gray-900 text-[10px]">_________________________________</span>
-            <span className="text-gray-500 ml-1 text-[10px]">({today})</span>
           </div>
           <div>
             <span className="text-[10px] font-semibold text-gray-600 uppercase">Signature / Date: </span>
             <span className="text-gray-900 text-[10px]">_________________________________</span>
-            <span className="text-gray-500 ml-1 text-[10px]">({today})</span>
           </div>
         </div>
       </div>
