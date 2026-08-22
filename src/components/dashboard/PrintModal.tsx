@@ -58,34 +58,46 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
         @page { margin: 10mm; size: A4 portrait; }
         @media print {
           html, body {
-            height: 297mm !important;
-            min-height: 297mm !important;
+            height: auto !important;
+            min-height: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
+            overflow: visible !important;
           }
           body.printing > * { visibility: hidden !important; }
           body.printing .print-overlay {
             visibility: visible !important;
-            position: fixed !important;
-            inset: 0 !important;
+            position: absolute !important;
             left: 0 !important;
             top: 0 !important;
             width: 100% !important;
-            height: 297mm !important;
+            height: auto !important;
             background: white !important;
             z-index: 999999 !important;
             overflow: visible !important;
             max-width: none !important;
             margin: 0 !important;
-            padding: 0 !important;
+            padding: 10mm !important;
             display: block !important;
+            box-sizing: border-box !important;
           }
           body.printing .print-overlay * { visibility: visible !important; }
           body.printing .print-overlay .no-print { display: none !important; }
-          body.printing .print-overlay > div { max-width: none !important; margin: 0 !important; padding: 0 !important; border-radius: 0 !important; box-shadow: none !important; display: block !important; }
+          body.printing .print-overlay > div {
+            max-width: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            display: block !important;
+          }
           body.printing .print-overlay > div > div { padding: 0 !important; display: block !important; }
-          body.printing .print-overlay .print-receipt { max-width: 100% !important; }
+          body.printing .print-overlay .print-receipt {
+            max-width: 100% !important;
+            display: block !important;
+            width: 100% !important;
+          }
           body.printing .print-overlay .print-receipt table,
           body.printing .print-overlay .print-receipt tr,
           body.printing .print-overlay .print-receipt td,
@@ -93,45 +105,22 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
             page-break-inside: avoid;
             break-inside: avoid;
           }
-          /* Make print-overlay a flex column to push signature to bottom */
-          body.printing .print-overlay {
-            display: flex !important;
-            flex-direction: column !important;
-            min-height: 297mm !important; /* A4 height */
-          }
-          body.printing .print-overlay > div {
-            display: flex !important;
-            flex-direction: column !important;
-            flex: 1 !important;
-            max-width: none !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-          }
-          body.printing .print-overlay > div > div {
-            display: flex !important;
-            flex-direction: column !important;
-            flex: 1 !important;
-            padding: 0 !important;
-          }
-          body.printing .print-overlay .print-receipt {
-            display: flex !important;
-            flex-direction: column !important;
-            flex: 1 !important;
-            max-width: 100% !important;
-            min-height: 277mm !important; /* A4 minus 10mm margins */
-            box-sizing: border-box !important;
-          }
           body.printing .print-overlay .signature-section {
-            /* Static + flex margin pushes it to the bottom of page 1 only
-               (position:fixed would repeat on every printed page). */
             position: static !important;
-            margin-top: auto !important;
+            margin-top: 16px !important;
             page-break-inside: avoid;
             break-inside: avoid;
           }
-          body.printing .print-overlay .print-receipt input { border: none !important; background: transparent !important; padding: 0 !important; font-family: inherit; font-size: inherit; color: inherit; width: auto !important; box-shadow: none !important; }
+          body.printing .print-overlay .print-receipt input {
+            border: none !important;
+            background: transparent !important;
+            padding: 0 !important;
+            font-family: inherit;
+            font-size: inherit;
+            color: inherit;
+            width: auto !important;
+            box-shadow: none !important;
+          }
           body.printing .print-overlay .print-receipt .print-only { display: block !important; }
           body.printing .print-overlay-backdrop { background: white !important; display: block !important; }
         }
