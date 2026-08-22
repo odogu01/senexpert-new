@@ -120,23 +120,31 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
           </div>
           <div className="flex items-center gap-1">
             <span className="font-semibold text-gray-700 text-[10px]">Po No:</span>
-            <input
-              type="text"
-              value={poNo}
-              onChange={e => setPoNo(e.target.value)}
-              placeholder="_________________"
-              className="flex-1 border-0 text-xs text-gray-900 bg-transparent"
-            />
+            {poNo.trim() ? (
+              <span className="text-xs text-gray-900 font-medium">{poNo}</span>
+            ) : (
+              <input
+                type="text"
+                value={poNo}
+                onChange={e => setPoNo(e.target.value)}
+                placeholder="_________________"
+                className="flex-1 border-0 text-xs text-gray-900 bg-transparent"
+              />
+            )}
           </div>
           <div className="flex items-center gap-1">
             <span className="font-semibold text-gray-700 text-[10px]">Contract No:</span>
-            <input
-              type="text"
-              value={contractNo}
-              onChange={e => setContractNo(e.target.value)}
-              placeholder="_________________"
-              className="flex-1 border-0 text-xs text-gray-900 bg-transparent"
-            />
+            {contractNo.trim() ? (
+              <span className="text-xs text-gray-900 font-medium">{contractNo}</span>
+            ) : (
+              <input
+                type="text"
+                value={contractNo}
+                onChange={e => setContractNo(e.target.value)}
+                placeholder="_________________"
+                className="flex-1 border-0 text-xs text-gray-900 bg-transparent"
+              />
+            )}
           </div>
         </div>
         <div className="text-right text-[10px] text-gray-600 leading-tight max-w-[240px]">
@@ -190,13 +198,17 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
             </div>
             <div className="flex items-center gap-1">
               <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Received By:</span>
-              <input
-                type="text"
-                value={receivedBy}
-                onChange={e => setReceivedBy(e.target.value)}
-                placeholder="_________________________"
-                className="flex-1 border-0 text-xs text-gray-900 bg-transparent"
-              />
+              {receivedBy.trim() ? (
+                <span className="text-xs text-gray-900 font-medium">{receivedBy}</span>
+              ) : (
+                <input
+                  type="text"
+                  value={receivedBy}
+                  onChange={e => setReceivedBy(e.target.value)}
+                  placeholder="_________________________"
+                  className="flex-1 border-0 text-xs text-gray-900 bg-transparent"
+                />
+              )}
             </div>
           </div>
 
