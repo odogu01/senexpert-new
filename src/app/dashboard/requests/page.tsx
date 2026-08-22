@@ -1120,34 +1120,33 @@ export default function RequestsPage() {
         @page { margin: 10mm; size: A4 portrait; }
         @media print {
           html, body {
-            height: 297mm !important;
-            min-height: 297mm !important;
+            height: auto !important;
+            min-height: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
+            overflow: visible !important;
           }
           body.printing * { visibility: hidden !important; }
           body.printing .print-receipt,
           body.printing .print-receipt * { visibility: visible !important; }
           body.printing .print-receipt {
-            position: fixed !important;
-            inset: 0 !important;
+            position: absolute !important;
             left: 0 !important;
             top: 0 !important;
             width: 100% !important;
-            height: 297mm !important;
+            height: auto !important;
             background: white !important;
             z-index: 999999 !important;
             overflow: visible !important;
-            padding: 20px !important;
+            padding: 10mm !important;
+            box-sizing: border-box !important;
+            display: block !important;
           }
           body.printing .no-print { display: none !important; }
           body.printing .print-receipt .signature-section {
-            position: fixed !important;
-            bottom: 10mm !important;
-            left: 0 !important;
-            right: 0 !important;
-            width: 100% !important;
+            position: static !important;
+            margin-top: 16px !important;
             page-break-inside: avoid;
             break-inside: avoid;
           }

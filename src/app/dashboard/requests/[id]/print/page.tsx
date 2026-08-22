@@ -80,12 +80,8 @@ export default function PrintToolRequestPage() {
           .print-receipt {
             padding: 0 !important;
             max-width: 100% !important;
-            display: flex !important;
-            flex-direction: column !important;
-            /* A4 297mm minus 10mm top/bottom @page margins = 277mm printable height.
-               The receipt fills exactly one page; signature anchors to its bottom. */
-            min-height: 277mm !important;
-            height: auto !important;
+            display: block !important;
+            width: 100% !important;
             box-sizing: border-box !important;
           }
           .print-receipt table,
@@ -96,10 +92,8 @@ export default function PrintToolRequestPage() {
             break-inside: avoid;
           }
           .signature-section {
-            /* Static + flex margin pushes it to the bottom of page 1 only
-               (position:fixed would repeat on every printed page). */
             position: static !important;
-            margin-top: auto !important;
+            margin-top: 16px !important;
             page-break-inside: avoid;
             break-inside: avoid;
           }
