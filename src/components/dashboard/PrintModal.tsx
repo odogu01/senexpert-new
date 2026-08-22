@@ -93,12 +93,41 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
             page-break-inside: avoid;
             break-inside: avoid;
           }
+          /* Make print-overlay a flex column to push signature to bottom */
+          body.printing .print-overlay {
+            display: flex !important;
+            flex-direction: column !important;
+            min-height: 297mm !important; /* A4 height */
+          }
+          body.printing .print-overlay > div {
+            display: flex !important;
+            flex-direction: column !important;
+            flex: 1 !important;
+            max-width: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+          }
+          body.printing .print-overlay > div > div {
+            display: flex !important;
+            flex-direction: column !important;
+            flex: 1 !important;
+            padding: 0 !important;
+          }
+          body.printing .print-overlay .print-receipt {
+            display: flex !important;
+            flex-direction: column !important;
+            flex: 1 !important;
+            max-width: 100% !important;
+            min-height: 277mm !important; /* A4 minus 10mm margins */
+            box-sizing: border-box !important;
+          }
           body.printing .print-overlay .signature-section {
-            position: fixed !important;
-            bottom: 10mm !important;
-            left: 0 !important;
-            right: 0 !important;
-            width: 100% !important;
+            /* Static + flex margin pushes it to the bottom of page 1 only
+               (position:fixed would repeat on every printed page). */
+            position: static !important;
+            margin-top: auto !important;
             page-break-inside: avoid;
             break-inside: avoid;
           }
