@@ -420,6 +420,23 @@ export async function updateToolRequestStatus(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const oldRequest = await toolRequestRepo.findById(id);
+    if (!oldRequest) return { success: false, error: 'Request not found' };
+
+    // Validate status transitions
+    const currentStatus = oldRequest.status as ToolRequestStatus;
+    const validTransitions: Record<ToolRequestStatus, ToolRequestStatus[]> = {
+      pending: ['approved', 'rejected'],
+      approved: ['completed'],
+      rejected: [],
+      completed: [],
+    };
+
+    if (!validTransitions[currentStatus]?.includes(status)) {
+      return {
+        success: false,
+        error: `Invalid status transition: cannot change from '${currentStatus}' to '${status}'`,
+      };
+    }
 
     const updates: Record<string, any> = { status };
     if (status === 'approved') {
@@ -427,7 +444,7 @@ export async function updateToolRequestStatus(
       updates.approved_at = new Date();
       
       // Handle tool quantity logic for approved outgoing requests (atomic $inc)
-      if (oldRequest?.movement_type === 'outgoing') {
+      if (oldRequest.movement_type === 'outgoing') {
         const items = (oldRequest as any).items as Array<{ tool_id: string; quantity: number; tool_name?: string }> | undefined;
 
         if (items && items.length > 0) {
@@ -443,7 +460,7 @@ export async function updateToolRequestStatus(
               });
             }
           }
-        } else if (oldRequest?.tool_id) {
+        } else if (oldRequest.tool_id) {
           // Single tool (backward compat)
           if (oldRequest.transaction_type === 'sold') {
             await toolRepo.increment(oldRequest.tool_id, 'quantity', -oldRequest.quantity);
@@ -460,7 +477,7 @@ export async function updateToolRequestStatus(
       updates.completed_at = new Date();
       
       // Handle incoming requests (returns) — atomic $inc
-      if (oldRequest?.movement_type === 'incoming' && oldRequest?.tool_id && oldRequest.transaction_type === 'rented') {
+      if (oldRequest.movement_type === 'incoming' && oldRequest.tool_id && oldRequest.transaction_type === 'rented') {
         await toolRepo.updateOneRawOperators(oldRequest.tool_id, {
           $inc: { quantity: oldRequest.quantity },
           $set: { status: 'available' },
@@ -472,7 +489,7 @@ export async function updateToolRequestStatus(
     if (!matchedCount) return { success: false, error: 'Request not found' };
 
     // ── Incoming receipt approval: create the actual tool ──
-    if (status === 'approved' && oldRequest?.new_tool_data && oldRequest?.movement_type === 'incoming') {
+    if (status === 'approved' && oldRequest.new_tool_data && oldRequest.movement_type === 'incoming') {
       const toolData = oldRequest.new_tool_data as Record<string, unknown>;
       await toolRepo.insertOne({
         name: toolData.name || '',
@@ -510,7 +527,7 @@ export async function updateToolRequestStatus(
     });
 
     // Notify the requester about status change
-    if (oldRequest?.requested_by && oldRequest.requested_by !== actingUserId) {
+    if (oldRequest.requested_by && oldRequest.requested_by !== actingUserId) {
       const statusLabels = { approved: 'Approved', rejected: 'Rejected', completed: 'Completed' };
       notifyUser(oldRequest.requested_by, {
         sender_id: actingUserId,

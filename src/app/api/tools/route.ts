@@ -3,6 +3,7 @@ import { getTools, getToolsPaginated, createTool, updateTool, deleteTool, getToo
 import { verifyToken, getTokenFromHeader } from '@/services/authService';
 import { validate, createToolSchema, updateToolSchema } from '@/lib/validation';
 import { applyRateLimit } from '@/lib/rateLimit';
+import { OPERATOR_VISIBILITY_WINDOW_HOURS } from '@/lib/constants';
 
 function getClientIp(request: NextRequest): string | undefined {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
@@ -13,9 +14,6 @@ function getClientIp(request: NextRequest): string | undefined {
 // Roles allowed to create / update / delete tools. Operators are restricted
 // to tools they created (checked per request below).
 const TOOL_EDIT_ROLES = ['super_admin', 'admin', 'operator', 'dev'];
-
-// Operators may only see tools they added within this window (for review/edits).
-const OPERATOR_VISIBILITY_WINDOW_HOURS = 7;
 
 function canEditTools(role: string): boolean {
   return TOOL_EDIT_ROLES.includes(role);

@@ -10,6 +10,7 @@ import { getAuthHeaders } from '@/lib/query';
 import StatusBadge from '@/components/dashboard/StatusBadge';
 import PaginationBar from '@/components/dashboard/PaginationBar';
 import type { Tool, ToolStatus, ToolInsert } from '@/lib/database.types';
+import { OPERATOR_VISIBILITY_WINDOW_HOURS } from '@/lib/constants';
 
 export default function InventoryPage() {
   const searchParams = useSearchParams();
@@ -96,12 +97,12 @@ export default function InventoryPage() {
 
   const operatorTools = useMemo(() => {
     if (canViewAllInventory) return [];
-    // Defense-in-depth: server already scopes operators to their own tools within 7h.
-    const sevenHoursAgo = new Date(Date.now() - 7 * 60 * 60 * 1000);
+    // Defense-in-depth: server already scopes operators to their own tools within OPERATOR_VISIBILITY_WINDOW_HOURS.
+    const windowAgo = new Date(Date.now() - OPERATOR_VISIBILITY_WINDOW_HOURS * 60 * 60 * 1000);
     return operatorAllTools
       .filter(tool => {
         const createdAt = tool.created_at ? new Date(tool.created_at) : null;
-        return createdAt && createdAt > sevenHoursAgo && tool.created_by === currentUserId;
+        return createdAt && createdAt > windowAgo && tool.created_by === currentUserId;
       })
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [operatorAllTools, canViewAllInventory, currentUserId]);
@@ -810,6 +811,7 @@ export default function InventoryPage() {
                       <option value="in_use">In Use</option>
                       <option value="maintenance">Maintenance</option>
                       <option value="rentals">Rentals</option>
+                      <option value="sold">Sold</option>
                       <option value="retired">Retired</option>
                     </select>
                   </div>

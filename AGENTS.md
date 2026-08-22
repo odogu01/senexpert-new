@@ -68,7 +68,7 @@ queryClient.invalidateQueries({ queryKey: queryKeys.tools.list(filters) }) // sp
 `super_admin` > `admin` > `accountant` > `hr` > `field` > `operator`
 
 Key role-specific behaviors:
-- **Operators** see only tools they created in the last 4 hours (`src/app/dashboard/inventory/page.tsx`).
+- **Operators** see only tools they created in the last 7 hours (`src/app/dashboard/inventory/page.tsx`).
 - **Super admins** have user management + audit logs + "View As" mode.
 - **Accountants** can only approve/reject financial requests.
 

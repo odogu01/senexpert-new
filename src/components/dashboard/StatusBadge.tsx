@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 
-type Status = 'available' | 'in_use' | 'maintenance' | 'damaged' | 'lost' | 'retired' | 'rentals' | 'pending' | 'approved' | 'rejected' | 'added' | 'scheduled' | 'repair' | 'inspection' | 'completed' | 'in_progress' | 'cancelled';
+type Status = 'available' | 'in_use' | 'maintenance' | 'damaged' | 'lost' | 'retired' | 'rentals' | 'sold' | 'pending' | 'approved' | 'rejected' | 'added' | 'scheduled' | 'repair' | 'inspection' | 'completed' | 'in_progress' | 'cancelled';
 
 interface StatusBadgeProps {
   status: Status;
@@ -18,6 +18,7 @@ const statusConfig: Record<Status, { bg: string; text: string; label: string }> 
   lost: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Lost' },
   retired: { bg: 'bg-gray-200', text: 'text-gray-600', label: 'Retired' },
   rentals: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Rentals' },
+  sold: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Sold' },
   
   // Request statuses
   pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Pending' },

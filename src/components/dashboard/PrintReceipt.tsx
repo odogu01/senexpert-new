@@ -23,12 +23,23 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
   // ── Build table rows ──
   const toolRows: { sn: number; description: string; quantity: number; remark: string }[] = [];
 
+  // Helper to check if a value is meaningful (not null, undefined, empty string, or "N/A")
+  const isValidValue = (v: string | undefined | null): boolean => {
+    if (!v) return false;
+    const trimmed = String(v).trim();
+    return trimmed !== '' && trimmed !== 'N/A' && trimmed !== 'n/a';
+  };
+
   if (isTool && tool) {
     // Direct tool addition — single row
-    const parts = [tool.name, tool.size_thread, tool.material,
-      tool.work_order_number ? `W/O:${tool.work_order_number}` : null,
-      tool.material_no ? `Mat No:${tool.material_no}` : null,
-      tool.part_number ? `Part No:${tool.part_number}` : null].filter(Boolean);
+    const parts = [
+      tool.name,
+      tool.size_thread,
+      tool.material,
+      isValidValue(tool.work_order_number) ? `W/O:${tool.work_order_number}` : null,
+      isValidValue(tool.material_no) ? `Mat No:${tool.material_no}` : null,
+      isValidValue(tool.part_number) ? `Part No:${tool.part_number}` : null,
+    ].filter(Boolean);
     toolRows.push({ sn: 1, description: parts.join('; ') || 'N/A', quantity: tool.quantity, remark: tool.description || '-' });
   } else if (request) {
     const items = (request as any).items as Array<{
@@ -37,19 +48,19 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
     }> | undefined;
 
     const descParts = (...vals: (string | undefined | null)[]) =>
-      vals.filter(v => v && v !== 'N/A' && v !== 'n/a');
+      vals.filter(isValidValue);
 
     const notes = request.notes || '-';
     if (items && items.length > 0) {
       items.forEach((item, i) => {
         const parts = descParts(item.tool_name, item.size_thread, item.material,
-          item.work_order_number ? `W/O:${item.work_order_number}` : null,
-          item.material_no ? `Mat No:${item.material_no}` : null,
-          item.part_number ? `Part No:${item.part_number}` : null);
+          isValidValue(item.work_order_number) ? `W/O:${item.work_order_number}` : null,
+          isValidValue(item.material_no) ? `Mat No:${item.material_no}` : null,
+          isValidValue(item.part_number) ? `Part No:${item.part_number}` : null);
         toolRows.push({ sn: i + 1, description: parts.join('; ') || 'N/A', quantity: item.quantity, remark: notes });
       });
     } else if (request.tool_name) {
-      const desc = [request.tool_name, req?.size_thread, req?.material].filter(Boolean).join('; ');
+      const desc = [request.tool_name, req?.size_thread, req?.material].filter(isValidValue).join('; ');
       toolRows.push({ sn: 1, description: desc || 'N/A', quantity: request.quantity, remark: notes });
     }
   }
