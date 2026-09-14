@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { X, Printer, Loader2 } from 'lucide-react';
 import type { ToolRequest } from '@/lib/database.types';
@@ -13,6 +14,11 @@ interface PrintModalProps {
 
 export default function PrintModal({ requestId, onClose }: PrintModalProps) {
   const [printing, setPrinting] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const { data: request, isLoading, isError } = useQuery<ToolRequest>({
     queryKey: ['tool-request', requestId],
@@ -49,9 +55,11 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
     }, 100);
   };
 
-  if (!requestId) return null;
+  if (!requestId || !isMounted) return null;
 
-  return (
+  // Place the print overlay directly under <body>. Firefox still paginates
+  // hidden ancestors when an overlay stays nested inside the dashboard.
+  return createPortal(
     <>
       {/* Print-specific styles that isolate the modal content */}
       <style>{`
@@ -63,26 +71,25 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
-            overflow: visible !important;
+            overflow: hidden !important;
           }
-          body.printing > * { visibility: hidden !important; }
+          body.printing > * { display: none !important; }
           body.printing .print-overlay {
-            visibility: visible !important;
-            position: absolute !important;
+            display: block !important;
+            position: fixed !important;
             left: 0 !important;
             top: 0 !important;
             width: 100% !important;
-            height: auto !important;
+            height: 277mm !important;
             background: white !important;
             z-index: 999999 !important;
-            overflow: visible !important;
+            overflow: hidden !important;
             max-width: none !important;
             margin: 0 !important;
-            padding: 10mm !important;
+            padding: 0 !important;
             display: block !important;
             box-sizing: border-box !important;
           }
-          body.printing .print-overlay * { visibility: visible !important; }
           body.printing .print-overlay .no-print { display: none !important; }
           body.printing .print-overlay > div {
             max-width: none !important;
@@ -91,12 +98,21 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
             border-radius: 0 !important;
             box-shadow: none !important;
             display: block !important;
+            height: 100% !important;
           }
-          body.printing .print-overlay > div > div { padding: 0 !important; display: block !important; }
+          body.printing .print-overlay > div > div {
+            padding: 0 !important;
+            display: block !important;
+            height: 100% !important;
+          }
           body.printing .print-overlay .print-receipt {
             max-width: 100% !important;
-            display: block !important;
+            display: flex !important;
+            flex-direction: column !important;
             width: 100% !important;
+            height: 100% !important;
+            position: relative !important;
+            overflow: hidden !important;
           }
           body.printing .print-overlay .print-receipt table,
           body.printing .print-overlay .print-receipt tr,
@@ -106,8 +122,11 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
             break-inside: avoid;
           }
           body.printing .print-overlay .signature-section {
-            position: static !important;
-            margin-top: 16px !important;
+            position: absolute !important;
+            bottom: 6mm !important;
+            left: 0 !important;
+            right: 0 !important;
+            margin-top: 0 !important;
             page-break-inside: avoid;
             break-inside: avoid;
           }
@@ -165,6 +184,7 @@ export default function PrintModal({ requestId, onClose }: PrintModalProps) {
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }

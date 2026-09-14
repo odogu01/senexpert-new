@@ -103,7 +103,8 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
 
   return (
     <>
-    <div className="print-receipt max-w-2xl mx-auto text-xs leading-tight flex flex-col">
+    <div className="print-receipt max-w-2xl mx-auto text-xs leading-tight">
+      <div className="receipt-content">
       {/* Company Header */}
       <div className="text-center border-b border-gray-300 pb-0.5 mb-0.5">
         <img src="/title-logo.png" alt="SenExpert Global" className="w-10 h-auto mx-auto mb-0.5" />
@@ -184,6 +185,7 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
           ))}
         </tbody>
       </table>
+      </div>
 
       {/* Signature Section */}
       <div className="signature-section border-t border-gray-300 pt-2">

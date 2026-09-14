@@ -1106,7 +1106,7 @@ export default function RequestsPage() {
               </div>
 
               {/* Content */}
-              <div className="px-6 pb-4 print-receipt">
+              <div className="px-6 pb-4 print-receipt-container">
                 <PrintReceipt tool={printTool} />
               </div>
             </motion.div>
@@ -1120,14 +1120,31 @@ export default function RequestsPage() {
         @page { margin: 10mm; size: A4 portrait; }
         @media print {
           html, body {
-            height: auto !important;
-            min-height: 0 !important;
+            height: 277mm !important;
+            min-height: 277mm !important;
+            max-height: 277mm !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
-            overflow: visible !important;
+            overflow: hidden !important;
           }
           body.printing * { visibility: hidden !important; }
+          /* The hidden requests list must not remain in print flow. */
+          body.printing .dashboard-shell {
+            height: 0 !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+          }
+          body.printing .dashboard-main {
+            position: absolute !important;
+            inset: 0 !important;
+            width: 100% !important;
+            height: 277mm !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+          }
           body.printing .print-receipt,
           body.printing .print-receipt * { visibility: visible !important; }
           body.printing .print-receipt {
@@ -1135,18 +1152,23 @@ export default function RequestsPage() {
             left: 0 !important;
             top: 0 !important;
             width: 100% !important;
-            height: auto !important;
+            height: 277mm !important;
             background: white !important;
             z-index: 999999 !important;
-            overflow: visible !important;
-            padding: 10mm !important;
+            overflow: hidden !important;
+            padding: 0 !important;
             box-sizing: border-box !important;
-            display: block !important;
+            display: flex !important;
+            flex-direction: column !important;
+            position: relative !important;
           }
           body.printing .no-print { display: none !important; }
           body.printing .print-receipt .signature-section {
-            position: static !important;
-            margin-top: 16px !important;
+            position: absolute !important;
+            bottom: 6mm !important;
+            left: 0 !important;
+            right: 0 !important;
+            margin-top: 0 !important;
             page-break-inside: avoid;
             break-inside: avoid;
           }

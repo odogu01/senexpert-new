@@ -58,20 +58,20 @@ export default function PrintToolRequestPage() {
         @page { margin: 10mm; size: A4 portrait; }
         @media print {
           html, body {
-            height: auto !important;
-            min-height: 0 !important;
-            max-height: none !important;
+            height: 277mm !important;
+            min-height: 277mm !important;
+            max-height: 277mm !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
-            overflow: visible !important;
+            overflow: hidden !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
           .print-page-wrapper {
-            min-height: 0 !important;
-            max-height: none !important;
-            height: auto !important;
+            height: 277mm !important;
+            min-height: 277mm !important;
+            max-height: 277mm !important;
             padding: 0 !important;
             margin: 0 !important;
             max-width: 100% !important;
@@ -80,9 +80,13 @@ export default function PrintToolRequestPage() {
           .print-receipt {
             padding: 0 !important;
             max-width: 100% !important;
-            display: block !important;
+            height: 100% !important;
             width: 100% !important;
             box-sizing: border-box !important;
+            display: flex !important;
+            flex-direction: column !important;
+            position: relative !important;
+            overflow: hidden !important;
           }
           .print-receipt table,
           .print-receipt tr,
@@ -92,8 +96,11 @@ export default function PrintToolRequestPage() {
             break-inside: avoid;
           }
           .signature-section {
-            position: static !important;
-            margin-top: 16px !important;
+            position: absolute !important;
+            bottom: 6mm !important;
+            left: 0 !important;
+            right: 0 !important;
+            margin-top: 0 !important;
             page-break-inside: avoid;
             break-inside: avoid;
           }
