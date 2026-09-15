@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth, getStoredUser, getStoredProfile } from '@/lib/authContext';
 import { useAutoLogout } from '@/hooks/useAutoLogout';
-import type { UserRole } from '@/lib/database.types';
 import Sidebar from '@/components/dashboard/Sidebar';
 import Topbar from '@/components/dashboard/Topbar';
 
@@ -19,7 +18,6 @@ export default function DashboardShell({ children }: DashboardShellProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [viewAsRole, setViewAsRole] = useState<UserRole | null>(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -63,10 +61,6 @@ export default function DashboardShell({ children }: DashboardShellProps) {
     setIsMobileMenuOpen(false);
   };
 
-  const handleViewAsChange = (role: UserRole | null) => {
-    setViewAsRole(role);
-  };
-
   // Get avatar from API instead of localStorage
   const [profileAvatar, setProfileAvatar] = useState('');
   
@@ -91,8 +85,7 @@ export default function DashboardShell({ children }: DashboardShellProps) {
     fetchProfileAvatar();
   }, []);
 
-  const displayRole = viewAsRole || profile?.role || 'field';
-  const isSuperAdmin = profile?.role === 'super_admin';
+  const displayRole = profile?.role || 'field';
 
   if (isLoading || !profile) {
     return (
@@ -139,28 +132,20 @@ export default function DashboardShell({ children }: DashboardShellProps) {
       <div className="no-print">
         <Sidebar 
           userRole={displayRole} 
-          actualRole={profile?.role}
           collapsed={isMobile ? false : sidebarCollapsed}
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
           isMobileOpen={isMobileMenuOpen}
           onMobileClose={handleMobileMenuClose}
-          isSuperAdmin={isSuperAdmin}
-          viewAsRole={viewAsRole}
-          onViewAsChange={handleViewAsChange}
         />
       </div>
       
       <div className="no-print">
         <Topbar 
           userRole={displayRole}
-          actualRole={profile?.role}
           sidebarCollapsed={sidebarCollapsed}
           onMenuClick={handleMenuClick}
           userName={profile?.full_name}
           avatarUrl={profileAvatar}
-          isSuperAdmin={isSuperAdmin}
-          viewAsRole={viewAsRole}
-          onViewAsChange={handleViewAsChange}
         />
       </div>
       

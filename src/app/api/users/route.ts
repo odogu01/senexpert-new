@@ -1,26 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUsers, createUser, deleteUser, resetUserPassword, verifyToken } from '@/services/authService';
+import { getUsers, createUser, deleteUser, resetUserPassword } from '@/services/authService';
 import { applyRateLimit, getClientIp } from '@/lib/rateLimit';
-
-function isUserManager(role: string): boolean {
-  return role === 'super_admin' || role === 'dev';
-}
+import { isAuthFailure, requireActiveUser, requireRole } from '@/lib/apiAuth';
+import { roles } from '@/lib/permissions';
 
 export async function GET(request: NextRequest) {
   try {
     const rl = applyRateLimit(request);
     if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
 
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return NextResponse.json({ success: false, error: { message: 'Unauthorized' } }, { status: 401 });
-    }
-
-    const decoded = await verifyToken(token);
-    if (!decoded || !isUserManager(decoded.role)) {
-      return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
-    }
+    const decoded = await requireActiveUser(request);
+    if (isAuthFailure(decoded)) return decoded;
+    const roleFailure = requireRole(decoded, [...roles.userManagers]);
+    if (roleFailure) return roleFailure;
 
     const response = await getUsers();
     return NextResponse.json(response);
@@ -35,16 +27,10 @@ export async function POST(request: NextRequest) {
     const rl = applyRateLimit(request, { maxRequests: 20 });
     if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
 
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return NextResponse.json({ success: false, error: { message: 'Unauthorized' } }, { status: 401 });
-    }
-
-    const decoded = await verifyToken(token);
-    if (!decoded || !isUserManager(decoded.role)) {
-      return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
-    }
+    const decoded = await requireActiveUser(request);
+    if (isAuthFailure(decoded)) return decoded;
+    const roleFailure = requireRole(decoded, [...roles.userManagers]);
+    if (roleFailure) return roleFailure;
 
     const body = await request.json();
     const response = await createUser(body, decoded.userId, getClientIp(request));
@@ -60,16 +46,10 @@ export async function PATCH(request: NextRequest) {
     const rl = applyRateLimit(request, { maxRequests: 20 });
     if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
 
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return NextResponse.json({ success: false, error: { message: 'Unauthorized' } }, { status: 401 });
-    }
-
-    const decoded = await verifyToken(token);
-    if (!decoded || !isUserManager(decoded.role)) {
-      return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
-    }
+    const decoded = await requireActiveUser(request);
+    if (isAuthFailure(decoded)) return decoded;
+    const roleFailure = requireRole(decoded, [...roles.userManagers]);
+    if (roleFailure) return roleFailure;
 
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
@@ -99,16 +79,10 @@ export async function DELETE(request: NextRequest) {
     const rl = applyRateLimit(request, { maxRequests: 20 });
     if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
 
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return NextResponse.json({ success: false, error: { message: 'Unauthorized' } }, { status: 401 });
-    }
-
-    const decoded = await verifyToken(token);
-    if (!decoded || !isUserManager(decoded.role)) {
-      return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
-    }
+    const decoded = await requireActiveUser(request);
+    if (isAuthFailure(decoded)) return decoded;
+    const roleFailure = requireRole(decoded, [...roles.userManagers]);
+    if (roleFailure) return roleFailure;
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('id');

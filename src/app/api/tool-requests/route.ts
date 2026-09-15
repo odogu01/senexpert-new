@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getToolRequests, createToolRequest, updateToolRequestStatus } from '@/services/toolsService';
-import { verifyToken, getTokenFromHeader } from '@/services/authService';
 import { validate, createToolRequestSchema, updateToolRequestSchema } from '@/lib/validation';
 import { applyRateLimit } from '@/lib/rateLimit';
-
-async function authenticate(request: NextRequest): Promise<{ userId: string; role: string } | NextResponse> {
-  const authHeader = request.headers.get('Authorization');
-  const token = getTokenFromHeader(authHeader);
-  if (!token) return NextResponse.json({ success: false, error: { message: 'Unauthorized' } }, { status: 401 });
-  const decoded = await verifyToken(token);
-  if (!decoded) return NextResponse.json({ success: false, error: { message: 'Invalid token' } }, { status: 401 });
-  return decoded;
-}
+import { isAuthFailure, requireActiveUser, requireRole } from '@/lib/apiAuth';
+import { hasRole, roles } from '@/lib/permissions';
 
 function getClientIp(request: NextRequest): string | undefined {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
@@ -24,14 +16,17 @@ export async function GET(request: NextRequest) {
     const rl = applyRateLimit(request);
     if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
 
-    const auth = await authenticate(request);
-    if (auth instanceof NextResponse) return auth;
+    const auth = await requireActiveUser(request);
+    if (isAuthFailure(auth)) return auth;
+    const canApprove = hasRole(auth.role, roles.requestApprovers);
+    const canCreate = hasRole(auth.role, roles.requestCreators);
+    if (!canApprove && !canCreate) return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || undefined;
     const movement_type = searchParams.get('movement_type') || undefined;
 
-    const response = await getToolRequests({ status, movement_type });
+    const response = await getToolRequests({ status, movement_type, requested_by: canApprove ? undefined : auth.userId });
     return NextResponse.json(response);
   } catch (error) {
     console.error('Tool Requests API error:', error);
@@ -44,8 +39,10 @@ export async function POST(request: NextRequest) {
     const rl = applyRateLimit(request, { maxRequests: 30 });
     if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
 
-    const auth = await authenticate(request);
-    if (auth instanceof NextResponse) return auth;
+    const auth = await requireActiveUser(request);
+    if (isAuthFailure(auth)) return auth;
+    const roleFailure = requireRole(auth, [...roles.requestCreators]);
+    if (roleFailure) return roleFailure;
 
     const body = await request.json();
     const parsed = validate(createToolRequestSchema, body);
@@ -65,12 +62,10 @@ export async function PATCH(request: NextRequest) {
     const rl = applyRateLimit(request, { maxRequests: 30 });
     if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
 
-    const auth = await authenticate(request);
-    if (auth instanceof NextResponse) return auth;
-
-    if (auth.role !== 'super_admin' && auth.role !== 'admin' && auth.role !== 'dev') {
-      return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
-    }
+    const auth = await requireActiveUser(request);
+    if (isAuthFailure(auth)) return auth;
+    const roleFailure = requireRole(auth, [...roles.requestApprovers]);
+    if (roleFailure) return roleFailure;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -84,7 +79,7 @@ export async function PATCH(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ success: false, error: { message: parsed.error } }, { status: 400 });
     }
-    const response = await updateToolRequestStatus(id, parsed.data.status, parsed.data.approved_by, auth.userId, getClientIp(request));
+    const response = await updateToolRequestStatus(id, parsed.data.status, auth.userId, auth.userId, getClientIp(request));
     return NextResponse.json(response);
   } catch (error) {
     console.error('Tool Requests API update error:', error);

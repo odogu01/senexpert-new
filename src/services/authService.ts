@@ -42,19 +42,54 @@ const JWT_EXPIRES_IN = '7d';
 async function generateToken(user: User): Promise<string> {
   const jwt = await getJwtModule();
   return jwt.sign(
-    { userId: user._id.toString(), email: user.email, role: user.role },
+    {
+      userId: user._id.toString(),
+      email: user.email,
+      role: user.role,
+      // Session version provides immediate server-side revocation without
+      // depending on JWT's second-granular issued-at timestamp.
+      sv: (user as any).session_version ?? 0,
+    },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN },
   );
 }
 
-export async function verifyToken(token: string): Promise<{ userId: string; email: string; role: UserRole } | null> {
+export async function verifyToken(token: string): Promise<{ userId: string; email: string; role: UserRole; iat?: number; sv?: number } | null> {
   try {
     const jwt = await getJwtModule();
-    return jwt.verify(token, JWT_SECRET) as { userId: string; email: string; role: UserRole };
+    return jwt.verify(token, JWT_SECRET) as { userId: string; email: string; role: UserRole; iat?: number; sv?: number };
   } catch {
     return null;
   }
+}
+
+/** Verify the token and its current server-side session state. */
+export async function verifyActiveToken(token: string): Promise<{ userId: string; email: string; role: UserRole } | null> {
+  const decoded = await verifyToken(token);
+  if (!decoded) return null;
+
+  const user = await userRepo.findById(decoded.userId);
+  if (!user || !user.is_active) return null;
+
+  if ((decoded.sv ?? 0) !== (user.session_version ?? 0)) return null;
+
+  const validAfter = user.tokens_valid_after ? new Date(user.tokens_valid_after).getTime() : 0;
+  const issuedAt = decoded.iat ? decoded.iat * 1000 : 0;
+  if (validAfter && (!issuedAt || issuedAt < validAfter)) return null;
+
+  return { userId: user.id, email: user.email, role: user.role };
+}
+
+export async function invalidateTokensForUser(userId: string): Promise<void> {
+  // JWT `iat` is second-granular; store the same precision so a fresh login
+  // immediately after logout is not rejected as older than the cutoff.
+  const user = await userRepo.findById(userId);
+  if (!user) return;
+  await userRepo.updateOneRaw(userId, {
+    tokens_valid_after: new Date(Math.floor(Date.now() / 1000) * 1000),
+    session_version: (user.session_version ?? 0) + 1,
+  });
 }
 
 export function getTokenFromHeader(authHeader: string | null): string | null {
@@ -163,7 +198,7 @@ export interface AuthError { message: string; status?: number }
 
 export async function refreshToken(token: string): Promise<{ success: boolean; token?: string; error?: string }> {
   try {
-    const decoded = await verifyToken(token);
+    const decoded = await verifyActiveToken(token);
     if (!decoded) return { success: false, error: 'Invalid or expired token' };
 
     const user = await userRepo.findById(decoded.userId);
@@ -305,6 +340,7 @@ export async function login(credentials: LoginCredentials, ipAddress?: string): 
 
 export async function logout(actingUserId?: string, ipAddress?: string): Promise<{ success: boolean; error?: AuthError }> {
   try {
+    if (actingUserId) await invalidateTokensForUser(actingUserId);
     await logAuditEvent({ userId: actingUserId, action: 'LOGOUT', details: 'User logged out', ipAddress });
     return { success: true };
   } catch (error) {
@@ -381,7 +417,18 @@ export async function getUsers(): Promise<{ success: boolean; data?: User[]; err
     const users = await userRepo.getAll();
     // 'dev' users are invisible — never exposed through the users list.
     const visible = users.filter((u: any) => u.role !== 'dev');
-    return { success: true, data: visible.map((u: any) => ({ ...u, id: u.id })) };
+    return {
+      success: true,
+      data: visible.map((u: any) => ({
+        id: u.id,
+        email: u.email,
+        full_name: u.full_name,
+        role: u.role,
+        is_active: u.is_active,
+        created_at: u.created_at,
+        updated_at: u.updated_at,
+      })),
+    };
   } catch (error) {
     console.error('Get users error:', error);
     return { success: false, error: 'Failed to fetch users' };
@@ -454,6 +501,7 @@ export async function changePassword(
 
     const newHash = await bcrypt.hash(newPassword, 12);
     await userRepo.updatePassword(userId, newHash);
+    await invalidateTokensForUser(userId);
 
     await logAuditEvent({
       userId,
@@ -482,6 +530,7 @@ export async function deleteUser(
     if (user.email === 'superadmin@test.com') return { success: false, error: 'Cannot delete the super admin account' };
     if (user.role === 'dev') return { success: false, error: 'Cannot delete dev accounts' };
 
+    await invalidateTokensForUser(userId);
     await userRepo.deleteOne(userId);
     await profileRepo.deleteOne(userId);
 
@@ -514,6 +563,7 @@ export async function resetUserPassword(
 
     const newHash = await bcrypt.hash(newPassword, 12);
     await userRepo.updatePassword(userId, newHash);
+    await invalidateTokensForUser(userId);
 
     await logAuditEvent({
       userId: actingUserId,
@@ -559,6 +609,6 @@ export function onAuthStateChange(_callback: (event: any, user: User | null) => 
 
 export async function isAuthenticated(token?: string): Promise<boolean> {
   if (!token) return false;
-  const decoded = await verifyToken(token);
+  const decoded = await verifyActiveToken(token);
   return decoded !== null;
 }

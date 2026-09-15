@@ -1,23 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getProfile, updateProfile, getUsers, changePassword } from '@/services/authService';
-import { verifyToken } from '@/services/authService';
+import { getProfile, updateProfile, changePassword } from '@/services/authService';
 import { applyRateLimit, getClientIp } from '@/lib/rateLimit';
+import { isAuthFailure, requireActiveUser } from '@/lib/apiAuth';
 
 export async function GET(request: NextRequest) {
   try {
     const rl = applyRateLimit(request);
     if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
 
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return NextResponse.json({ success: false, error: { message: 'Unauthorized' } }, { status: 401 });
-    }
-
-    const decoded = await verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({ success: false, error: { message: 'Invalid token' } }, { status: 401 });
-    }
+    const decoded = await requireActiveUser(request);
+    if (isAuthFailure(decoded)) return decoded;
 
     const response = await getProfile(decoded.userId);
     return NextResponse.json(response);
@@ -32,16 +24,8 @@ export async function PATCH(request: NextRequest) {
     const rl = applyRateLimit(request, { maxRequests: 30 });
     if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
 
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return NextResponse.json({ success: false, error: { message: 'Unauthorized' } }, { status: 401 });
-    }
-
-    const decoded = await verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({ success: false, error: { message: 'Invalid token' } }, { status: 401 });
-    }
+    const decoded = await requireActiveUser(request);
+    if (isAuthFailure(decoded)) return decoded;
 
     const body = await request.json();
 

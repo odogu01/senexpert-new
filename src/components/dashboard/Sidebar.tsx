@@ -26,14 +26,10 @@ import type { UserRole } from '@/lib/database.types';
 
 interface SidebarProps {
   userRole?: UserRole;
-  actualRole?: UserRole;
   collapsed?: boolean;
   onToggle?: () => void;
   isMobileOpen?: boolean;
   onMobileClose?: () => void;
-  isSuperAdmin?: boolean;
-  viewAsRole?: UserRole | null;
-  onViewAsChange?: (role: UserRole | null) => void;
 }
 
 // Navigation items with icons and labels. 'dev' is a wildcard role — added to every item.
@@ -43,26 +39,22 @@ const navItems = [
   { label: 'Inventory', href: '/dashboard/inventory', icon: Package, roles: ['super_admin', 'admin', 'operator', 'dev'] },
   { label: 'Requests', href: '/dashboard/requests', icon: RotateCcw, roles: ['super_admin', 'admin', 'field', 'operator', 'dev'] },
   { label: 'Financial Requests', href: '/dashboard/financial-requests', icon: DollarSign, roles: ['super_admin', 'admin', 'accountant', 'dev'] },
-  { label: 'Approvals', href: '/dashboard/approvals', icon: CheckCircle, roles: ['super_admin', 'admin', 'dev'] },
+  { label: 'Approvals', href: '/dashboard/approvals', icon: CheckCircle, roles: ['super_admin', 'admin', 'accountant', 'dev'] },
   { label: 'Maintenance', href: '/dashboard/maintenance', icon: Wrench, roles: ['super_admin', 'admin', 'dev'] },
   { label: 'Analytics', href: '/dashboard/analytics', icon: BarChart3, roles: ['super_admin', 'admin', 'dev'] },
   { label: 'Calendar', href: '/dashboard/calendar', icon: Calendar, roles: ['super_admin', 'admin', 'dev'] },
   { label: 'Reports', href: '/dashboard/reports', icon: FileText, roles: ['super_admin', 'admin', 'dev'] },
   { label: 'Audit Logs', href: '/dashboard/audit-logs', icon: ClipboardList, roles: ['super_admin', 'dev'] },
-  { label: 'Users', href: '/dashboard/users', icon: Users, roles: ['super_admin', 'admin', 'dev'] },
+  { label: 'Users', href: '/dashboard/users', icon: Users, roles: ['super_admin', 'dev'] },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin', 'hr', 'dev'] },
 ];
 
 export default function Sidebar({ 
   userRole = 'field', 
-  actualRole,
   collapsed = false, 
   onToggle, 
   isMobileOpen = false, 
   onMobileClose,
-  isSuperAdmin = false,
-  viewAsRole,
-  onViewAsChange,
 }: SidebarProps) {
   const pathname = usePathname();
   const [isMobile, setIsMobile] = useState(false);
@@ -183,35 +175,6 @@ export default function Sidebar({
         </div>
       )}
 
-      {/* View As Dropdown - Only for Super Admin */}
-      {isSuperAdmin && showExpanded && (
-        <div className="p-3 border-t border-gray-200">
-          <label className="text-xs text-gray-500 block mb-2">View as role:</label>
-          <select
-            value={viewAsRole || ''}
-            onChange={(e) => {
-              const value = e.target.value;
-              onViewAsChange?.(value ? value as UserRole : null);
-            }}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20"
-          >
-            <option value="">My Account</option>
-            <option value="admin">Admin</option>
-            <option value="accountant">Accountant</option>
-            <option value="hr">HR</option>
-            <option value="field">Field</option>
-            <option value="operator">Operator</option>
-          </select>
-          {viewAsRole && (
-            <button
-              onClick={() => onViewAsChange?.(null)}
-              className="mt-2 w-full text-xs text-[#0B3C6D] hover:underline"
-            >
-              ← Back to My Account
-            </button>
-          )}
-        </div>
-      )}
     </>
   );
 

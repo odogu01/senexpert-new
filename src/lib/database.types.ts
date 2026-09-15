@@ -252,6 +252,9 @@ export interface User {
   is_active: boolean;
   created_at: Date;
   updated_at?: Date;
+  /** Incremented on logout, reset, disable, or deletion to revoke JWTs immediately. */
+  session_version?: number;
+  tokens_valid_after?: Date;
 }
 
 export interface AuthError {

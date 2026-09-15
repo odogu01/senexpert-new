@@ -33,6 +33,16 @@ async function migrate() {
   );
   console.log('✓ Created index users: { email: 1 }');
 
+  await db.collection('tool_requests').createIndex(
+    { ref_number: 1 }, { name: 'idx_tool_request_ref', unique: true, sparse: true },
+  );
+  await db.collection('tool_requests').createIndex(
+    { requested_by: 1, status: 1, created_at: -1 }, { name: 'idx_tool_request_owner_status' },
+  );
+  await db.collection('financial_requests').createIndex(
+    { requested_by: 1, status: 1, created_at: -1 }, { name: 'idx_financial_request_owner_status' },
+  );
+
   // Audit logs collection: TTL index for 90-day auto-expiry
   // Prevents MongoDB Atlas free tier (512MB) from filling up
   await db.collection('audit_logs').createIndex(

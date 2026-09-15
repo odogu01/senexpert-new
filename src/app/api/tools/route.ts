@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTools, getToolsPaginated, createTool, updateTool, deleteTool, getToolById, getCategories, getLocations } from '@/services/toolsService';
-import { verifyToken, getTokenFromHeader } from '@/services/authService';
 import { validate, createToolSchema, updateToolSchema } from '@/lib/validation';
 import { applyRateLimit } from '@/lib/rateLimit';
 import { OPERATOR_VISIBILITY_WINDOW_HOURS } from '@/lib/constants';
+import { isAuthFailure, requireActiveUser, requireRole } from '@/lib/apiAuth';
+import { roles } from '@/lib/permissions';
 
 function getClientIp(request: NextRequest): string | undefined {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
@@ -13,12 +14,6 @@ function getClientIp(request: NextRequest): string | undefined {
 
 // Roles allowed to create / update / delete tools. Operators are restricted
 // to tools they created (checked per request below).
-const TOOL_EDIT_ROLES = ['super_admin', 'admin', 'operator', 'dev'];
-
-function canEditTools(role: string): boolean {
-  return TOOL_EDIT_ROLES.includes(role);
-}
-
 async function assertOperatorOwnership(toolId: string, userId: string): Promise<NextResponse | null> {
   const tool = await getToolById(toolId);
   if (!tool.success || String((tool.data as any)?.created_by) !== userId) {
@@ -30,26 +25,15 @@ async function assertOperatorOwnership(toolId: string, userId: string): Promise<
   return null;
 }
 
-async function authenticate(request: NextRequest): Promise<{ userId: string; role: string } | NextResponse> {
-  const authHeader = request.headers.get('Authorization');
-  const token = getTokenFromHeader(authHeader);
-  if (!token) {
-    return NextResponse.json({ success: false, error: { message: 'Unauthorized' } }, { status: 401 });
-  }
-  const decoded = await verifyToken(token);
-  if (!decoded) {
-    return NextResponse.json({ success: false, error: { message: 'Invalid token' } }, { status: 401 });
-  }
-  return decoded;
-}
-
 export async function GET(request: NextRequest) {
   try {
     const rl = applyRateLimit(request);
     if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
 
-    const auth = await authenticate(request);
-    if (auth instanceof NextResponse) return auth;
+    const auth = await requireActiveUser(request);
+    if (isAuthFailure(auth)) return auth;
+    const roleFailure = requireRole(auth, [...roles.toolViewers]);
+    if (roleFailure) return roleFailure;
 
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category') || undefined;
@@ -73,18 +57,21 @@ export async function GET(request: NextRequest) {
     // Get single tool by ID
     if (id) {
       const response = await getToolById(id);
+      if (auth.role === 'operator' && (String((response.data as any)?.created_by) !== auth.userId || !response.data)) {
+        return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
+      }
       return NextResponse.json(response);
     }
 
     // Get categories
     if (searchParams.get('categories') === 'true') {
-      const response = await getCategories();
+      const response = await getCategories(operatorScope);
       return NextResponse.json(response);
     }
 
     // Get distinct locations
     if (searchParams.get('locations') === 'true') {
-      const response = await getLocations();
+      const response = await getLocations(operatorScope);
       return NextResponse.json(response);
     }
 
@@ -108,12 +95,10 @@ export async function POST(request: NextRequest) {
     const rl = applyRateLimit(request, { maxRequests: 30 });
     if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
 
-    const auth = await authenticate(request);
-    if (auth instanceof NextResponse) return auth;
-
-    if (!canEditTools(auth.role)) {
-      return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
-    }
+    const auth = await requireActiveUser(request);
+    if (isAuthFailure(auth)) return auth;
+    const roleFailure = requireRole(auth, [...roles.toolEditors]);
+    if (roleFailure) return roleFailure;
 
     const body = await request.json();
     const parsed = validate(createToolSchema, body);
@@ -133,12 +118,10 @@ export async function PATCH(request: NextRequest) {
     const rl = applyRateLimit(request, { maxRequests: 30 });
     if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
 
-    const auth = await authenticate(request);
-    if (auth instanceof NextResponse) return auth;
-
-    if (!canEditTools(auth.role)) {
-      return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
-    }
+    const auth = await requireActiveUser(request);
+    if (isAuthFailure(auth)) return auth;
+    const roleFailure = requireRole(auth, [...roles.toolEditors]);
+    if (roleFailure) return roleFailure;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -171,12 +154,10 @@ export async function DELETE(request: NextRequest) {
     const rl = applyRateLimit(request, { maxRequests: 30 });
     if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
 
-    const auth = await authenticate(request);
-    if (auth instanceof NextResponse) return auth;
-
-    if (!canEditTools(auth.role)) {
-      return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
-    }
+    const auth = await requireActiveUser(request);
+    if (isAuthFailure(auth)) return auth;
+    const roleFailure = requireRole(auth, [...roles.toolEditors]);
+    if (roleFailure) return roleFailure;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

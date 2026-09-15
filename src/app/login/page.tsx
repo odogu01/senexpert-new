@@ -54,9 +54,15 @@ export default function Login() {
         }),
       });
 
-      const data = await response.json();
+      // A missing/stale API route can return an HTML 404 page. Read the body
+      // first so that this is shown as a useful login error rather than a
+      // JSON parse exception.
+      const contentType = response.headers.get('content-type') ?? '';
+      const data = contentType.includes('application/json')
+        ? await response.json()
+        : null;
 
-      if (data.success && data.data) {
+      if (data?.success && data.data) {
         // Store in localStorage (strip avatar to avoid exceeding 5MB limit)
         localStorage.setItem('senexpert_token', data.data.token);
         localStorage.setItem('senexpert_user', JSON.stringify(data.data.user));
@@ -71,7 +77,7 @@ export default function Login() {
         const route = getDashboardRoute(data.data.profile.role);
         window.location.href = route;
       } else {
-        setError(data.error?.message || 'Login failed. Please try again.');
+        setError(data?.error?.message || `Login failed (${response.status}). Please try again.`);
       }
     } catch (err) {
       console.error('Login error:', err);

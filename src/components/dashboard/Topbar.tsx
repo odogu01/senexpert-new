@@ -23,14 +23,10 @@ import type { Notification } from '@/lib/database.types';
 
 interface TopbarProps {
   userRole?: UserRole;
-  actualRole?: UserRole;
   sidebarCollapsed?: boolean;
   onMenuClick?: () => void;
   avatarUrl?: string;
   userName?: string;
-  isSuperAdmin?: boolean;
-  viewAsRole?: UserRole | null;
-  onViewAsChange?: (role: UserRole | null) => void;
 }
 
 const roleDisplayNames: Record<UserRole, string> = {
@@ -45,14 +41,10 @@ const roleDisplayNames: Record<UserRole, string> = {
 
 export default function Topbar({ 
   userRole = 'field', 
-  actualRole,
   sidebarCollapsed = false, 
   onMenuClick, 
   avatarUrl, 
   userName: propUserName,
-  isSuperAdmin = false,
-  viewAsRole,
-  onViewAsChange,
 }: TopbarProps) {
   const router = useRouter();
   const { logout } = useAuth();
@@ -67,11 +59,10 @@ export default function Topbar({
   const profileRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const quickActionsRef = useRef<HTMLDivElement>(null);
+  const notificationIdsRef = useRef<Set<string> | null>(null);
+  const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // For display - show viewAsRole if set, otherwise actualRole
-  const displayRole = viewAsRole || actualRole || userRole;
-  const isViewingAsAnother = viewAsRole && viewAsRole !== actualRole;
-  const actualRoleLabel = actualRole ? roleDisplayNames[actualRole] : roleDisplayNames[userRole];
+  const actualRoleLabel = roleDisplayNames[userRole];
 
   // Set initial values from props
   useEffect(() => {
@@ -113,10 +104,44 @@ export default function Topbar({
   };
 
   // Notifications
-  const { data: notifications = [] } = useNotifications(10);
+  const { data: notifications = [], isSuccess: hasLoadedNotifications } = useNotifications(10);
   const { data: unreadCount = 0 } = useUnreadCount();
   const { mutateAsync: markAllRead } = useMarkAllNotificationsAsRead();
   const notifList = notifications as Notification[];
+
+  // Keep existing notifications silent, then play the supplied tone for each
+  // notification that arrives while this authenticated dashboard is open.
+  useEffect(() => {
+    notificationAudioRef.current = new Audio('/sounds/notification.mp3');
+    notificationAudioRef.current.preload = 'auto';
+
+    return () => {
+      notificationAudioRef.current?.pause();
+      notificationAudioRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedNotifications) return;
+
+    const notificationIds = new Set(notifList.map((notification) => notification.id));
+    if (notificationIdsRef.current === null) {
+      notificationIdsRef.current = notificationIds;
+      return;
+    }
+
+    const hasNewNotification = notifList.some(
+      (notification) => !notificationIdsRef.current?.has(notification.id),
+    );
+    notificationIdsRef.current = notificationIds;
+
+    if (hasNewNotification && notificationAudioRef.current) {
+      notificationAudioRef.current.currentTime = 0;
+      void notificationAudioRef.current.play().catch(() => {
+        // Browsers can block sound until a user has interacted with the page.
+      });
+    }
+  }, [hasLoadedNotifications, notifList]);
 
   return (
     <header 
@@ -266,11 +291,6 @@ export default function Topbar({
                 <div className="px-4 py-2 border-b border-gray-100">
                   <p className="text-sm font-medium text-gray-800 capitalize">{userName}</p>
                   <p className="text-xs text-gray-500">{actualRoleLabel}</p>
-                  {isViewingAsAnother && (
-                    <p className="text-xs text-blue-600 mt-1">
-                      (Viewing as {roleDisplayNames[viewAsRole]})
-                    </p>
-                  )}
                 </div>
                 <Link href="/dashboard/profile" className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                   <User className="w-4 h-4 text-gray-400" />
@@ -441,9 +461,6 @@ export default function Topbar({
               <p className="text-sm font-medium text-gray-800 capitalize">{userName}</p>
               <div>
                 <p className="text-xs text-gray-500">{actualRoleLabel}</p>
-                {isViewingAsAnother && (
-                  <p className="text-xs text-blue-600">Viewing as {roleDisplayNames[viewAsRole]}</p>
-                )}
               </div>
             </div>
             <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform hidden sm:block ${isProfileOpen ? 'rotate-180' : ''}`} />

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { refreshToken, isTokenExpiringSoon } from '@/services/authService';
+import { refreshToken, isTokenExpiringSoon, verifyActiveToken } from '@/services/authService';
 import { applyRateLimit } from '@/lib/rateLimit';
 
 export async function POST(request: NextRequest) {
@@ -16,6 +16,9 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
+    if (!await verifyActiveToken(token)) {
+      return NextResponse.json({ success: false, error: { message: 'Session is invalid or has expired' } }, { status: 401 });
+    }
     const expiringSoon = await isTokenExpiringSoon(token);
 
     // Only refresh if token is expiring soon, otherwise return the same token

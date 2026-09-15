@@ -1,16 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getToolRequestById } from '@/services/toolsService';
-import { verifyToken, getTokenFromHeader } from '@/services/authService';
 import { applyRateLimit } from '@/lib/rateLimit';
-
-async function authenticate(request: NextRequest): Promise<{ userId: string; role: string } | NextResponse> {
-  const authHeader = request.headers.get('Authorization');
-  const token = getTokenFromHeader(authHeader);
-  if (!token) return NextResponse.json({ success: false, error: { message: 'Unauthorized' } }, { status: 401 });
-  const decoded = await verifyToken(token);
-  if (!decoded) return NextResponse.json({ success: false, error: { message: 'Invalid token' } }, { status: 401 });
-  return decoded;
-}
+import { isAuthFailure, requireActiveUser } from '@/lib/apiAuth';
+import { hasRole, roles } from '@/lib/permissions';
 
 export async function GET(
   request: NextRequest,
@@ -20,11 +12,15 @@ export async function GET(
     const rl = applyRateLimit(request);
     if (rl.blocked) return NextResponse.json({ success: false, error: { message: 'Too many requests' } }, { status: 429 });
 
-    const auth = await authenticate(request);
-    if (auth instanceof NextResponse) return auth;
+    const auth = await requireActiveUser(request);
+    if (isAuthFailure(auth)) return auth;
 
     const { id } = await params;
     const response = await getToolRequestById(id);
+    if (!response.success || !response.data) return NextResponse.json(response, { status: 404 });
+    if (!hasRole(auth.role, roles.requestApprovers) && response.data.requested_by !== auth.userId) {
+      return NextResponse.json({ success: false, error: { message: 'Forbidden' } }, { status: 403 });
+    }
     return NextResponse.json(response);
   } catch (error) {
     console.error('Tool Request by ID API error:', error);

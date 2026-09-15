@@ -109,10 +109,11 @@ export class ToolRequestRepository extends BaseRepository<any> {
    * Fetch tool requests with an optional status / movement_type filter.
    * Joins the `tools` collection via $lookup to resolve tool_name.
    */
-  async findAllFiltered(filters?: { status?: string; movement_type?: string }) {
+  async findAllFiltered(filters?: { status?: string; movement_type?: string; requested_by?: string }) {
     const matchStage: Record<string, any> = {};
     if (filters?.status) matchStage.status = filters.status;
     if (filters?.movement_type) matchStage.movement_type = filters.movement_type;
+    if (filters?.requested_by) matchStage.requested_by = filters.requested_by;
 
     const pipeline: Record<string, any>[] = [
       ...(Object.keys(matchStage).length > 0 ? [{ $match: matchStage }] : []),

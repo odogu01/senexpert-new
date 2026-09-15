@@ -177,7 +177,7 @@ export async function getToolById(id: string): Promise<{ success: boolean; data?
 
 export async function createTool(tool: ToolInsert, actingUserId?: string, ipAddress?: string): Promise<{ success: boolean; data?: Tool; error?: string }> {
   try {
-    const qty = tool.quantity || 1;
+    const qty = tool.quantity ?? 1;
     const newTool = await toolRepo.insertOne({
       name: tool.name,
       work_order_number: tool.work_order_number,
@@ -196,13 +196,14 @@ export async function createTool(tool: ToolInsert, actingUserId?: string, ipAddr
       description: tool.description,
       purchase_date: tool.purchase_date,
       purchase_price: tool.purchase_price,
-      created_by: tool.created_by,
+      created_by: actingUserId || tool.created_by,
       received_from: tool.received_from,
       received_by: tool.received_by,
       vehicle_number: tool.vehicle_number,
     });
 
     await logAuditEvent({
+      userId: actingUserId,
       action: 'INSERT',
       tableName: 'tools',
       recordId: newTool.id,
@@ -266,9 +267,9 @@ export async function deleteTool(id: string, actingUserId?: string, ipAddress?: 
   }
 }
 
-export async function getCategories(): Promise<{ success: boolean; data?: string[]; error?: string }> {
+export async function getCategories(filters?: { created_by?: string; created_after?: string }): Promise<{ success: boolean; data?: string[]; error?: string }> {
   try {
-    const categories = await toolRepo.getCategories();
+    const categories = await toolRepo.getCategories(filters);
     return { success: true, data: categories };
   } catch (error) {
     console.error('Get categories error:', error);
@@ -276,9 +277,9 @@ export async function getCategories(): Promise<{ success: boolean; data?: string
   }
 }
 
-export async function getLocations(): Promise<{ success: boolean; data?: string[]; error?: string }> {
+export async function getLocations(filters?: { created_by?: string; created_after?: string }): Promise<{ success: boolean; data?: string[]; error?: string }> {
   try {
-    const locations = await toolRepo.getLocations();
+    const locations = await toolRepo.getLocations(filters);
     return { success: true, data: locations };
   } catch (error) {
     console.error('Get locations error:', error);
@@ -304,6 +305,7 @@ export async function getToolRequestById(id: string): Promise<{ success: boolean
 export async function getToolRequests(filters?: {
   status?: string;
   movement_type?: string;
+  requested_by?: string;
 }): Promise<{ success: boolean; data?: ToolRequest[]; error?: string }> {
   try {
     const data = await toolRequestRepo.findAllFiltered(filters);
@@ -353,7 +355,7 @@ export async function createToolRequest(request: {
       tool_id: request.tool_id || '',
       movement_type: request.movement_type,
       transaction_type: request.transaction_type,
-      requested_by: request.requested_by || actingUserId || '',
+      requested_by: actingUserId || request.requested_by || '',
       assigned_to: request.assigned_to,
       quantity: request.quantity || 1,
       status: 'pending',
@@ -393,9 +395,9 @@ export async function createToolRequest(request: {
       ipAddress,
     });
 
-    // Notify super_admins, admins and devs about new tool request
-    const requesterName = request.requested_by === actingUserId ? undefined : undefined; // name resolved later
-    notifyRoles(['super_admin', 'admin', 'dev'], {
+    // Await delivery so approval notifications are reliably persisted before
+    // the request API responds (important in serverless runtimes).
+    await notifyRoles(['super_admin', 'admin', 'dev'], {
       sender_id: actingUserId,
       type: 'tool_request_created',
       title: 'New Tool Request',
@@ -438,83 +440,83 @@ export async function updateToolRequestStatus(
       };
     }
 
-    const updates: Record<string, any> = { status };
-    if (status === 'approved') {
-      updates.approved_by = approved_by;
-      updates.approved_at = new Date();
-      
-      // Handle tool quantity logic for approved outgoing requests (atomic $inc)
-      if (oldRequest.movement_type === 'outgoing') {
-        const items = (oldRequest as any).items as Array<{ tool_id: string; quantity: number; tool_name?: string }> | undefined;
+    const { connectToDatabase, getClient, getDatabase } = await import('@/lib/mongodb');
+    const mongodb = await import('mongodb');
+    await connectToDatabase();
+    const client = getClient();
+    const db = getDatabase();
+    const requestId = new mongodb.ObjectId(id);
+    const now = new Date();
 
-        if (items && items.length > 0) {
-          // Multi-tool bundle: deduct quantity for each item
+    await client.withSession(async (session) => {
+      await session.withTransaction(async () => {
+        const updates: Record<string, any> = { status, updated_at: now };
+        if (status === 'approved') {
+          updates.approved_by = actingUserId || approved_by;
+          updates.approved_at = now;
+        } else if (status === 'completed') {
+          updates.completed_at = now;
+        }
+
+        // Claim the pending/approved request inside the transaction before any stock changes.
+        const expectedStatus = status === 'completed' ? 'approved' : 'pending';
+        const claimed = await db.collection('tool_requests').updateOne(
+          { _id: requestId, status: expectedStatus },
+          { $set: updates },
+          { session },
+        );
+        if (claimed.matchedCount !== 1) throw new Error('Request was already processed');
+
+        const rawItems = (oldRequest as any).items as Array<{ tool_id: string; quantity: number }> | undefined;
+        const items = rawItems?.length ? rawItems : oldRequest.tool_id ? [{ tool_id: oldRequest.tool_id, quantity: oldRequest.quantity }] : [];
+
+        if (status === 'approved' && oldRequest.movement_type === 'outgoing') {
           for (const item of items) {
-            if (oldRequest.transaction_type === 'sold') {
-              await toolRepo.increment(item.tool_id, 'quantity', -item.quantity);
-            } else {
-              // rented or job — decrement and mark as rentals
-              await toolRepo.updateOneRawOperators(item.tool_id, {
-                $inc: { quantity: -item.quantity },
-                $set: { status: 'rentals' },
-              });
-            }
-          }
-        } else if (oldRequest.tool_id) {
-          // Single tool (backward compat)
-          if (oldRequest.transaction_type === 'sold') {
-            await toolRepo.increment(oldRequest.tool_id, 'quantity', -oldRequest.quantity);
-          } else {
-            // rented or job — decrement and mark as rentals
-            await toolRepo.updateOneRawOperators(oldRequest.tool_id, {
-              $inc: { quantity: -oldRequest.quantity },
-              $set: { status: 'rentals' },
-            });
+            let toolId: any;
+            try { toolId = new mongodb.ObjectId(item.tool_id); } catch { throw new Error('Invalid tool in request'); }
+            // The quantity predicate makes stock checks and decrements one atomic operation.
+            const deducted = await db.collection('tools').updateOne(
+              { _id: toolId, quantity: { $gte: item.quantity } },
+              { $inc: { quantity: -item.quantity }, $set: { updated_at: now } },
+              { session },
+            );
+            if (deducted.matchedCount !== 1) throw new Error('Insufficient available inventory');
           }
         }
-      }
-    } else if (status === 'completed') {
-      updates.completed_at = new Date();
-      
-      // Handle incoming requests (returns) — atomic $inc
-      if (oldRequest.movement_type === 'incoming' && oldRequest.tool_id && oldRequest.transaction_type === 'rented') {
-        await toolRepo.updateOneRawOperators(oldRequest.tool_id, {
-          $inc: { quantity: oldRequest.quantity },
-          $set: { status: 'available' },
-        });
-      }
-    }
 
-    const { matchedCount } = await toolRequestRepo.updateOneRaw(id, updates);
-    if (!matchedCount) return { success: false, error: 'Request not found' };
+        if (status === 'completed' && oldRequest.movement_type === 'incoming' && oldRequest.transaction_type === 'rented') {
+          for (const item of items) {
+            let toolId: any;
+            try { toolId = new mongodb.ObjectId(item.tool_id); } catch { throw new Error('Invalid tool in request'); }
+            const restored = await db.collection('tools').updateOne(
+              { _id: toolId },
+              { $inc: { quantity: item.quantity }, $set: { status: 'available', updated_at: now } },
+              { session },
+            );
+            if (restored.matchedCount !== 1) throw new Error('Tool not found for return');
+          }
+        }
 
-    // ── Incoming receipt approval: create the actual tool ──
-    if (status === 'approved' && oldRequest.new_tool_data && oldRequest.movement_type === 'incoming') {
-      const toolData = oldRequest.new_tool_data as Record<string, unknown>;
-      await toolRepo.insertOne({
-        name: toolData.name || '',
-        work_order_number: toolData.work_order_number || '',
-        size_thread: toolData.size_thread || '',
-        material: toolData.material || '',
-        model: toolData.model || '',
-        material_no: toolData.material_no || '',
-        part_number: toolData.part_number || '',
-        category: toolData.category || 'Saleable',
-        quantity: toolData.quantity ? Number(toolData.quantity) : 1,
-        initial_quantity: toolData.quantity ? Number(toolData.quantity) : 1,
-        min_quantity: toolData.min_quantity ? Number(toolData.min_quantity) : 1,
-        status: toolData.status || 'available',
-        location: toolData.location || '',
-        image_url: toolData.image_url || '',
-        description: toolData.description || '',
-        purchase_date: toolData.purchase_date || '',
-        purchase_price: toolData.purchase_price ? Number(toolData.purchase_price) : 0,
-        created_by: toolData.created_by ? String(toolData.created_by) : oldRequest.requested_by || '',
-        received_from: toolData.received_from || '',
-        received_by: toolData.received_by || '',
-        vehicle_number: toolData.vehicle_number || '',
+        if (status === 'approved' && oldRequest.new_tool_data && oldRequest.movement_type === 'incoming') {
+          const toolData = oldRequest.new_tool_data as Record<string, unknown>;
+          await db.collection('tools').insertOne({
+            _id: new mongodb.ObjectId(),
+            name: toolData.name || '', work_order_number: toolData.work_order_number || '',
+            size_thread: toolData.size_thread || '', material: toolData.material || '', model: toolData.model || '',
+            material_no: toolData.material_no || '', part_number: toolData.part_number || '',
+            category: toolData.category || 'Saleable', quantity: toolData.quantity ? Number(toolData.quantity) : 1,
+            initial_quantity: toolData.quantity ? Number(toolData.quantity) : 1,
+            min_quantity: toolData.min_quantity ? Number(toolData.min_quantity) : 1,
+            status: toolData.status || 'available', location: toolData.location || '', image_url: toolData.image_url || '',
+            description: toolData.description || '', purchase_date: toolData.purchase_date || '',
+            purchase_price: toolData.purchase_price ? Number(toolData.purchase_price) : 0,
+            created_by: actingUserId || oldRequest.requested_by || '', received_from: toolData.received_from || '',
+            received_by: toolData.received_by || '', vehicle_number: toolData.vehicle_number || '',
+            created_at: now, updated_at: now,
+          }, { session });
+        }
       });
-    }
+    });
 
     await logAuditEvent({
       userId: actingUserId,
@@ -529,7 +531,7 @@ export async function updateToolRequestStatus(
     // Notify the requester about status change
     if (oldRequest.requested_by && oldRequest.requested_by !== actingUserId) {
       const statusLabels = { approved: 'Approved', rejected: 'Rejected', completed: 'Completed' };
-      notifyUser(oldRequest.requested_by, {
+      await notifyUser(oldRequest.requested_by, {
         sender_id: actingUserId,
         type: `tool_request_${status}`,
         title: `Tool Request ${statusLabels[status] || status}`,
@@ -784,7 +786,7 @@ export async function createFinancialRequest(request: {
       description: request.description,
       amount: request.amount,
       category: request.category,
-      requested_by: request.requested_by,
+      requested_by: actingUserId || request.requested_by,
       status: 'pending',
     });
 
@@ -797,8 +799,9 @@ export async function createFinancialRequest(request: {
       ipAddress,
     });
 
-    // Notify all super_admins and devs about new financial request
-    notifyRoles(['super_admin', 'dev'], {
+    // Await delivery so approval notifications are reliably persisted before
+    // the request API responds (important in serverless runtimes).
+    await notifyRoles(['super_admin', 'dev'], {
       sender_id: actingUserId,
       type: 'financial_request_created',
       title: 'New Financial Request',
@@ -827,7 +830,7 @@ export async function updateFinancialRequestStatus(
 
     const updates: Record<string, any> = { status, notes };
     if (status === 'approved') {
-      updates.approved_by = approved_by;
+      updates.approved_by = actingUserId || approved_by;
       updates.approved_at = new Date();
     }
 
@@ -847,7 +850,7 @@ export async function updateFinancialRequestStatus(
     // Notify the requester about status change
     if (oldRequest?.requested_by && oldRequest.requested_by !== actingUserId) {
       const statusLabels = { approved: 'Approved', rejected: 'Rejected' };
-      notifyUser(oldRequest.requested_by, {
+      await notifyUser(oldRequest.requested_by, {
         sender_id: actingUserId,
         type: `financial_request_${status}`,
         title: `Financial Request ${statusLabels[status] || status}`,

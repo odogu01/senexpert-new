@@ -136,9 +136,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get('content-type') ?? '';
+      const data = contentType.includes('application/json')
+        ? await response.json()
+        : null;
 
-      if (data.success && data.data) {
+      if (data?.success && data.data) {
         const { user: loggedInUser, token: jwtToken, profile: userProfile } = data.data;
 
         localStorage.setItem('senexpert_token', jwtToken);
@@ -151,7 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         return { success: true };
       } else {
-        return { success: false, error: data.error?.message || 'Login failed' };
+        return { success: false, error: data?.error?.message || `Login failed (${response.status})` };
       }
     } catch (error) {
       console.error('Login error:', error);

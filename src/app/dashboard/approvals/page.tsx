@@ -18,7 +18,7 @@ export default function ApprovalsPage() {
   const userRole = profile?.role ?? null;
 
   // Redirect if not allowed
-  if (userRole && !['admin', 'super_admin', 'dev'].includes(userRole)) {
+  if (userRole && !['admin', 'super_admin', 'accountant', 'dev'].includes(userRole)) {
     router.push('/dashboard');
     return null;
   }
@@ -28,6 +28,8 @@ export default function ApprovalsPage() {
 
   const pendingToolRequests = (toolRequests as ToolRequest[]).filter(r => r.status === 'pending');
   const pendingFinancialRequests = (financialRequests as FinancialRequest[]).filter(r => r.status === 'pending');
+  const canApproveTools = !!userRole && ['admin', 'super_admin', 'dev'].includes(userRole);
+  const canApproveFinancial = !!userRole && ['accountant', 'super_admin', 'dev'].includes(userRole);
 
   const handleApproveToolRequest = async (id: string) => {
     setProcessingId(id);
@@ -77,26 +79,26 @@ export default function ApprovalsPage() {
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6">
-        <button
+        {canApproveTools && <button
           onClick={() => setActiveTab('tools')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${activeTab === 'tools' ? 'bg-[#0B3C6D] text-white' : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
         >
           <Package className="w-4 h-4" />
           Tool Requests
           {pendingToolRequests.length > 0 && <span className="bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">{pendingToolRequests.length}</span>}
-        </button>
-        <button
+        </button>}
+        {canApproveFinancial && <button
           onClick={() => setActiveTab('financial')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${activeTab === 'financial' ? 'bg-[#0B3C6D] text-white' : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
         >
           <DollarSign className="w-4 h-4" />
           Financial Requests
           {pendingFinancialRequests.length > 0 && <span className="bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">{pendingFinancialRequests.length}</span>}
-        </button>
+        </button>}
       </div>
 
       {/* Tool Requests */}
-      {activeTab === 'tools' && (
+      {activeTab === 'tools' && canApproveTools && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {pendingToolRequests.length === 0 ? (
             <div className="p-12 text-center text-gray-500">
@@ -139,7 +141,7 @@ export default function ApprovalsPage() {
       )}
 
       {/* Financial Requests */}
-      {activeTab === 'financial' && (
+      {activeTab === 'financial' && canApproveFinancial && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {pendingFinancialRequests.length === 0 ? (
             <div className="p-12 text-center text-gray-500">

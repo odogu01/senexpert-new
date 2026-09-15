@@ -56,6 +56,12 @@ export function getDatabase(): Db {
   return db;
 }
 
+/** Return the connected native client for transactional domain operations. */
+export function getClient(): MongoClientType {
+  if (!client) throw new Error('Database not connected. Call connectToDatabase() first.');
+  return client;
+}
+
 /**
  * Get a collection from the database
  */
