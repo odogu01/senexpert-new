@@ -136,7 +136,7 @@ export interface ToolRequest {
   ref_number?: string;       // Auto-generated: "SEG/000001"
   tool_id?: string;
   movement_type: MovementType;
-  transaction_type?: 'sold' | 'rented' | 'job';
+  transaction_type?: 'rented' | 'showcase';
   requested_by?: string;
   assigned_to?: string;
   quantity: number;
@@ -162,6 +162,8 @@ export interface ToolRequest {
   assigned_to_profile?: { full_name: string };
   new_tool_data?: Record<string, unknown>; // Tool creation payload for incoming receipt requests
   items?: ToolRequestItem[]; // Multi-tool items for outgoing requests
+  /** The approved rented outgoing request this incoming return belongs to. */
+  return_of_request_id?: string;
 }
 
 export interface Maintenance {

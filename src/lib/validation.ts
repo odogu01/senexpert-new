@@ -88,7 +88,7 @@ const toolRequestItemSchema = z.object({
 export const createToolRequestSchema = z.object({
   tool_id: z.string().optional().default(''),
   movement_type: z.enum(['incoming', 'outgoing']),
-  transaction_type: z.enum(['sold', 'rented', 'job']).optional(),
+  transaction_type: z.enum(['rented', 'showcase']).optional(),
   requested_by: z.string().optional(),
   assigned_to: z.string().optional(),
   quantity: z.number().int().min(1, 'Quantity must be >= 1').optional().default(1),
@@ -101,6 +101,7 @@ export const createToolRequestSchema = z.object({
   received_from: z.string().max(200).optional(),
   new_tool_data: z.record(z.string(), z.unknown()).optional(),
   items: z.array(toolRequestItemSchema).optional(),
+  return_of_request_id: z.string().optional(),
 });
 
 export type CreateToolRequestInput = z.infer<typeof createToolRequestSchema>;

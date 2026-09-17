@@ -319,7 +319,7 @@ export async function getToolRequests(filters?: {
 export async function createToolRequest(request: {
   tool_id?: string;
   movement_type: 'incoming' | 'outgoing';
-  transaction_type?: 'sold' | 'rented';
+  transaction_type?: 'rented' | 'showcase';
   requested_by?: string;
   assigned_to?: string;
   quantity: number;
@@ -339,6 +339,7 @@ export async function createToolRequest(request: {
     material?: string;
     model?: string;
   }>;
+  return_of_request_id?: string;
 }, actingUserId?: string, ipAddress?: string): Promise<{ success: boolean; data?: ToolRequest; error?: string }> {
   try {
     // Generate unique ref_number: SEG/XXXXXX
@@ -366,6 +367,7 @@ export async function createToolRequest(request: {
       delivered_by: request.delivered_by,
       received_by: request.received_by,
       received_from: request.received_from,
+      return_of_request_id: request.return_of_request_id,
       request_date: new Date().toISOString(),
     };
 
@@ -376,6 +378,51 @@ export async function createToolRequest(request: {
       insertData.quantity = request.items.reduce((sum, i) => sum + i.quantity, 0);
       // Use first item's tool_id for backward compat
       if (!insertData.tool_id) insertData.tool_id = request.items[0].tool_id;
+    }
+
+    // A return must be tied to an approved rented dispatch. Validate against the
+    // remaining quantity so tools cannot be returned twice or from another dispatch.
+    if (request.movement_type === 'incoming' && request.transaction_type === 'rented') {
+      if (!request.return_of_request_id || !request.items?.length) {
+        return { success: false, error: 'Select at least one tool from an approved rented dispatch' };
+      }
+
+      const { connectToDatabase, getDatabase } = await import('@/lib/mongodb');
+      const mongodb = await import('mongodb');
+      await connectToDatabase();
+      const db = getDatabase();
+      let sourceId: any;
+      try { sourceId = new mongodb.ObjectId(request.return_of_request_id); } catch {
+        return { success: false, error: 'Invalid rented dispatch selected' };
+      }
+      const source = await db.collection('tool_requests').findOne({
+        _id: sourceId, movement_type: 'outgoing', transaction_type: 'rented', status: 'approved',
+      });
+      if (!source) return { success: false, error: 'The selected rented dispatch is not available for return' };
+
+      const dispatched = source.items?.length
+        ? source.items
+        : source.tool_id ? [{ tool_id: source.tool_id, quantity: source.quantity }] : [];
+      const returns = await db.collection('tool_requests').find({
+        return_of_request_id: request.return_of_request_id,
+        status: { $ne: 'rejected' },
+      }).toArray();
+      const alreadyReturning = new Map<string, number>();
+      for (const priorReturn of returns) {
+        const priorItems = priorReturn.items?.length
+          ? priorReturn.items
+          : priorReturn.tool_id ? [{ tool_id: priorReturn.tool_id, quantity: priorReturn.quantity }] : [];
+        for (const item of priorItems) {
+          alreadyReturning.set(item.tool_id, (alreadyReturning.get(item.tool_id) || 0) + Number(item.quantity || 0));
+        }
+      }
+      for (const item of request.items) {
+        const dispatchedItem = dispatched.find((candidate: any) => candidate.tool_id === item.tool_id);
+        const remaining = Number(dispatchedItem?.quantity || 0) - (alreadyReturning.get(item.tool_id) || 0);
+        if (!dispatchedItem || item.quantity > remaining) {
+          return { success: false, error: 'One or more return quantities exceed the outstanding rented quantity' };
+        }
+      }
     }
 
     // Store new_tool_data for incoming receipt requests
@@ -484,7 +531,7 @@ export async function updateToolRequestStatus(
           }
         }
 
-        if (status === 'completed' && oldRequest.movement_type === 'incoming' && oldRequest.transaction_type === 'rented') {
+        if (status === 'approved' && oldRequest.movement_type === 'incoming' && oldRequest.transaction_type === 'rented' && oldRequest.return_of_request_id) {
           for (const item of items) {
             let toolId: any;
             try { toolId = new mongodb.ObjectId(item.tool_id); } catch { throw new Error('Invalid tool in request'); }

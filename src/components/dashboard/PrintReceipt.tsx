@@ -107,9 +107,8 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
       <div className="receipt-content">
       {/* Company Header */}
       <div className="text-center border-b border-gray-300 pb-0.5 mb-0.5">
-        <img src="/title-logo.png" alt="SenExpert Global" className="w-10 h-auto mx-auto mb-0.5" />
-        <h1 className="text-sm font-bold text-gray-900">SenExpert Global Energies</h1>
-        <p className="text-xs text-gray-500">Receipt</p>
+        <img src="/title-logo.png" alt="SenExpert Global" className="w-16 h-auto mx-auto mb-1" />
+        <h1 className="text-lg font-bold text-gray-900 mb-4">SenExpert Global Energies</h1>
       </div>
 
       {/* Ref + Po No + Contract No + Company Details */}
@@ -148,7 +147,7 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
             )}
           </div>
         </div>
-        <div className="text-right text-[10px] text-gray-600 leading-tight max-w-[240px]">
+        <div className="text-right text-xs text-gray-600 leading-tight max-w-[260px]">
           {COMPANY_DETAILS.map((line, i) => (
             <p key={i} className="break-words">{line}</p>
           ))}

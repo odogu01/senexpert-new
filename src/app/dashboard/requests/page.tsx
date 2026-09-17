@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Clock, AlertTriangle, Package, Printer } from 'lucide-react';
@@ -122,7 +123,7 @@ export default function RequestsPage() {
     model: '',
     quantity: '1',
     movementType: 'outgoing' as 'incoming' | 'outgoing',
-    transactionType: 'sold' as 'sold' | 'rented' | 'job',
+    transactionType: 'rented' as 'rented' | 'showcase',
     location: '',
     notes: '',
     vehicleNo: '',
@@ -150,6 +151,8 @@ export default function RequestsPage() {
     maxQuantity: number | null;
   }
   const [cartItems, setCartItems] = useState<CartEntry[]>([]);
+  const [returnSourceId, setReturnSourceId] = useState('');
+  const [returnItems, setReturnItems] = useState<CartEntry[]>([]);
   let cartKeyCounter = useRef(0);
 
   const addCartItem = () => {
@@ -201,6 +204,44 @@ export default function RequestsPage() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
+  const rentalReturnSources = useMemo(() => {
+    const returnedBySource = new Map<string, Map<string, number>>();
+    for (const request of requests) {
+      if (request.movement_type !== 'incoming' || request.status === 'rejected' || !request.return_of_request_id) continue;
+      const returned = returnedBySource.get(request.return_of_request_id) || new Map<string, number>();
+      const returnedItems = request.items?.length
+        ? request.items
+        : request.tool_id ? [{ tool_id: request.tool_id, quantity: request.quantity }] : [];
+      for (const item of returnedItems) returned.set(item.tool_id, (returned.get(item.tool_id) || 0) + item.quantity);
+      returnedBySource.set(request.return_of_request_id, returned);
+    }
+    return requests.filter(request => {
+      if (request.movement_type !== 'outgoing' || request.transaction_type !== 'rented' || request.status !== 'approved') return false;
+      const dispatched = request.items?.length ? request.items : request.tool_id ? [{ tool_id: request.tool_id, tool_name: request.tool_name, quantity: request.quantity }] : [];
+      const returned = returnedBySource.get(request.id);
+      return dispatched.some(item => item.quantity > (returned?.get(item.tool_id) || 0));
+    });
+  }, [requests]);
+
+  const selectReturnSource = (sourceId: string) => {
+    setReturnSourceId(sourceId);
+    const source = rentalReturnSources.find(request => request.id === sourceId);
+    if (!source) { setReturnItems([]); return; }
+    const previouslyReturned = new Map<string, number>();
+    for (const request of requests) {
+      if (request.return_of_request_id !== sourceId || request.status === 'rejected') continue;
+      const items = request.items?.length ? request.items : request.tool_id ? [{ tool_id: request.tool_id, quantity: request.quantity }] : [];
+      for (const item of items) previouslyReturned.set(item.tool_id, (previouslyReturned.get(item.tool_id) || 0) + item.quantity);
+    }
+    const sourceItems = source.items?.length ? source.items : source.tool_id ? [{ tool_id: source.tool_id, tool_name: source.tool_name, quantity: source.quantity }] : [];
+    setReturnItems(sourceItems.map((item, index) => ({
+      key: `return-${index}-${item.tool_id}`, toolId: item.tool_id, toolName: item.tool_name || 'Tool',
+      sizeThread: item.size_thread || '', material: item.material || '', model: item.model || '',
+      workOrderNumber: item.work_order_number || '', materialNo: item.material_no || '', partNumber: item.part_number || '',
+      quantity: '0', maxQuantity: item.quantity - (previouslyReturned.get(item.tool_id) || 0),
+    })).filter(item => (item.maxQuantity || 0) > 0));
+  };
+
   // ── Pagination ──
   const totalIncomingPages = Math.max(1, Math.ceil(filteredIncoming.length / itemsPerPage));
   const totalOutgoingPages = Math.max(1, Math.ceil(filteredOutgoing.length / itemsPerPage));
@@ -228,14 +269,8 @@ export default function RequestsPage() {
         requestData.transaction_type = formData.transactionType;
         requestData.vehicle_no = formData.vehicleNo;
 
-        if (formData.transactionType === 'job') {
-          requestData.delivered_by = 'Senexpert';
-          requestData.delivered_to = formData.jobName || 'Job';
-          requestData.notes = `Job: ${formData.jobName || formData.notes || ''}`.trim();
-        } else {
-          requestData.delivered_to = formData.deliveredTo;
-          requestData.delivered_by = formData.deliveredBy;
-        }
+        requestData.delivered_to = formData.deliveredTo;
+        requestData.delivered_by = formData.deliveredBy;
 
         // Multi-tool cart
         if (cartItems.length > 0) {
@@ -277,9 +312,22 @@ export default function RequestsPage() {
           requestData.quantity = parsedQuantity;
         }
       } else {
-        // Incoming
-        requestData.tool_id = formData.toolId;
-        requestData.quantity = parseInt(formData.quantity);
+        // Incoming returns are selected from one approved rented dispatch.
+        const itemsToReturn = returnItems.filter(item => parseInt(item.quantity) > 0);
+        if (!returnSourceId || !itemsToReturn.length) {
+          setQuantityError('Select a rented dispatch and at least one tool to return.');
+          return;
+        }
+        for (const item of itemsToReturn) {
+          if (!item.maxQuantity || parseInt(item.quantity) > item.maxQuantity) {
+            setQuantityError(`"${item.toolName}" has only ${item.maxQuantity || 0} outstanding for return.`);
+            return;
+          }
+        }
+        requestData.return_of_request_id = returnSourceId;
+        requestData.items = itemsToReturn.map(item => ({ tool_id: item.toolId, tool_name: item.toolName, quantity: parseInt(item.quantity), size_thread: item.sizeThread || undefined, material: item.material || undefined, model: item.model || undefined }));
+        requestData.tool_id = itemsToReturn[0].toolId;
+        requestData.quantity = itemsToReturn.reduce((sum, item) => sum + parseInt(item.quantity), 0);
         requestData.vehicle_no = formData.vehicleNo;
         requestData.received_by = formData.receivedBy;
         requestData.received_from = formData.receivedFrom;
@@ -298,6 +346,8 @@ export default function RequestsPage() {
     setMaxQuantity(null);
     setQuantityError(null);
     setCartItems([]);
+    setReturnSourceId('');
+    setReturnItems([]);
     setFormData({
       toolId: '',
       toolName: '',
@@ -306,7 +356,7 @@ export default function RequestsPage() {
       model: '',
       quantity: '1',
       movementType: 'outgoing',
-      transactionType: 'sold',
+      transactionType: 'rented',
       location: '',
       notes: '',
       vehicleNo: '',
@@ -578,7 +628,7 @@ export default function RequestsPage() {
                       material: '',
                       model: '',
                       quantity: '1',
-                      transactionType: newMovementType === 'outgoing' ? 'sold' : 'sold' // Default to sold for both, but rented tools won't appear for incoming
+                      transactionType: 'rented'
                     });
                   }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
                     <option value="outgoing">Outgoing</option>
@@ -588,10 +638,9 @@ export default function RequestsPage() {
                 {formData.movementType === 'outgoing' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Transaction Type</label>
-                    <select value={formData.transactionType} onChange={(e) => setFormData({ ...formData, transactionType: e.target.value as 'sold' | 'rented' | 'job' })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
-                      <option value="sold">Sold</option>
+                    <select value={formData.transactionType} onChange={(e) => setFormData({ ...formData, transactionType: e.target.value as 'rented' | 'showcase' })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
                       <option value="rented">Rented</option>
-                      <option value="job">Job</option>
+                      <option value="showcase">Showcase</option>
                     </select>
                   </div>
                 )}
@@ -895,20 +944,46 @@ export default function RequestsPage() {
                       )}
                     </div>
                     <div><label className="block text-sm font-medium text-gray-700 mb-1">Vehicle No</label><input type="text" value={formData.vehicleNo} onChange={(e) => setFormData({ ...formData, vehicleNo: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter vehicle number" /></div>
-                    {formData.transactionType === 'job' ? (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Job Name</label>
-                        <input type="text" value={formData.jobName} onChange={(e) => setFormData({ ...formData, jobName: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="e.g., Well completion Job #123" />
-                      </div>
-                    ) : (
-                      <>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Delivered To</label><input type="text" value={formData.deliveredTo} onChange={(e) => setFormData({ ...formData, deliveredTo: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter recipient location/company" /></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Delivered By</label><input type="text" value={formData.deliveredBy} onChange={(e) => setFormData({ ...formData, deliveredBy: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter deliverer's name" /></div>
-                      </>
-                    )}
+                    <div><label className="block text-sm font-medium text-gray-700 mb-1">Delivered To</label><input type="text" value={formData.deliveredTo} onChange={(e) => setFormData({ ...formData, deliveredTo: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter recipient location/company" /></div>
+                    <div><label className="block text-sm font-medium text-gray-700 mb-1">Delivered By</label><input type="text" value={formData.deliveredBy} onChange={(e) => setFormData({ ...formData, deliveredBy: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter deliverer's name" /></div>
                   </>
                 ) : (
                   <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Rented Dispatch</label>
+                      <select value={returnSourceId} onChange={(e) => { setQuantityError(null); selectReturnSource(e.target.value); }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+                        <option value="">Select an approved rented dispatch...</option>
+                        {rentalReturnSources.map(request => (
+                          <option key={request.id} value={request.id}>
+                            {request.ref_number || `#${request.id.slice(0, 8)}`} — {request.items?.map(item => item.tool_name || 'Tool').join(', ') || request.tool_name || 'Tool'}
+                          </option>
+                        ))}
+                      </select>
+                      {rentalReturnSources.length === 0 && <p className="mt-1 text-xs text-gray-500">There are no approved rented tools awaiting return.</p>}
+                    </div>
+                    {returnItems.length > 0 && (
+                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                        <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 text-sm font-medium text-gray-700">Tools to return</div>
+                        <div className="divide-y divide-gray-100">
+                          {returnItems.map(item => (
+                            <div key={item.key} className="p-3 flex items-center gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-gray-800 truncate">{item.toolName}</p>
+                                <p className="text-xs text-gray-500">Outstanding: {item.maxQuantity}</p>
+                              </div>
+                              <input type="number" min="0" max={item.maxQuantity || 0} value={item.quantity}
+                                onChange={(e) => { const quantity = e.target.value; setReturnItems(items => items.map(entry => entry.key === item.key ? { ...entry, quantity } : entry)); setQuantityError(null); }}
+                                className="w-20 px-2 py-1.5 text-sm border border-gray-300 rounded-lg" aria-label={`Quantity to return for ${item.toolName}`} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div><label className="block text-sm font-medium text-gray-700 mb-1">Vehicle No</label><input type="text" value={formData.vehicleNo} onChange={(e) => setFormData({ ...formData, vehicleNo: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter vehicle number" /></div>
+                    <div><label className="block text-sm font-medium text-gray-700 mb-1">Received By</label><input type="text" value={formData.receivedBy} onChange={(e) => setFormData({ ...formData, receivedBy: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter receiver's name" /></div>
+                    <div><label className="block text-sm font-medium text-gray-700 mb-1">Received From</label><input type="text" value={formData.receivedFrom} onChange={(e) => setFormData({ ...formData, receivedFrom: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter sender location/company" /></div>
+                    {quantityError && <p className="text-sm text-red-600">{quantityError}</p>}
+                    {false && <>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Tool Name</label>
                       <select value={formData.toolName} onChange={(e) => {
@@ -1023,7 +1098,7 @@ export default function RequestsPage() {
                         <input
                           type="number"
                           min="1"
-                          max={maxQuantity !== null ? maxQuantity : undefined}
+                          max={maxQuantity ?? undefined}
                           value={formData.quantity}
                           onChange={(e) => {
                             const val = e.target.value;
@@ -1050,7 +1125,7 @@ export default function RequestsPage() {
                     <div><label className="block text-sm font-medium text-gray-700 mb-1">Vehicle No</label><input type="text" value={formData.vehicleNo} onChange={(e) => setFormData({ ...formData, vehicleNo: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter vehicle number" /></div>
                     <div><label className="block text-sm font-medium text-gray-700 mb-1">Received By</label><input type="text" value={formData.receivedBy} onChange={(e) => setFormData({ ...formData, receivedBy: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter receiver's name" /></div>
                     <div><label className="block text-sm font-medium text-gray-700 mb-1">Received From</label><input type="text" value={formData.receivedFrom} onChange={(e) => setFormData({ ...formData, receivedFrom: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter sender location/company" /></div>
-                  </>
+                    </>}</>
                 )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
@@ -1070,20 +1145,19 @@ export default function RequestsPage() {
       </AnimatePresence>
 
       {/* Print Preview Modal — Incoming / Tool Receipt */}
-      <AnimatePresence>
-        {printTool && (
+      {printTool && createPortal(
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-50 flex items-start justify-center overflow-y-auto"
+            className="incoming-print-overlay fixed inset-0 bg-black/60 z-50 flex items-start justify-center overflow-y-auto"
             onClick={() => setPrintTool(null)}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-3xl mx-auto my-8 bg-white rounded-xl shadow-2xl"
+              className="incoming-print-sheet relative w-full max-w-3xl mx-auto my-8 bg-white rounded-xl shadow-2xl"
               onClick={e => e.stopPropagation()}
             >
               {/* Toolbar */}
@@ -1106,13 +1180,13 @@ export default function RequestsPage() {
               </div>
 
               {/* Content */}
-              <div className="px-6 pb-4 print-receipt-container">
+              <div className="incoming-print-content px-6 pb-4">
                 <PrintReceipt tool={printTool} />
               </div>
             </motion.div>
-          </motion.div>
+          </motion.div>,
+          document.body,
         )}
-      </AnimatePresence>
 
       <PrintModal requestId={printRequestId} onClose={() => setPrintRequestId(null)} />
 
@@ -1120,50 +1194,46 @@ export default function RequestsPage() {
         @page { margin: 10mm; size: A4 portrait; }
         @media print {
           html, body {
-            height: 277mm !important;
-            min-height: 277mm !important;
-            max-height: 277mm !important;
+            height: auto !important;
+            min-height: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
             overflow: hidden !important;
           }
-          body.printing * { visibility: hidden !important; }
-          /* The hidden requests list must not remain in print flow. */
-          body.printing .dashboard-shell {
-            height: 0 !important;
-            min-height: 0 !important;
-            overflow: visible !important;
-          }
-          body.printing .dashboard-main {
-            position: absolute !important;
+          body.printing > * { display: none !important; }
+          body.printing .incoming-print-overlay {
+            display: block !important;
+            position: fixed !important;
             inset: 0 !important;
             width: 100% !important;
             height: 277mm !important;
-            min-height: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
+            background: white !important;
             overflow: hidden !important;
+            z-index: 999999 !important;
           }
-          body.printing .print-receipt,
-          body.printing .print-receipt * { visibility: visible !important; }
-          body.printing .print-receipt {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
+          body.printing .incoming-print-sheet,
+          body.printing .incoming-print-content {
+            display: block !important;
+            max-width: none !important;
+            height: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+          }
+          body.printing .incoming-print-overlay .print-receipt {
             width: 100% !important;
             height: 277mm !important;
-            background: white !important;
-            z-index: 999999 !important;
             overflow: hidden !important;
-            padding: 0 !important;
-            box-sizing: border-box !important;
             display: flex !important;
             flex-direction: column !important;
             position: relative !important;
           }
           body.printing .no-print { display: none !important; }
-          body.printing .print-receipt .signature-section {
+          body.printing .incoming-print-overlay .signature-section {
             position: absolute !important;
             bottom: 6mm !important;
             left: 0 !important;
