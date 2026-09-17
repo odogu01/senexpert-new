@@ -26,8 +26,11 @@ export async function connectToDatabase(): Promise<void> {
   connecting = (async () => {
     const mongodb = await getMongoClient();
     client = new mongodb.MongoClient(MONGODB_URI, {
-      serverSelectionTimeoutMS: 15000,
-      connectTimeoutMS: 15000,
+      // Atlas can occasionally take longer than 15 seconds to complete a TLS
+      // handshake on this network. Keep the initial login/profile connection
+      // alive long enough to select a primary instead of failing prematurely.
+      serverSelectionTimeoutMS: 30000,
+      connectTimeoutMS: 30000,
       retryWrites: true,
       retryReads: true,
     });

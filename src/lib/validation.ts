@@ -88,7 +88,7 @@ const toolRequestItemSchema = z.object({
 export const createToolRequestSchema = z.object({
   tool_id: z.string().optional().default(''),
   movement_type: z.enum(['incoming', 'outgoing']),
-  transaction_type: z.enum(['rented', 'showcase']).optional(),
+  transaction_type: z.enum(['sold', 'rented', 'showcase']).optional(),
   requested_by: z.string().optional(),
   assigned_to: z.string().optional(),
   quantity: z.number().int().min(1, 'Quantity must be >= 1').optional().default(1),
@@ -134,12 +134,15 @@ export const updateFinancialRequestSchema = z.object({
 // Maintenance
 // ============================================
 export const createMaintenanceSchema = z.object({
-  tool_id: z.string().min(1, 'Tool ID is required'),
-  maintenance_type: z.enum(['inspection', 'repair', 'calibration', 'replacement', 'cleaning', 'other']),
+  // `tool_id` is retained for existing API clients; new scheduling supports a batch.
+  tool_id: z.string().optional(),
+  tool_ids: z.array(z.string().min(1)).min(1, 'Select at least one tool').optional(),
+  maintenance_type: z.string().min(1, 'Maintenance type is required').max(100),
   description: z.string().min(1, 'Description is required').max(2000),
   scheduled_date: z.string().min(1, 'Scheduled date is required').max(30),
-  cost: z.number().min(0).optional(),
   notes: z.string().max(1000).optional(),
+}).refine(data => Boolean(data.tool_id || data.tool_ids?.length), {
+  message: 'Select at least one tool', path: ['tool_ids'],
 });
 
 export type CreateMaintenanceInput = z.infer<typeof createMaintenanceSchema>;

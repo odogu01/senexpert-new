@@ -61,30 +61,6 @@ export default function DashboardShell({ children }: DashboardShellProps) {
     setIsMobileMenuOpen(false);
   };
 
-  // Get avatar from API instead of localStorage
-  const [profileAvatar, setProfileAvatar] = useState('');
-  
-  useEffect(() => {
-    const fetchProfileAvatar = async () => {
-      try {
-        const token = localStorage.getItem('senexpert_token');
-        if (!token) return;
-        
-        const res = await fetch('/api/profile', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (data.success && data.data?.avatar_url) {
-          setProfileAvatar(data.data.avatar_url);
-        }
-      } catch (error) {
-        console.error('Failed to fetch profile avatar:', error);
-      }
-    };
-    
-    fetchProfileAvatar();
-  }, []);
-
   const displayRole = profile?.role || 'field';
 
   if (isLoading || !profile) {
@@ -145,7 +121,7 @@ export default function DashboardShell({ children }: DashboardShellProps) {
           sidebarCollapsed={sidebarCollapsed}
           onMenuClick={handleMenuClick}
           userName={profile?.full_name}
-          avatarUrl={profileAvatar}
+          avatarUrl={profile?.avatar_url}
         />
       </div>
       

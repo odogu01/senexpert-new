@@ -319,7 +319,7 @@ export async function getToolRequests(filters?: {
 export async function createToolRequest(request: {
   tool_id?: string;
   movement_type: 'incoming' | 'outgoing';
-  transaction_type?: 'rented' | 'showcase';
+  transaction_type?: 'sold' | 'rented' | 'showcase';
   requested_by?: string;
   assigned_to?: string;
   quantity: number;
@@ -613,34 +613,31 @@ export async function getMaintenanceRecords(filters?: {
 }
 
 export async function createMaintenanceRecord(record: {
-  tool_id: string;
-  maintenance_type: 'inspection' | 'repair' | 'calibration' | 'replacement' | 'cleaning' | 'other';
+  tool_id?: string;
+  tool_ids?: string[];
+  maintenance_type: string;
   description: string;
   scheduled_date: string;
-  cost?: number;
   notes?: string;
 }, actingUserId?: string, ipAddress?: string): Promise<{ success: boolean; data?: Maintenance; error?: string }> {
   try {
-    const newRecord = await maintenanceRepo.insertOne({
-      tool_id: record.tool_id,
-      maintenance_type: record.maintenance_type,
-      description: record.description,
-      status: 'scheduled',
-      scheduled_date: record.scheduled_date,
-      cost: record.cost,
-      notes: record.notes,
-    });
+    const toolIds = [...new Set(record.tool_ids?.length ? record.tool_ids : record.tool_id ? [record.tool_id] : [])];
+    if (!toolIds.length) return { success: false, error: 'Select at least one tool' };
 
-    await logAuditEvent({
-      userId: actingUserId,
-      action: 'INSERT',
-      tableName: 'maintenance',
-      recordId: newRecord.id,
-      newValues: record as any,
-      ipAddress,
-    });
+    // Validate every selection before writing any records.
+    const tools = await Promise.all(toolIds.map(toolId => toolRepo.findById(toolId)));
+    if (tools.some(tool => !tool)) return { success: false, error: 'One or more selected tools were not found' };
 
-    return { success: true, data: newRecord as any };
+    const newRecords = await Promise.all(toolIds.map(toolId => maintenanceRepo.insertOne({
+      tool_id: toolId, maintenance_type: record.maintenance_type, description: record.description,
+      status: 'scheduled', scheduled_date: record.scheduled_date, notes: record.notes,
+    })));
+    await Promise.all(newRecords.map(newRecord => logAuditEvent({
+      userId: actingUserId, action: 'INSERT', tableName: 'maintenance', recordId: newRecord.id,
+      newValues: { ...record, tool_id: newRecord.tool_id } as any, ipAddress,
+    })));
+
+    return { success: true, data: newRecords[0] as any };
   } catch (error) {
     console.error('Create maintenance error:', error);
     return { success: false, error: 'Failed to create maintenance record' };

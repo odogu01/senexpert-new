@@ -83,7 +83,7 @@ export default function InventoryPage() {
   const { data: locations = [] } = useLocations();
 
   // ───── Operator: fetch their tools (runs only for non-admin roles) ─────
-  const { data: operatorAllTools = [], isLoading: operatorToolsLoading } = useQuery({
+  const { data: operatorAllTools = [], isLoading: operatorToolsLoading, isError: operatorToolsError, error: operatorToolsErrorDetail, refetch: refetchOperatorTools } = useQuery({
     queryKey: ['tools', 'operator', currentUserId],
     queryFn: async () => {
       const res = await fetch('/api/tools', { headers: getAuthHeaders() });
@@ -121,7 +121,7 @@ export default function InventoryPage() {
       limit: itemsPerPage,
     };
   }, [canViewAllInventory, debouncedSearch, statusFilter, categoryFilter, locationFilter, currentPage, sortBy, sortOrder]);
-  const { data: paginated, isLoading: paginatedLoading } = useToolsPaginated(paginatedFilters);
+  const { data: paginated, isLoading: paginatedLoading, isError: paginatedError, error: paginatedErrorDetail, refetch: refetchPaginated } = useToolsPaginated(paginatedFilters);
 
   // Admins: server-paginated tools. Operators: client-paginated from operatorTools.
   const paginatedTools = useMemo(() => {
@@ -275,6 +275,9 @@ export default function InventoryPage() {
   };
 
   const loading = profileLoading || (canViewAllInventory ? paginatedLoading : operatorToolsLoading);
+  const inventoryError = canViewAllInventory ? paginatedError : operatorToolsError;
+  const inventoryErrorDetail = canViewAllInventory ? paginatedErrorDetail : operatorToolsErrorDetail;
+  const retryInventoryLoad = canViewAllInventory ? refetchPaginated : refetchOperatorTools;
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -401,6 +404,16 @@ export default function InventoryPage() {
         )}
       </div>
 
+      {inventoryError && (
+        <div className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-medium">Inventory could not be loaded.</p>
+            <p className="mt-1 text-red-700">{inventoryErrorDetail instanceof Error ? inventoryErrorDetail.message : 'Please check the database connection and try again.'}</p>
+          </div>
+          <button type="button" onClick={() => retryInventoryLoad()} className="rounded-lg border border-red-300 bg-white px-3 py-2 font-medium text-red-700 hover:bg-red-100">Retry</button>
+        </div>
+      )}
+
       {/* Tools Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
@@ -443,7 +456,11 @@ export default function InventoryPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {paginatedTools.map((tool, index) => (
+              {inventoryError ? (
+                <tr><td colSpan={12} className="px-6 py-12 text-center text-gray-500">Inventory data is temporarily unavailable.</td></tr>
+              ) : paginatedTools.length === 0 ? (
+                <tr><td colSpan={12} className="px-6 py-12 text-center text-gray-500">No tools match the current inventory filters.</td></tr>
+              ) : paginatedTools.map((tool, index) => (
                 <motion.tr
                   key={tool.id}
                   initial={{ opacity: 0, y: 10 }}

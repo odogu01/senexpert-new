@@ -75,7 +75,9 @@ export function useToolsPaginated(filters?: PaginatedFilters) {
   return useQuery({
     queryKey: [...queryKeys.tools.list(filters as Record<string, string | undefined>), 'paginated'],
     queryFn: () => fetchToolsPaginated(filters),
-    enabled: typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token'),
+    // Inventory supplies its filters after the user profile is available.
+    // Do not send an unintended unfiltered request while that profile loads.
+    enabled: !!filters && typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token'),
     staleTime: 30_000,
     placeholderData: (prev) => prev,
   });

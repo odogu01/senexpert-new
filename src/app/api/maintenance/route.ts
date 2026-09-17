@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     const auth = await requireActiveUser(request);
     if (isAuthFailure(auth)) return auth;
-    const roleFailure = requireRole(auth, [...roles.maintenanceManagers]);
+    const roleFailure = requireRole(auth, [...roles.maintenanceSchedulers]);
     if (roleFailure) return roleFailure;
 
     const body = await request.json();

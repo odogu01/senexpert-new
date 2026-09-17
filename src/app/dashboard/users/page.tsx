@@ -24,6 +24,7 @@ export default function UsersPage() {
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState('');
+  const [credentialsEmailSent, setCredentialsEmailSent] = useState<boolean | null>(null);
   const [formData, setFormData] = useState({ name: '', email: '', role: 'field' as UserRole });
   const [profileForm, setProfileForm] = useState({ full_name: profile?.full_name || '', avatar_url: '' });
   const [formError, setFormError] = useState('');
@@ -58,10 +59,14 @@ export default function UsersPage() {
     setFormError('');
     const password = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase() + '!';
     try {
-      await createUser({ email: formData.email, password, full_name: formData.name, role: formData.role });
+      const response = await createUser({ email: formData.email, password, full_name: formData.name, role: formData.role });
       setGeneratedPassword(password);
+      setCredentialsEmailSent(response.emailSent !== false);
       setShowAddUserModal(false);
       setShowPasswordModal(true);
+      if (response.emailSent === false) {
+        setFormError(response.emailError || 'The user was created, but the login-details email could not be sent.');
+      }
       setFormData({ name: '', email: '', role: 'field' });
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Failed to create user');
@@ -327,11 +332,11 @@ export default function UsersPage() {
               <div className="text-center">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4"><Check className="w-8 h-8 text-green-600" /></div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-2">User Created!</h2>
-                <p className="text-gray-500 mb-4">Copy the temporary password below:</p>
+                <p className="text-gray-500 mb-4">{credentialsEmailSent ? 'The login details were sent to the user by email.' : 'The login-details email could not be sent. Copy the temporary password below:'}</p>
                 <div className="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-4 mb-4">
                   <p className="text-2xl font-mono font-bold text-gray-800 text-center select-all">{generatedPassword}</p>
                 </div>
-                <p className="text-xs text-gray-400 mb-4">Share this password with the user. They should change it after first login.</p>
+                <p className="text-xs text-gray-400 mb-4">{credentialsEmailSent ? 'Keep this password only as a backup. The user should change it after first login.' : 'Share this password with the user. They should change it after first login.'}</p>
                 <button onClick={() => setShowPasswordModal(false)} className="w-full px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a]">Done</button>
               </div>
             </motion.div>

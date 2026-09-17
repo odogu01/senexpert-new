@@ -123,7 +123,7 @@ export default function RequestsPage() {
     model: '',
     quantity: '1',
     movementType: 'outgoing' as 'incoming' | 'outgoing',
-    transactionType: 'rented' as 'rented' | 'showcase',
+    transactionType: 'rented' as 'sold' | 'rented' | 'showcase',
     location: '',
     notes: '',
     vehicleNo: '',
@@ -638,7 +638,8 @@ export default function RequestsPage() {
                 {formData.movementType === 'outgoing' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Transaction Type</label>
-                    <select value={formData.transactionType} onChange={(e) => setFormData({ ...formData, transactionType: e.target.value as 'rented' | 'showcase' })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+                    <select value={formData.transactionType} onChange={(e) => setFormData({ ...formData, transactionType: e.target.value as 'sold' | 'rented' | 'showcase' })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+                      <option value="sold">Sold</option>
                       <option value="rented">Rented</option>
                       <option value="showcase">Showcase</option>
                     </select>

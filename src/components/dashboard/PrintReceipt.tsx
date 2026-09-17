@@ -107,8 +107,8 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
       <div className="receipt-content">
       {/* Company Header */}
       <div className="text-center border-b border-gray-300 pb-0.5 mb-0.5">
-        <img src="/title-logo.png" alt="SenExpert Global" className="w-16 h-auto mx-auto mb-1" />
-        <h1 className="text-lg font-bold text-gray-900 mb-4">SenExpert Global Energies</h1>
+        <img src="/title-logo.png" alt="SenExpert Global" className="w-24 h-auto mx-auto mb-2" />
+        <h1 className="text-2xl font-bold text-gray-900 mb-4">SenExpert Global Energies</h1>
       </div>
 
       {/* Ref + Po No + Contract No + Company Details */}

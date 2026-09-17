@@ -24,11 +24,26 @@ async function fetchProfile(): Promise<ProfileData> {
   return throwIfError<ProfileData>(await res.json());
 }
 
+function getStoredProfileData(): ProfileData | undefined {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    const raw = localStorage.getItem('senexpert_profile');
+    return raw ? JSON.parse(raw) as ProfileData : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function useProfile() {
   return useQuery({
     queryKey: queryKeys.profile.all,
     queryFn: fetchProfile,
     enabled: typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token'),
+    // Login already returns the authenticated profile and AuthProvider persists
+    // it. Hydrate from that response so role-based dashboard controls are ready
+    // immediately instead of blocking every page on another MongoDB round trip.
+    initialData: getStoredProfileData,
+    initialDataUpdatedAt: () => getStoredProfileData() ? Date.now() : undefined,
   });
 }
 

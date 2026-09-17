@@ -10,7 +10,7 @@ export type UserRole = 'super_admin' | 'admin' | 'hr' | 'accountant' | 'field' |
 export type ToolStatus = 'available' | 'in_use' | 'maintenance' | 'retired' | 'rentals' | 'sold';
 export type ToolRequestStatus = 'pending' | 'approved' | 'rejected' | 'completed';
 export type MovementType = 'incoming' | 'outgoing';
-export type MaintenanceType = 'inspection' | 'repair' | 'calibration' | 'replacement' | 'cleaning' | 'other';
+export type MaintenanceType = string;
 export type MaintenanceStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
 export type AlertType = 'info' | 'warning' | 'critical' | 'success';
 export type NotificationType =
@@ -136,7 +136,7 @@ export interface ToolRequest {
   ref_number?: string;       // Auto-generated: "SEG/000001"
   tool_id?: string;
   movement_type: MovementType;
-  transaction_type?: 'rented' | 'showcase';
+  transaction_type?: 'sold' | 'rented' | 'showcase';
   requested_by?: string;
   assigned_to?: string;
   quantity: number;

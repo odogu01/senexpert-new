@@ -12,6 +12,7 @@ import {
   ProfileRepository,
   AuditLogRepository,
 } from './repositories';
+import { sendNewUserCredentials } from './emailService';
 
 // Prevent client-import mistake
 if (typeof window !== 'undefined') {
@@ -476,9 +477,24 @@ export async function createUser(
       ipAddress,
     });
 
+    let emailSent = true;
+    let emailError: string | undefined;
+    try {
+      await sendNewUserCredentials({
+        email: userData.email.toLowerCase(),
+        fullName: userData.full_name,
+        password: userData.password,
+      });
+    } catch (emailFailure) {
+      // The account exists even when delivery fails; surface that fact to the admin.
+      emailSent = false;
+      emailError = 'The account was created, but the login-details email could not be sent.';
+      console.error('New user credentials email failed:', emailFailure);
+    }
+
     // Strip password_hash before returning
     const { password_hash: _, ...safeUser } = created as any;
-    return { success: true, data: safeUser };
+    return { success: true, data: safeUser, emailSent, emailError };
   } catch (error) {
     console.error('Create user error:', error);
     return { success: false, error: 'Failed to create user' };
