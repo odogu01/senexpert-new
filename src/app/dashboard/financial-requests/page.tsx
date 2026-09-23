@@ -7,10 +7,7 @@ import { useFinancialRequests, useCreateFinancialRequest, useUpdateFinancialRequ
 import type { FinancialRequest } from '@/lib/database.types';
 
 const CATEGORIES = [
-  'Equipment Purchase',
-  'Maintenance & Repair',
-  'Training & Development',
-  'Travel & Accommodation',
+  'Transportation Fare',
   'Office Supplies',
   'Software & Subscriptions',
   'Other',
@@ -33,8 +30,8 @@ export default function FinancialRequestsPage() {
   const [formError, setFormError] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<FinancialRequest | null>(null);
 
-  const canRequest = currentUser?.role === 'super_admin' || currentUser?.role === 'admin' || currentUser?.role === 'operator' || currentUser?.role === 'dev';
-  const canApprove = currentUser?.role === 'super_admin' || currentUser?.role === 'accountant' || currentUser?.role === 'dev';
+  const canRequest = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
+  const canApprove = currentUser?.role === 'super_admin' || currentUser?.role === 'accountant';
 
   const filteredRequests = statusFilter
     ? (requests as FinancialRequest[]).filter(r => r.status === statusFilter)

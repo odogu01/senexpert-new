@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -154,6 +154,60 @@ export default function RequestsPage() {
   const [returnSourceId, setReturnSourceId] = useState('');
   const [returnItems, setReturnItems] = useState<CartEntry[]>([]);
   let cartKeyCounter = useRef(0);
+  const draftStorageKey = profile?.id ? `senexpert_tool_request_draft_${profile.id}` : null;
+  const [draftReadyFor, setDraftReadyFor] = useState<string | null>(null);
+
+  // Keep an account-specific draft so leaving this page (or closing the modal)
+  // does not lose a long request. Restore only after the signed-in profile is known.
+  useEffect(() => {
+    if (!draftStorageKey || draftReadyFor === draftStorageKey) return;
+    try {
+      const rawDraft = localStorage.getItem(draftStorageKey);
+      if (!rawDraft) {
+        setDraftReadyFor(draftStorageKey);
+        return;
+      }
+      const draft = JSON.parse(rawDraft) as {
+        formData?: typeof formData;
+        cartItems?: CartEntry[];
+        returnSourceId?: string;
+        returnItems?: CartEntry[];
+      };
+      if (draft.formData) setFormData(current => ({ ...current, ...draft.formData }));
+      if (Array.isArray(draft.cartItems)) {
+        setCartItems(draft.cartItems);
+        cartKeyCounter.current = draft.cartItems.reduce((max, item) => {
+          const numericSuffix = Number(item.key.replace(/^cart-/, ''));
+          return Number.isFinite(numericSuffix) ? Math.max(max, numericSuffix) : max;
+        }, 0);
+      }
+      if (typeof draft.returnSourceId === 'string') setReturnSourceId(draft.returnSourceId);
+      if (Array.isArray(draft.returnItems)) setReturnItems(draft.returnItems);
+      setShowModal(true);
+      setDraftReadyFor(draftStorageKey);
+    } catch (error) {
+      console.warn('Unable to restore tool request draft:', error);
+      localStorage.removeItem(draftStorageKey);
+      setDraftReadyFor(draftStorageKey);
+    }
+  }, [draftStorageKey, draftReadyFor]);
+
+  useEffect(() => {
+    if (!draftStorageKey || draftReadyFor !== draftStorageKey) return;
+    const hasFormDetails = Object.entries(formData).some(([key, value]) => {
+      const defaults: Record<string, string> = { movementType: 'outgoing', transactionType: 'rented', quantity: '1' };
+      return value !== (defaults[key] ?? '');
+    });
+    if (!hasFormDetails && !cartItems.length && !returnSourceId && !returnItems.length) {
+      localStorage.removeItem(draftStorageKey);
+      return;
+    }
+    try {
+      localStorage.setItem(draftStorageKey, JSON.stringify({ formData, cartItems, returnSourceId, returnItems }));
+    } catch (error) {
+      console.warn('Unable to save tool request draft:', error);
+    }
+  }, [draftStorageKey, draftReadyFor, formData, cartItems, returnSourceId, returnItems]);
 
   const addCartItem = () => {
     cartKeyCounter.current++;
@@ -335,6 +389,17 @@ export default function RequestsPage() {
       }
 
       await createRequest(requestData);
+      if (draftStorageKey) localStorage.removeItem(draftStorageKey);
+      setMaxQuantity(null);
+      setQuantityError(null);
+      setCartItems([]);
+      setReturnSourceId('');
+      setReturnItems([]);
+      setFormData({
+        toolId: '', toolName: '', sizeThread: '', material: '', model: '', quantity: '1',
+        movementType: 'outgoing', transactionType: 'rented', location: '', notes: '', vehicleNo: '',
+        deliveredTo: '', deliveredBy: '', receivedBy: '', receivedFrom: '', jobName: '',
+      });
       handleCloseModal();
     } catch (err) {
       console.error('Failed to submit request:', err);
@@ -343,29 +408,6 @@ export default function RequestsPage() {
 
   const handleCloseModal = () => {
     setShowModal(false);
-    setMaxQuantity(null);
-    setQuantityError(null);
-    setCartItems([]);
-    setReturnSourceId('');
-    setReturnItems([]);
-    setFormData({
-      toolId: '',
-      toolName: '',
-      sizeThread: '',
-      material: '',
-      model: '',
-      quantity: '1',
-      movementType: 'outgoing',
-      transactionType: 'rented',
-      location: '',
-      notes: '',
-      vehicleNo: '',
-      deliveredTo: '',
-      deliveredBy: '',
-      receivedBy: '',
-      receivedFrom: '',
-      jobName: '',
-    });
   };
 
   return (
