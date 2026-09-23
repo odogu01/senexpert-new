@@ -111,6 +111,17 @@ export const updateToolRequestSchema = z.object({
   approved_by: z.string().optional(),
 });
 
+export const editPendingToolRequestSchema = z.object({
+  items: z.array(toolRequestItemSchema).min(1, 'Add at least one tool before approval'),
+  notes: z.string().max(1000).optional(),
+  location: z.string().max(200).optional(),
+  vehicle_no: z.string().max(100).optional(),
+  delivered_to: z.string().max(200).optional(),
+  delivered_by: z.string().max(200).optional(),
+  received_by: z.string().max(200).optional(),
+  received_from: z.string().max(200).optional(),
+});
+
 // ============================================
 // Financial Requests
 // ============================================

@@ -591,7 +591,60 @@ export async function updateToolRequestStatus(
     return { success: true };
   } catch (error) {
     console.error('Update tool request error:', error);
-    return { success: false, error: 'Failed to update tool request' };
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to update tool request' };
+  }
+}
+
+/** Allow an approver to correct a pending request before its stock is committed. */
+export async function editPendingToolRequest(
+  id: string,
+  changes: { items: Array<{ tool_id: string; tool_name?: string; quantity: number; size_thread?: string; material?: string; model?: string }>; notes?: string; location?: string; vehicle_no?: string; delivered_to?: string; delivered_by?: string; received_by?: string; received_from?: string },
+  actingUserId?: string,
+  ipAddress?: string,
+): Promise<{ success: boolean; data?: ToolRequest; error?: string }> {
+  try {
+    const oldRequest = await toolRequestRepo.findById(id);
+    if (!oldRequest) return { success: false, error: 'Request not found' };
+    if (oldRequest.status !== 'pending') return { success: false, error: 'Only pending requests can be edited' };
+    if (oldRequest.movement_type !== 'outgoing') return { success: false, error: 'Only outgoing tool requests can be edited during approval' };
+
+    const { connectToDatabase, getDatabase } = await import('@/lib/mongodb');
+    const mongodb = await import('mongodb');
+    await connectToDatabase();
+    const db = getDatabase();
+    let requestId: any;
+    try { requestId = new mongodb.ObjectId(id); } catch { return { success: false, error: 'Invalid request ID' }; }
+
+    const items = [] as any[];
+    for (const item of changes.items) {
+      let toolId: any;
+      try { toolId = new mongodb.ObjectId(item.tool_id); } catch { return { success: false, error: 'Select a valid inventory tool for every item' }; }
+      const tool = await db.collection('tools').findOne({ _id: toolId, quantity: { $gte: item.quantity } });
+      if (!tool) return { success: false, error: `Insufficient available inventory for ${item.tool_name || 'a selected tool'}` };
+      items.push({ ...item, tool_name: item.tool_name || tool.name });
+    }
+
+    const now = new Date();
+    const updated = await db.collection('tool_requests').findOneAndUpdate(
+      { _id: requestId, status: 'pending' },
+      { $set: {
+        items,
+        tool_id: items[0].tool_id,
+        tool_name: items.map((item) => item.tool_name).join(', '),
+        quantity: items.reduce((total, item) => total + item.quantity, 0),
+        notes: changes.notes || '', location: changes.location || '', vehicle_no: changes.vehicle_no || '',
+        delivered_to: changes.delivered_to || '', delivered_by: changes.delivered_by || '',
+        received_by: changes.received_by || '', received_from: changes.received_from || '', updated_at: now,
+      } },
+      { returnDocument: 'after' },
+    );
+    if (!updated) return { success: false, error: 'Request was already processed' };
+
+    await logAuditEvent({ userId: actingUserId, action: 'UPDATE', tableName: 'tool_requests', recordId: id, oldValues: oldRequest as any, newValues: changes as any, ipAddress });
+    return { success: true, data: updated as any };
+  } catch (error) {
+    console.error('Edit tool request error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to edit tool request' };
   }
 }
 

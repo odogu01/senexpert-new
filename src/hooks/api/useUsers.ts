@@ -26,7 +26,7 @@ export function useCreateUser() {
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
       });
-      return throwIfError(await res.json());
+      return throwIfError<{ emailSent?: boolean; emailError?: string }>(await res.json());
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.users.all }),
   });

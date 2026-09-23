@@ -34,7 +34,7 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
     // Direct tool addition — single row
     const parts = [
       tool.name,
-      tool.size_thread,
+      isValidValue(tool.size_thread) ? `Size/Thread: ${tool.size_thread}` : null,
       tool.material,
       isValidValue(tool.work_order_number) ? `W/O:${tool.work_order_number}` : null,
       isValidValue(tool.material_no) ? `Mat No:${tool.material_no}` : null,
@@ -53,14 +53,16 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
     const notes = request.notes || '-';
     if (items && items.length > 0) {
       items.forEach((item, i) => {
-        const parts = descParts(item.tool_name, item.size_thread, item.material,
+        const parts = descParts(item.tool_name,
+          isValidValue(item.size_thread) ? `Size/Thread: ${item.size_thread}` : null,
+          item.material,
           isValidValue(item.work_order_number) ? `W/O:${item.work_order_number}` : null,
           isValidValue(item.material_no) ? `Mat No:${item.material_no}` : null,
           isValidValue(item.part_number) ? `Part No:${item.part_number}` : null);
         toolRows.push({ sn: i + 1, description: parts.join('; ') || 'N/A', quantity: item.quantity, remark: notes });
       });
     } else if (request.tool_name) {
-      const desc = [request.tool_name, req?.size_thread, req?.material].filter(isValidValue).join('; ');
+      const desc = [request.tool_name, isValidValue(req?.size_thread) ? `Size/Thread: ${req?.size_thread}` : null, req?.material].filter(isValidValue).join('; ');
       toolRows.push({ sn: 1, description: desc || 'N/A', quantity: request.quantity, remark: notes });
     }
   }

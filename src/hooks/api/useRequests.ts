@@ -64,6 +64,17 @@ export function useUpdateToolRequestStatus() {
   });
 }
 
+export function useEditToolRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...changes }: { id: string; items: Array<{ tool_id: string; tool_name?: string; quantity: number }>; notes?: string; location?: string; vehicle_no?: string; delivered_to?: string; delivered_by?: string; received_by?: string; received_from?: string }) => {
+      const res = await fetch(`/api/tool-requests/${encodeURIComponent(id)}`, { method: 'PATCH', headers: getAuthHeaders(), body: JSON.stringify(changes) });
+      return throwIfError(await res.json());
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.toolRequests.all }),
+  });
+}
+
 // ════════════════════════════════════════════
 // FINANCIAL REQUESTS
 // ════════════════════════════════════════════

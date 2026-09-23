@@ -88,6 +88,10 @@ export class ToolRequestRepository extends BaseRepository<any> {
                         },
                       },
                       in: {
+                        tool_name: { $ifNull: ['$$item.tool_name', '$$matchedTool.name'] },
+                        size_thread: { $ifNull: ['$$item.size_thread', '$$matchedTool.size_thread'] },
+                        material: { $ifNull: ['$$item.material', '$$matchedTool.material'] },
+                        model: { $ifNull: ['$$item.model', '$$matchedTool.model'] },
                         work_order_number: { $ifNull: ['$$item.work_order_number', '$$matchedTool.work_order_number'] },
                         material_no: { $ifNull: ['$$item.material_no', '$$matchedTool.material_no'] },
                         part_number: { $ifNull: ['$$item.part_number', '$$matchedTool.part_number'] },
