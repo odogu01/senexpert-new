@@ -1,6 +1,7 @@
 /**
  * Simple in-memory sliding window rate limiter.
- * Shared across all API routes.
+ * Rate limits are isolated by client IP, route, and HTTP method so unrelated
+ * dashboard requests do not consume the same bucket.
  * Note: Resets on server restart — suitable for single-instance deployments.
  * For multi-instance, replace with Redis-based limiter.
  */
@@ -70,10 +71,18 @@ export function getClientIp(request: { headers: { get(name: string): string | nu
  * Apply rate limiting to a request. Returns rate limit status with remaining count.
  */
 export function applyRateLimit(
-  request: { headers: { get(name: string): string | null } },
+  request: {
+    headers: { get(name: string): string | null };
+    method?: string;
+    nextUrl?: { pathname: string };
+    url?: string;
+  },
   opts?: { maxRequests?: number; windowMs?: number },
 ): { blocked: boolean; remaining: number; resetAt: number } {
   const ip = getClientIp(request);
-  const result = checkRateLimit(ip, opts);
+  const pathname = request.nextUrl?.pathname
+    || (request.url ? new URL(request.url).pathname : 'unknown');
+  const method = request.method?.toUpperCase() || 'GET';
+  const result = checkRateLimit(`${ip}:${method}:${pathname}`, opts);
   return { blocked: !result.allowed, remaining: result.remaining, resetAt: result.resetAt };
 }
