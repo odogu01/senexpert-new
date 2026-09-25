@@ -15,4 +15,5 @@ export { FinancialRequestRepository } from './FinancialRequestRepository';
 export { MaintenanceRepository } from './MaintenanceRepository';
 export { AlertRepository } from './AlertRepository';
 export { AuditLogRepository } from './AuditLogRepository';
+export { DevAuditLogRepository } from './DevAuditLogRepository';
 export { NotificationRepository } from './NotificationRepository';

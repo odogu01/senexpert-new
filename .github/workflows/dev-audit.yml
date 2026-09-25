@@ -1,0 +1,48 @@
+name: Record developer audit
+
+on:
+  push:
+    branches: ['**']
+
+jobs:
+  record-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send pushed commits to SenExpert
+        env:
+          EVENT_PATH: ${{ github.event_path }}
+          INGEST_URL: ${{ secrets.DEV_AUDIT_INGEST_URL }}
+          INGEST_TOKEN: ${{ secrets.DEV_AUDIT_INGEST_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json, os, sys, urllib.request
+
+          if not os.environ.get('INGEST_URL') or not os.environ.get('INGEST_TOKEN'):
+              print('Configure DEV_AUDIT_INGEST_URL and DEV_AUDIT_INGEST_TOKEN in GitHub Actions secrets.', file=sys.stderr)
+              sys.exit(1)
+
+          with open(os.environ['EVENT_PATH'], encoding='utf-8') as event_file:
+              event = json.load(event_file)
+          commits = []
+          for item in event.get('commits', []):
+              author = item.get('author') or {}
+              commits.append({
+                  'commit_sha': item.get('id', ''), 'message': item.get('message', ''),
+                  'author_name': author.get('name') or 'Unknown', 'author_email': author.get('email'),
+                  'committed_at': item.get('timestamp', ''), 'url': item.get('url', ''),
+                  'added': item.get('added', []), 'modified': item.get('modified', []),
+                  'removed': item.get('removed', []),
+              })
+          payload = json.dumps({
+              'repository': event.get('repository', {}).get('full_name', ''),
+              'branch': event.get('ref', '').removeprefix('refs/heads/'),
+              'pushed_at': event.get('head_commit', {}).get('timestamp'), 'commits': commits,
+          }).encode()
+          request = urllib.request.Request(
+              os.environ['INGEST_URL'], data=payload,
+              headers={'Authorization': 'Bearer ' + os.environ['INGEST_TOKEN'], 'Content-Type': 'application/json'},
+              method='POST',
+          )
+          with urllib.request.urlopen(request, timeout=30) as response:
+              print(response.read().decode())
+          PY

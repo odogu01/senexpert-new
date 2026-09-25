@@ -20,7 +20,8 @@ import {
   X,
   CheckCircle,
   DollarSign,
-  Bell
+  Bell,
+  ShieldAlert,
 } from 'lucide-react';
 import type { UserRole } from '@/lib/database.types';
 
@@ -45,6 +46,7 @@ const navItems = [
   { label: 'Calendar', href: '/dashboard/calendar', icon: Calendar, roles: ['super_admin', 'admin', 'dev'] },
   { label: 'Reports', href: '/dashboard/reports', icon: FileText, roles: ['super_admin', 'admin', 'dev'] },
   { label: 'Audit Logs', href: '/dashboard/audit-logs', icon: ClipboardList, roles: ['super_admin', 'dev'] },
+  { label: 'Developer Audit', href: '/dashboard/dev-audit-logs', icon: ShieldAlert, roles: ['dev'] },
   { label: 'Users', href: '/dashboard/users', icon: Users, roles: ['super_admin', 'dev'] },
   { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['super_admin', 'admin', 'hr', 'dev'] },
 ];

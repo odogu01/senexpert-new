@@ -1003,3 +1003,19 @@ export async function getAuditLogs(filters?: {
     return { success: false, error: 'Failed to fetch audit logs' };
   }
 }
+
+/** Developer-only stream stored separately from the standard audit collection. */
+export async function getDevAuditLogs(limit = 200): Promise<{
+  success: boolean;
+  data?: AuditLog[];
+  error?: string;
+}> {
+  try {
+    const { DevAuditLogRepository } = await import('./repositories/DevAuditLogRepository');
+    const data = await new DevAuditLogRepository().getRecent(Math.min(Math.max(limit, 1), 500));
+    return { success: true, data: data as any };
+  } catch (error) {
+    console.error('Get developer audit logs error:', error);
+    return { success: false, error: 'Failed to fetch developer audit logs' };
+  }
+}
