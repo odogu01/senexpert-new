@@ -190,67 +190,31 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
 
       {/* Signature Section */}
       <div className="signature-section border-t border-gray-300 pt-2">
-        <div className="space-y-px">
-          {/* Row 1: Requested By + Received By */}
+        {isOutgoing ? (
           <div className="grid grid-cols-2 gap-x-6">
-            <div className="flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Requested By:</span>
-              <span className="text-gray-900 text-xs">
-                {isTool ? (tool?.received_by || '-') : (req?.requester_name || req?.requested_by || '-')}
-              </span>
+            <div className="space-y-px">
+              <div className="flex items-center gap-1"><span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Vehicle No:</span><span className="text-gray-900 text-xs">{isTool ? (tool?.vehicle_number || '-') : (req?.vehicle_no || '-')}</span></div>
+              <div className="flex items-center gap-1"><span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Date:</span><span className="text-gray-900 text-xs">{txDate}</span></div>
             </div>
-            <div className="flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Received By:</span>
-              {receivedBy.trim() ? (
-                <span className="text-xs text-gray-900 font-medium">{receivedBy}</span>
-              ) : (
-                <input
-                  type="text"
-                  value={receivedBy}
-                  onChange={e => setReceivedBy(e.target.value)}
-                  placeholder="_________________________"
-                  className="flex-1 border-0 text-xs text-gray-900 bg-transparent"
-                />
-              )}
+            <div className="space-y-px">
+              <div className="flex items-center gap-1"><span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Received By:</span>{receivedBy.trim() ? <span className="text-xs text-gray-900 font-medium">{receivedBy}</span> : <input type="text" value={receivedBy} onChange={e => setReceivedBy(e.target.value)} placeholder="_________________________" className="flex-1 border-0 text-xs text-gray-900 bg-transparent" />}</div>
+              <div className="flex items-center gap-1"><span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Signature:</span><span className="text-gray-900 text-[10px]">_________________________</span></div>
+              <div className="flex items-center gap-1"><span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Date:</span><span className="text-gray-900 text-[10px]">_________________________</span></div>
             </div>
           </div>
-
-          {/* Row 2: Delivered by / Received from + Vehicle Number */}
-          <div className="grid grid-cols-2 gap-x-6">
-            <div className="flex items-center gap-1">
-              <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">
-                {isOutgoing ? 'Delivered by:' : 'Received from:'}
-              </span>
-              <span className="text-gray-900 text-xs">
-                {isTool ? (tool?.received_from || '-') : (req?.delivered_by || '-')}
-              </span>
+        ) : (
+          <div className="space-y-px">
+            <div className="grid grid-cols-2 gap-x-6">
+              <div className="flex items-center gap-1"><span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Requested By:</span><span className="text-gray-900 text-xs">{isTool ? (tool?.received_by || '-') : (req?.requester_name || req?.requested_by || '-')}</span></div>
+              <div className="flex items-center gap-1"><span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Received By:</span>{receivedBy.trim() ? <span className="text-xs text-gray-900 font-medium">{receivedBy}</span> : <input type="text" value={receivedBy} onChange={e => setReceivedBy(e.target.value)} placeholder="_________________________" className="flex-1 border-0 text-xs text-gray-900 bg-transparent" />}</div>
             </div>
-            <div className="flex flex-col gap-0.5">
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Vehicle No:</span>
-                <span className="text-gray-900 text-xs">
-                  {isTool ? (tool?.vehicle_number || '-') : (req?.vehicle_no || '-')}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Date:</span>
-                <span className="text-gray-900 text-xs">{txDate}</span>
-              </div>
+            <div className="grid grid-cols-2 gap-x-6">
+              <div className="flex items-center gap-1"><span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Received from:</span><span className="text-gray-900 text-xs">{isTool ? (tool?.received_from || '-') : (req?.delivered_by || '-')}</span></div>
+              <div className="flex flex-col gap-0.5"><div className="flex items-center gap-1"><span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Vehicle No:</span><span className="text-gray-900 text-xs">{isTool ? (tool?.vehicle_number || '-') : (req?.vehicle_no || '-')}</span></div><div className="flex items-center gap-1"><span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Date:</span><span className="text-gray-900 text-xs">{txDate}</span></div></div>
             </div>
+            <div className="grid grid-cols-2 gap-x-6 mt-0.5 pt-0.5 border-t border-gray-200"><div><span className="text-[10px] font-semibold text-gray-600 uppercase">Signature / Date: </span><span className="text-gray-900 text-[10px]">_________________________________</span></div><div><span className="text-[10px] font-semibold text-gray-600 uppercase">Signature / Date: </span><span className="text-gray-900 text-[10px]">_________________________________</span></div></div>
           </div>
-        </div>
-
-        {/* Signature / Date */}
-        <div className="grid grid-cols-2 gap-x-6 mt-0.5 pt-0.5 border-t border-gray-200">
-          <div>
-            <span className="text-[10px] font-semibold text-gray-600 uppercase">Signature / Date: </span>
-            <span className="text-gray-900 text-[10px]">_________________________________</span>
-          </div>
-          <div>
-            <span className="text-[10px] font-semibold text-gray-600 uppercase">Signature / Date: </span>
-            <span className="text-gray-900 text-[10px]">_________________________________</span>
-          </div>
-        </div>
+        )}
       </div>
     </div>
 
