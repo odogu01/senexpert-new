@@ -6,6 +6,56 @@
 import { ObjectId } from 'mongodb';
 
 export type UserRole = 'super_admin' | 'admin' | 'hr' | 'accountant' | 'field' | 'operator' | 'dev';
+export type EmployeeStatus = 'active' | 'on_leave' | 'terminated';
+
+export interface EmployeeAllowance { name: string; amount: number; }
+export interface EmployeePayrollBank { bank_name: string; account_name: string; account_number: string; }
+export interface EmployeePension { provider?: string; scheme?: string; pin?: string; }
+export interface EmployeeDocument {
+  id: string;
+  category: string;
+  file_name: string;
+  format: string;
+  bytes: number;
+  public_id: string;
+  resource_type: 'image' | 'raw';
+  uploaded_by: string;
+  created_at: Date | string;
+}
+export interface Employee {
+  id: string;
+  employee_id: string;
+  full_name: string;
+  category: string;
+  department: string;
+  job_title: string;
+  official_email: string;
+  personal_email?: string;
+  resumption_date?: Date | string;
+  date_of_birth?: Date | string;
+  gender?: string;
+  marital_status?: string;
+  number_of_children?: number;
+  contact_number?: string;
+  contact_address?: string;
+  next_of_kin_name?: string;
+  next_of_kin_relationship?: string;
+  next_of_kin_contact?: string;
+  supervisor_manager?: string;
+  employment_status: EmployeeStatus;
+  basic_salary?: number;
+  salary_frequency?: 'monthly' | 'annual';
+  christmas_bonus?: number;
+  leave_allowance?: number;
+  allowances?: EmployeeAllowance[];
+  payroll_bank?: EmployeePayrollBank;
+  annual_leave_days?: number;
+  pension?: EmployeePension;
+  photo?: { public_id: string; resource_type: 'image'; format: string };
+  documents?: EmployeeDocument[];
+  created_at: Date | string;
+  updated_at: Date | string;
+}
 
 export type ToolStatus = 'available' | 'in_use' | 'maintenance' | 'retired' | 'rentals' | 'sold';
 export type ToolRequestStatus = 'pending' | 'approved' | 'rejected' | 'completed';

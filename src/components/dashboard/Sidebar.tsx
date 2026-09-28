@@ -37,6 +37,7 @@ interface SidebarProps {
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'accountant', 'hr', 'field', 'operator', 'dev'] },
   { label: 'Notifications', href: '/dashboard/notifications', icon: Bell, roles: ['super_admin', 'admin', 'accountant', 'hr', 'field', 'operator', 'dev'] },
+  { label: 'Employees', href: '/dashboard/employees', icon: Users, roles: ['hr'] },
   { label: 'Inventory', href: '/dashboard/inventory', icon: Package, roles: ['super_admin', 'admin', 'operator', 'dev'] },
   { label: 'Requests', href: '/dashboard/requests', icon: RotateCcw, roles: ['super_admin', 'admin', 'field', 'operator', 'dev'] },
   { label: 'Financial Requests', href: '/dashboard/financial-requests', icon: DollarSign, roles: ['super_admin', 'admin', 'accountant', 'dev'] },

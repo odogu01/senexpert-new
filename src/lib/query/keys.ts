@@ -45,6 +45,12 @@ export const queryKeys = {
   users: {
     all: ['users'] as const,
   },
+  employees: {
+    all: ['employees'] as const,
+    list: (filters?: Record<string, string | number | undefined>) => ['employees', 'list', filters] as const,
+    detail: (id: string) => ['employees', 'detail', id] as const,
+    stats: ['employees', 'stats'] as const,
+  },
   notifications: {
     all: ['notifications'] as const,
     list: (recipientId: string) => ['notifications', 'list', recipientId] as const,

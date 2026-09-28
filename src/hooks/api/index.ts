@@ -20,3 +20,5 @@ export { useDashboardStats } from './useDashboard';
 export type { DashboardStats } from './useDashboard';
 
 export { useUsers, useCreateUser, useDeleteUser, useResetUserPassword } from './useUsers';
+export { useEmployees, useEmployee, useEmployeeStats, useCreateEmployee, useUpdateEmployee } from './useEmployees';
+export type { EmployeeFilters, EmployeeList, EmployeeStats } from './useEmployees';

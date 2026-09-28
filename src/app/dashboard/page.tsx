@@ -3,12 +3,12 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Package, CheckCircle, Clock, Wrench, AlertTriangle, FolderOpen, TrendingUp, DollarSign, FileCheck } from 'lucide-react';
+import { Package, CheckCircle, Clock, Wrench, AlertTriangle, FolderOpen, TrendingUp, DollarSign, FileCheck, Users, UserCheck, Coffee, UserPlus } from 'lucide-react';
 import StatCard from '@/components/dashboard/StatCard';
 import ActivityFeed from '@/components/dashboard/ActivityFeed';
 import AlertsPanel from '@/components/dashboard/AlertsPanel';
 import StatusBadge, { ProgressBar } from '@/components/dashboard/StatusBadge';
-import { useDashboardStats, useAlerts, useTools } from '@/hooks/api';
+import { useDashboardStats, useAlerts, useTools, useEmployeeStats } from '@/hooks/api';
 import { useAuth } from '@/lib/authContext';
 
 interface CategoryData {
@@ -28,7 +28,23 @@ export default function DashboardPage() {
   const { data: alerts } = useAlerts();
   const { data: toolsData } = useTools();
   const { user } = useAuth();
+  const { data: employeeStats, isLoading: employeeStatsLoading, isError: employeeStatsError } = useEmployeeStats(user?.role === 'hr');
   const canViewFinancial = user && ['super_admin', 'admin', 'accountant', 'dev'].includes(user.role);
+
+  if (user?.role === 'hr') {
+    const hrCards = [
+      { title: 'Total Employees', value: employeeStats?.total ?? 0, icon: Users, color: 'blue' as const, subtitle: 'Current workforce' },
+      { title: 'Active', value: employeeStats?.active ?? 0, icon: UserCheck, color: 'green' as const, subtitle: 'Currently active' },
+      { title: 'On Leave', value: employeeStats?.on_leave ?? 0, icon: Coffee, color: 'orange' as const, subtitle: 'Marked as on leave' },
+      { title: 'New This Month', value: employeeStats?.new_this_month ?? 0, icon: UserPlus, color: 'purple' as const, subtitle: 'Profiles added this month' },
+    ];
+    return <div className="space-y-6">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><h1 className="text-xl font-bold text-gray-900 lg:text-2xl">HR Dashboard</h1><p className="mt-1 text-sm text-gray-500">Employee overview and workforce summary.</p></div><Link href="/dashboard/employees" className="rounded-lg bg-[#0B3C6D] px-4 py-2.5 text-center text-sm font-semibold text-white">Open Employee Directory</Link></div>
+      {employeeStatsError && <p className="rounded-lg bg-red-50 p-4 text-sm text-red-700">Employee summary could not be loaded.</p>}
+      {employeeStatsLoading ? <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{hrCards.map((card) => <div key={card.title} className="h-32 animate-pulse rounded-xl bg-white shadow-sm" />)}</div> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{hrCards.map((card, index) => <StatCard key={card.title} title={card.title} value={card.value} icon={card.icon} color={card.color} subtitle={card.subtitle} index={index}/>)}</div>}
+      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-semibold text-gray-900">Employees by Department</h2><p className="text-sm text-gray-500">Top departments by current headcount</p></div><Users className="h-5 w-5 text-gray-400"/></div>{employeeStatsLoading ? <p className="text-sm text-gray-400">Loading departments…</p> : !employeeStats?.departments.length ? <p className="text-sm text-gray-500">No department information yet.</p> : <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{employeeStats.departments.map((item) => <div key={item.department} className="rounded-lg bg-gray-50 p-4"><p className="truncate text-sm text-gray-500">{item.department}</p><p className="mt-1 text-2xl font-bold text-[#0B3C6D]">{item.total}</p></div>)}</div>}</section>
+    </div>;
+  }
 
   // Derive status distribution from stats
   const statusDistribution = useMemo<StatusData[]>(() => {
