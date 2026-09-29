@@ -38,7 +38,7 @@ export default function StatCard({ title, value, icon: Icon, trend, color = 'blu
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: index * 0.1 }}
-      className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
+      className="h-full bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
     >
       <div className="flex items-start justify-between">
         <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${colorClasses[color]} flex items-center justify-center`}>
@@ -58,10 +58,10 @@ export default function StatCard({ title, value, icon: Icon, trend, color = 'blu
       </div>
 
       <div className="mt-4">
-        <p className="text-sm text-gray-500">{title}</p>
+        <p className="block min-w-0 truncate text-sm text-gray-500" title={title}>{title}</p>
         <p className="text-3xl font-bold text-gray-800 mt-1">{value}</p>
         {subtitle && (
-          <p className="text-xs text-gray-400 mt-1">{subtitle}</p>
+          <p className="mt-1 block min-w-0 truncate text-xs text-gray-400" title={subtitle}>{subtitle}</p>
         )}
       </div>
     </motion.div>
