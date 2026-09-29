@@ -21,6 +21,18 @@ export class EmployeeRepository extends BaseRepository<any> {
     return result.sequence;
   }
 
+  async takeVacantEmployeeId(): Promise<string | null> {
+    const collection = await this.getCollection();
+    const vacancies = await (await import('@/lib/mongodb')).getCollection('employee_id_vacancies');
+    const vacancy = await vacancies.findOneAndDelete({}, { sort: { released_at: 1, employee_id: 1 } });
+    return vacancy?.employee_id || null;
+  }
+
+  async releaseEmployeeId(employeeId: string) {
+    const vacancies = await (await import('@/lib/mongodb')).getCollection('employee_id_vacancies');
+    await vacancies.insertOne({ _id: employeeId, employee_id: employeeId, released_at: new Date() });
+  }
+
   async list({ search = '', department = '', category = '', status = '', page = 1, pageSize = 25 } = {}) {
     const collection = await this.getCollection();
     const query: Record<string, any> = {};
@@ -46,7 +58,7 @@ export class EmployeeRepository extends BaseRepository<any> {
   async stats() {
     const collection = await this.getCollection();
     const employeeOnly = { _id: { $ne: 'employee_id' } };
-    const activeEmployees = { ...employeeOnly, employment_status: { $ne: 'terminated' } };
+    const activeEmployees = { ...employeeOnly, employment_status: { $nin: ['terminated', 'fired'] } };
     const monthStart = new Date();
     monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
     const [total, active, onLeave, newThisMonth, departments] = await Promise.all([
@@ -76,10 +88,16 @@ export class EmployeeRepository extends BaseRepository<any> {
   async create(data: Record<string, any>) {
     const mongodb = await this.getMongoDb();
     const collection = await this.getCollection();
-    const sequence = await this.nextSequence();
+    const employeeId = await this.takeVacantEmployeeId();
+    const sequence = employeeId ? null : await this.nextSequence();
     const now = new Date();
-    const doc = { _id: new mongodb.ObjectId(), employee_id: `SEG-${String(sequence).padStart(5, '0')}`, ...data, created_at: now, updated_at: now };
-    await collection.insertOne(doc);
+    const doc = { _id: new mongodb.ObjectId(), employee_id: employeeId || `SEG-${String(sequence).padStart(5, '0')}`, ...data, created_at: now, updated_at: now };
+    try {
+      await collection.insertOne(doc);
+    } catch (error) {
+      if (employeeId) await this.releaseEmployeeId(employeeId);
+      throw error;
+    }
     return this.toApp(doc);
   }
 
@@ -90,6 +108,17 @@ export class EmployeeRepository extends BaseRepository<any> {
     try { oid = new mongodb.ObjectId(id); } catch { return null; }
     const result = await collection.findOneAndUpdate({ _id: oid }, { $set: { ...updates, updated_at: new Date() } }, { returnDocument: 'after' });
     return result ? this.toApp(result) : null;
+  }
+
+  async restoreFailedFire(id: string, employeeId: string, status: string) {
+    const mongodb = await this.getMongoDb();
+    const collection = await this.getCollection();
+    let oid: any;
+    try { oid = new mongodb.ObjectId(id); } catch { return; }
+    await collection.updateOne({ _id: oid }, {
+      $set: { employee_id: employeeId, employment_status: status, updated_at: new Date() },
+      $unset: { former_employee_id: '', employment_end_action: '', employment_end_date: '' },
+    });
   }
 
   async addDocument(id: string, document: Record<string, any>) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getEmployee, updateEmployee } from '@/services/employeeService';
+import { endEmployeeEngagement, getEmployee, updateEmployee } from '@/services/employeeService';
 import { applyRateLimit } from '@/lib/rateLimit';
 import { isAuthFailure, requireActiveUser, requireRole } from '@/lib/apiAuth';
 
@@ -31,7 +31,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const auth = await authorized(request);
     if (auth instanceof NextResponse) return auth;
     const { id } = await context.params;
-    const result = await updateEmployee(id, await request.json());
+    const body = await request.json();
+    const result = body.employment_action
+      ? await endEmployeeEngagement(id, body.employment_action, auth.userId, request.headers.get('x-forwarded-for') || undefined)
+      : await updateEmployee(id, body);
     return NextResponse.json(result, { status: result.status || (result.success ? 200 : 400) });
   } catch (error) {
     console.error('Employee PATCH error:', error);
