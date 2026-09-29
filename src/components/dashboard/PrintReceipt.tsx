@@ -97,11 +97,14 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
   const [receivedBy, setReceivedBy] = useState(ls(storageKey('received_by'), ''));
   const [poNo, setPoNo] = useState(ls(storageKey('po_no'), ''));
   const [contractNo, setContractNo] = useState(ls(storageKey('contract_no'), ''));
+  const initialRemark = isTool ? (tool?.description || '-') : (request?.notes || '-');
+  const [remark, setRemark] = useState(ls(storageKey('remark'), initialRemark));
 
   // Persist to localStorage whenever values change
   useEffect(() => { localStorage.setItem(storageKey('received_by'), receivedBy); }, [receivedBy, txId]);
   useEffect(() => { localStorage.setItem(storageKey('po_no'), poNo); }, [poNo, txId]);
   useEffect(() => { localStorage.setItem(storageKey('contract_no'), contractNo); }, [contractNo, txId]);
+  useEffect(() => { localStorage.setItem(storageKey('remark'), remark); }, [remark, txId]);
 
   return (
     <>
@@ -181,7 +184,15 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
               <td className="px-1.5 py-0.5 text-gray-900 font-medium border border-gray-300">{row.sn}</td>
               <td className="px-1.5 py-0.5 text-gray-800 border border-gray-300">{row.description}</td>
               <td className="px-1.5 py-0.5 text-center text-gray-900 font-medium border border-gray-300">{row.quantity}</td>
-              <td className="px-1.5 py-0.5 text-gray-600 text-[10px] border border-gray-300">{row.remark}</td>
+              <td className="px-1.5 py-0.5 text-gray-600 text-[10px] border border-gray-300">
+                <input
+                  type="text"
+                  value={remark}
+                  onChange={event => setRemark(event.target.value)}
+                  aria-label={`Remark for item ${row.sn}`}
+                  className="w-full border-0 bg-transparent p-0 text-[10px] text-gray-600 focus:outline-none focus:ring-1 focus:ring-[#0B3C6D] print:focus:ring-0"
+                />
+              </td>
             </tr>
           ))}
         </tbody>
