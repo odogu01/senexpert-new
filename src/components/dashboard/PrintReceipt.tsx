@@ -203,12 +203,12 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
       <div className="signature-section border-t border-gray-300 pt-2">
         {isOutgoing ? (
           <div className="grid grid-cols-2 gap-x-6">
-            <div className="space-y-px">
+            <div className="space-y-2">
               <div className="flex items-center gap-1"><span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Delivered By:</span><span className="text-gray-900 text-xs">{isTool ? (tool?.received_from || '-') : (req?.delivered_by || '-')}</span></div>
               <div className="flex items-center gap-1"><span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Vehicle No:</span><span className="text-gray-900 text-xs">{isTool ? (tool?.vehicle_number || '-') : (req?.vehicle_no || '-')}</span></div>
               <div className="flex items-center gap-1"><span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Signature / Date:</span><span className="text-gray-900 text-xs whitespace-nowrap">{txDate}</span><span className="ml-1 h-4 flex-1 border-b border-gray-500" aria-hidden="true" /></div>
             </div>
-            <div className="space-y-px">
+            <div className="space-y-2">
               <div className="flex items-center gap-1"><span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Received By:</span>{receivedBy.trim() ? <span className="text-xs text-gray-900 font-medium">{receivedBy}</span> : <input type="text" value={receivedBy} onChange={e => setReceivedBy(e.target.value)} placeholder="_________________________" className="flex-1 border-0 text-xs text-gray-900 bg-transparent" />}</div>
               <div className="flex items-center gap-1"><span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Signature:</span><span className="text-gray-900 text-[10px]">_________________________</span></div>
               <div className="flex items-center gap-1"><span className="text-[10px] font-semibold text-gray-600 uppercase whitespace-nowrap">Date:</span><span className="text-gray-900 text-[10px]">_________________________</span></div>
