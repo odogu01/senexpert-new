@@ -133,12 +133,16 @@ export async function updateEmployee(id: string, input: Record<string, any>) {
 export async function endEmployeeEngagement(id: string, action: string, actorId?: string, ipAddress?: string) {
   const current = await employeeRepo.findById(id);
   if (!current) return { success: false, error: { message: 'Employee not found' }, status: 404 };
-  if (!['active', 'on_leave'].includes(current.employment_status)) {
+  const currentStatus = String(current.employment_status || '').trim().toLowerCase();
+  if (!['active', 'on_leave'].includes(currentStatus)) {
     return { success: false, error: { message: 'This employee has already left active employment' }, status: 409 };
   }
 
-  const isContractTermination = action === 'terminate_contract' && current.category === 'Contract';
-  const isStaffDismissal = action === 'fire_staff' && current.category === 'Staff';
+  const category = String(current.category || '').trim().toLowerCase();
+  const isContractCategory = category.includes('contract');
+  const isStaffCategory = category.includes('staff') && !isContractCategory;
+  const isContractTermination = action === 'terminate_contract' && isContractCategory;
+  const isStaffDismissal = action === 'fire_staff' && isStaffCategory;
   if (!isContractTermination && !isStaffDismissal) {
     return { success: false, error: { message: 'This action is not available for the employee category' }, status: 400 };
   }
