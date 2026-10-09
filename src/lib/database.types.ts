@@ -6,7 +6,7 @@
 import { ObjectId } from 'mongodb';
 
 export type UserRole = 'super_admin' | 'admin' | 'hr' | 'accountant' | 'field' | 'operator' | 'dev';
-export type EmployeeStatus = 'active' | 'on_leave' | 'terminated' | 'fired';
+export type EmployeeStatus = 'active' | 'on_leave' | 'terminated' | 'fired' | 'resigned';
 
 export interface EmployeeAllowance { name: string; amount: number; }
 export interface EmployeePayrollBank { bank_name: string; account_name: string; account_number: string; }
@@ -44,7 +44,7 @@ export interface Employee {
   supervisor_manager?: string;
   employment_status: EmployeeStatus;
   former_employee_id?: string;
-  employment_end_action?: 'contract_terminated' | 'fired';
+  employment_end_action?: 'contract_terminated' | 'fired' | 'resign_exit';
   employment_end_date?: Date | string;
   basic_salary?: number;
   salary_frequency?: 'monthly' | 'annual';

@@ -16,9 +16,10 @@ function normalizeEmployee(input: Record<string, any>) {
   const textFields = ['full_name', 'category', 'department', 'job_title', 'official_email', 'personal_email', 'gender', 'marital_status', 'contact_number', 'contact_address', 'next_of_kin_name', 'next_of_kin_relationship', 'next_of_kin_contact', 'supervisor_manager'];
   const normalized: Record<string, any> = {};
   for (const field of textFields) normalized[field] = cleanText(input[field], field.includes('address') ? 1000 : 200);
-  if (!['Contract', 'Staff', 'Intern', 'Copper'].includes(normalized.category)) normalized.category = '';
+  const categories = ['Contract', 'Staff', 'Intern', 'Copper', 'MD/CEO', 'C.O.O'];
+  normalized.category = categories.find((category) => category.toLowerCase() === normalized.category.toLowerCase()) || '';
   normalized.official_email = normalized.official_email.toLowerCase();
-  normalized.employment_status = ['active', 'on_leave', 'terminated', 'fired'].includes(input.employment_status) ? input.employment_status : 'active';
+  normalized.employment_status = ['active', 'on_leave', 'terminated', 'fired', 'resigned'].includes(input.employment_status) ? input.employment_status : 'active';
   normalized.number_of_children = Math.max(0, Math.min(30, Number(input.number_of_children) || 0));
   normalized.annual_leave_days = Math.max(0, Math.min(365, Number(input.annual_leave_days) || 0));
   for (const field of ['resumption_date', 'date_of_birth']) {
@@ -71,7 +72,7 @@ async function decryptCompensation(record: Record<string, any>) {
 }
 
 function publicEmployee(record: Record<string, any>, compensation: Record<string, any> = {}) {
-  const { compensation_ciphertext, compensation_iv, compensation_tag, ...employee } = record;
+  const { compensation_ciphertext, compensation_iv, compensation_tag, executive_slot, ...employee } = record;
   return { ...employee, ...compensation };
 }
 
@@ -108,17 +109,19 @@ export async function createEmployee(input: Record<string, any>) {
     const record = await employeeRepo.create({ ...employeeFields, ...compensation, documents: [] });
     return { success: true, data: publicEmployee(record, { basic_salary, salary_frequency, christmas_bonus, leave_allowance, allowances, payroll_bank, pension }) };
   } catch (error: any) {
+    if (error?.code === 'EMPLOYEE_POSITION_LIMIT') return { success: false, error: { message: error.message }, status: 409 };
     if (error?.code === 11000) return { success: false, error: { message: 'An employee with that official email already exists' }, status: 409 };
     throw error;
   }
 }
 
 export async function updateEmployee(id: string, input: Record<string, any>) {
+  await employeeRepo.ensureIndexes();
   const current = await employeeRepo.findById(id);
   if (!current) return { success: false, error: { message: 'Employee not found' }, status: 404 };
   const normalized = normalizeEmployee({ ...current, ...input });
   // Separation status can only be changed through the dedicated HR actions below.
-  normalized.employment_status = ['terminated', 'fired'].includes(current.employment_status)
+  normalized.employment_status = ['terminated', 'fired', 'resigned'].includes(current.employment_status)
     ? current.employment_status
     : (['active', 'on_leave'].includes(input.employment_status) ? input.employment_status : current.employment_status);
   if (!normalized.full_name || !normalized.category || !normalized.department || !normalized.job_title || !normalized.official_email) {
@@ -126,11 +129,18 @@ export async function updateEmployee(id: string, input: Record<string, any>) {
   }
   const compensation = await encryptCompensation(normalized);
   const { basic_salary, salary_frequency, christmas_bonus, leave_allowance, allowances, payroll_bank, pension, ...employeeFields } = normalized;
-  const updated = await employeeRepo.update(id, { ...employeeFields, ...compensation });
+  let updated;
+  try {
+    updated = await employeeRepo.update(id, { ...employeeFields, ...compensation });
+  } catch (error: any) {
+    if (error?.code === 'EMPLOYEE_POSITION_LIMIT') return { success: false, error: { message: error.message }, status: 409 };
+    throw error;
+  }
   return { success: true, data: publicEmployee(updated, { basic_salary, salary_frequency, christmas_bonus, leave_allowance, allowances, payroll_bank, pension }) };
 }
 
 export async function endEmployeeEngagement(id: string, action: string, actorId?: string, ipAddress?: string) {
+  await employeeRepo.ensureIndexes();
   const current = await employeeRepo.findById(id);
   if (!current) return { success: false, error: { message: 'Employee not found' }, status: 404 };
   const currentStatus = String(current.employment_status || '').trim().toLowerCase();
@@ -140,10 +150,12 @@ export async function endEmployeeEngagement(id: string, action: string, actorId?
 
   const category = String(current.category || '').trim().toLowerCase();
   const isContractCategory = category.includes('contract');
-  const isStaffCategory = category.includes('staff') && !isContractCategory;
+  const isExecutiveCategory = ['md/ceo', 'c.o.o'].includes(category);
+  const isStaffCategory = !isExecutiveCategory && category.includes('staff') && !isContractCategory;
   const isContractTermination = action === 'terminate_contract' && isContractCategory;
   const isStaffDismissal = action === 'fire_staff' && isStaffCategory;
-  if (!isContractTermination && !isStaffDismissal) {
+  const isStaffResignation = action === 'resign_exit' && isStaffCategory;
+  if (!isContractTermination && !isStaffDismissal && !isStaffResignation) {
     return { success: false, error: { message: 'This action is not available for the employee category' }, status: 400 };
   }
 
@@ -155,22 +167,15 @@ export async function endEmployeeEngagement(id: string, action: string, actorId?
     return { success: true, data: publicEmployee(updated, await decryptCompensation(updated)) };
   }
 
-  const formerEmployeeId = current.employee_id;
+  const endStatus = isStaffDismissal ? 'fired' : 'resigned';
+  const endAction = isStaffDismissal ? 'fired' : 'resign_exit';
   const updated = await employeeRepo.update(id, {
-    employee_id: `FORMER-${current.id.toUpperCase()}`,
-    former_employee_id: formerEmployeeId,
-    employment_status: 'fired',
-    employment_end_action: 'fired',
+    employment_status: endStatus,
+    employment_end_action: endAction,
     employment_end_date: now,
   });
   if (!updated) return { success: false, error: { message: 'Employee could not be updated' }, status: 500 };
-  try {
-    await employeeRepo.releaseEmployeeId(formerEmployeeId);
-  } catch (error) {
-    await employeeRepo.restoreFailedFire(id, formerEmployeeId, current.employment_status);
-    throw error;
-  }
-  try { await auditRepo.insertOne({ user_id: actorId, action: 'UPDATE', table_name: 'employees', record_id: id, old_values: { employee_id: formerEmployeeId, employment_status: current.employment_status }, new_values: { employee_id: `FORMER-${current.id.toUpperCase()}`, former_employee_id: formerEmployeeId, employment_status: 'fired', employment_end_action: 'fired', employment_end_date: now }, ip_address: ipAddress }); }
+  try { await auditRepo.insertOne({ user_id: actorId, action: 'UPDATE', table_name: 'employees', record_id: id, old_values: { employee_id: current.employee_id, employment_status: current.employment_status }, new_values: { employee_id: current.employee_id, employment_status: endStatus, employment_end_action: endAction, employment_end_date: now }, ip_address: ipAddress }); }
   catch (error) { console.error('Could not write employee audit event:', error); }
   return { success: true, data: publicEmployee(updated, await decryptCompensation(updated)) };
 }

@@ -1,6 +1,20 @@
 // @ts-nocheck
 import { BaseRepository } from './BaseRepository';
 
+function positionSlots(category: string) {
+  if (category === 'MD/CEO') return ['MD/CEO'];
+  if (category === 'C.O.O') return ['C.O.O-1', 'C.O.O-2'];
+  return [];
+}
+
+function positionLimitError(category: string) {
+  const error: any = new Error(category === 'MD/CEO'
+    ? 'The MD/CEO position is already assigned to another employee.'
+    : 'Both C.O.O positions are already assigned to employees.');
+  error.code = 'EMPLOYEE_POSITION_LIMIT';
+  return error;
+}
+
 export class EmployeeRepository extends BaseRepository<any> {
   constructor() { super('employees'); }
 
@@ -9,6 +23,11 @@ export class EmployeeRepository extends BaseRepository<any> {
     await collection.createIndex({ employee_id: 1 }, { unique: true, name: 'idx_employees_employee_id' });
     await collection.createIndex({ employment_status: 1, department: 1 }, { name: 'idx_employees_status_department' });
     await collection.createIndex({ official_email: 1 }, { unique: true, sparse: true, name: 'idx_employees_official_email' });
+    await collection.createIndex({ executive_slot: 1 }, {
+      unique: true,
+      name: 'idx_employees_executive_slot',
+      partialFilterExpression: { executive_slot: { $type: 'string' } },
+    });
   }
 
   async nextSequence(): Promise<number> {
@@ -19,18 +38,6 @@ export class EmployeeRepository extends BaseRepository<any> {
       { upsert: true, returnDocument: 'after' },
     );
     return result.sequence;
-  }
-
-  async takeVacantEmployeeId(): Promise<string | null> {
-    const collection = await this.getCollection();
-    const vacancies = await (await import('@/lib/mongodb')).getCollection('employee_id_vacancies');
-    const vacancy = await vacancies.findOneAndDelete({}, { sort: { released_at: 1, employee_id: 1 } });
-    return vacancy?.employee_id || null;
-  }
-
-  async releaseEmployeeId(employeeId: string) {
-    const vacancies = await (await import('@/lib/mongodb')).getCollection('employee_id_vacancies');
-    await vacancies.insertOne({ _id: employeeId, employee_id: employeeId, released_at: new Date() });
   }
 
   async list({ search = '', department = '', category = '', status = '', page = 1, pageSize = 25 } = {}) {
@@ -48,7 +55,7 @@ export class EmployeeRepository extends BaseRepository<any> {
       query.$or = [{ employee_id: regex }, { full_name: regex }, { department: regex }, { job_title: regex }, { official_email: regex }];
     }
     const [items, total] = await Promise.all([
-      collection.find(query, { projection: { compensation_ciphertext: 0, compensation_iv: 0, compensation_tag: 0, documents: 0 } })
+      collection.find(query, { projection: { compensation_ciphertext: 0, compensation_iv: 0, compensation_tag: 0, documents: 0, executive_slot: 0 } })
         .sort({ employee_id: 1 }).skip((page - 1) * pageSize).limit(pageSize).toArray(),
       collection.countDocuments(query),
     ]);
@@ -58,7 +65,7 @@ export class EmployeeRepository extends BaseRepository<any> {
   async stats() {
     const collection = await this.getCollection();
     const employeeOnly = { _id: { $ne: 'employee_id' } };
-    const activeEmployees = { ...employeeOnly, employment_status: { $nin: ['terminated', 'fired'] } };
+    const activeEmployees = { ...employeeOnly, employment_status: { $nin: ['terminated', 'fired', 'resigned'] } };
     const monthStart = new Date();
     monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0);
     const [total, active, onLeave, newThisMonth, departments] = await Promise.all([
@@ -88,17 +95,28 @@ export class EmployeeRepository extends BaseRepository<any> {
   async create(data: Record<string, any>) {
     const mongodb = await this.getMongoDb();
     const collection = await this.getCollection();
-    const employeeId = await this.takeVacantEmployeeId();
-    const sequence = employeeId ? null : await this.nextSequence();
+    const sequence = await this.nextSequence();
     const now = new Date();
-    const doc = { _id: new mongodb.ObjectId(), employee_id: employeeId || `SEG-${String(sequence).padStart(5, '0')}`, ...data, created_at: now, updated_at: now };
-    try {
-      await collection.insertOne(doc);
-    } catch (error) {
-      if (employeeId) await this.releaseEmployeeId(employeeId);
-      throw error;
+    const slots = positionSlots(data.category);
+    const candidates: Array<string | null> = slots.length ? slots : [null];
+    for (const slot of candidates) {
+      const doc = {
+        _id: new mongodb.ObjectId(),
+        employee_id: `SEG-${String(sequence).padStart(5, '0')}`,
+        ...data,
+        ...(slot ? { executive_slot: slot } : {}),
+        created_at: now,
+        updated_at: now,
+      };
+      try {
+        await collection.insertOne(doc);
+        return this.toApp(doc);
+      } catch (error: any) {
+        if (error?.code === 11000 && error?.keyPattern?.executive_slot && slot) continue;
+        throw error;
+      }
     }
-    return this.toApp(doc);
+    throw positionLimitError(data.category);
   }
 
   async update(id: string, updates: Record<string, any>) {
@@ -106,19 +124,35 @@ export class EmployeeRepository extends BaseRepository<any> {
     const collection = await this.getCollection();
     let oid: any;
     try { oid = new mongodb.ObjectId(id); } catch { return null; }
-    const result = await collection.findOneAndUpdate({ _id: oid }, { $set: { ...updates, updated_at: new Date() } }, { returnDocument: 'after' });
-    return result ? this.toApp(result) : null;
-  }
+    const current = await collection.findOne({ _id: oid });
+    if (!current) return null;
+    const category = updates.category ?? current.category;
+    const status = updates.employment_status ?? current.employment_status;
+    const slots = ['active', 'on_leave'].includes(String(status).toLowerCase()) ? positionSlots(category) : [];
+    if (!slots.length) {
+      const result = await collection.findOneAndUpdate(
+        { _id: oid },
+        { $set: { ...updates, executive_slot: null, updated_at: new Date() } },
+        { returnDocument: 'after' },
+      );
+      return result ? this.toApp(result) : null;
+    }
 
-  async restoreFailedFire(id: string, employeeId: string, status: string) {
-    const mongodb = await this.getMongoDb();
-    const collection = await this.getCollection();
-    let oid: any;
-    try { oid = new mongodb.ObjectId(id); } catch { return; }
-    await collection.updateOne({ _id: oid }, {
-      $set: { employee_id: employeeId, employment_status: status, updated_at: new Date() },
-      $unset: { former_employee_id: '', employment_end_action: '', employment_end_date: '' },
-    });
+    const candidates = [current.executive_slot, ...slots].filter((slot, index, all) => slots.includes(slot) && all.indexOf(slot) === index);
+    for (const slot of candidates) {
+      try {
+        const result = await collection.findOneAndUpdate(
+          { _id: oid },
+          { $set: { ...updates, executive_slot: slot, updated_at: new Date() } },
+          { returnDocument: 'after' },
+        );
+        return result ? this.toApp(result) : null;
+      } catch (error: any) {
+        if (error?.code === 11000 && error?.keyPattern?.executive_slot) continue;
+        throw error;
+      }
+    }
+    throw positionLimitError(category);
   }
 
   async addDocument(id: string, document: Record<string, any>) {

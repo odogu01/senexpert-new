@@ -60,7 +60,7 @@ export function useUpdateEmployee(id: string) {
 export function useEndEmployeeEngagement(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (action: 'terminate_contract' | 'fire_staff') => throwIfError<Employee>(await (await fetch(`/api/employees/${id}`, { method: 'PATCH', headers: getAuthHeaders(), body: JSON.stringify({ employment_action: action }) })).json()),
+    mutationFn: async (action: 'terminate_contract' | 'fire_staff' | 'resign_exit') => throwIfError<Employee>(await (await fetch(`/api/employees/${id}`, { method: 'PATCH', headers: getAuthHeaders(), body: JSON.stringify({ employment_action: action }) })).json()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.employees.detail(id) });
