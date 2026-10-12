@@ -28,6 +28,8 @@ export default function InventoryPage() {
   const [statusFilter, setStatusFilter] = useState<ToolStatus | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [locationFilter, setLocationFilter] = useState<string>('all');
+  const [sizeThreadFilter, setSizeThreadFilter] = useState('');
+  const [materialFilter, setMaterialFilter] = useState('');
   const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -116,11 +118,13 @@ export default function InventoryPage() {
       status: statusFilter !== 'all' ? statusFilter : undefined,
       category: categoryFilter !== 'all' ? categoryFilter : undefined,
       location: locationFilter !== 'all' ? locationFilter : undefined,
+      size_thread: sizeThreadFilter || undefined,
+      material: materialFilter || undefined,
       sort: sortStr,
       page: currentPage,
       limit: itemsPerPage,
     };
-  }, [canViewAllInventory, debouncedSearch, statusFilter, categoryFilter, locationFilter, currentPage, sortBy, sortOrder]);
+  }, [canViewAllInventory, debouncedSearch, statusFilter, categoryFilter, locationFilter, sizeThreadFilter, materialFilter, currentPage, sortBy, sortOrder]);
   const { data: paginated, isLoading: paginatedLoading, isError: paginatedError, error: paginatedErrorDetail, refetch: refetchPaginated } = useToolsPaginated(paginatedFilters);
 
   // Admins: server-paginated tools. Operators: client-paginated from operatorTools.
@@ -132,7 +136,7 @@ export default function InventoryPage() {
   const totalResults = canViewAllInventory ? (paginated?.total ?? 0) : operatorTools.length;
   const totalPages = Math.max(1, Math.ceil(totalResults / itemsPerPage));
 
-  const hasActiveFilters = searchQuery || statusFilter !== 'all' || categoryFilter !== 'all' || locationFilter !== 'all';
+  const hasActiveFilters = searchQuery || statusFilter !== 'all' || categoryFilter !== 'all' || locationFilter !== 'all' || sizeThreadFilter || materialFilter;
 
   const clearFilters = useCallback(() => {
     setSearchQuery('');
@@ -140,6 +144,8 @@ export default function InventoryPage() {
     setStatusFilter('all');
     setCategoryFilter('all');
     setLocationFilter('all');
+    setSizeThreadFilter('');
+    setMaterialFilter('');
     setSortBy('name');
     setSortOrder('asc');
     setCurrentPage(1);
@@ -410,6 +416,8 @@ export default function InventoryPage() {
             <p className="font-medium">Inventory could not be loaded.</p>
             <p className="mt-1 text-red-700">{inventoryErrorDetail instanceof Error ? inventoryErrorDetail.message : 'Please check the database connection and try again.'}</p>
           </div>
+          <input type="text" aria-label="Filter by Size/Thread" placeholder="Size/Thread" value={sizeThreadFilter} onChange={(e) => { setSizeThreadFilter(e.target.value); setCurrentPage(1); }} className="w-full sm:w-36 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20" />
+          <input type="text" aria-label="Filter by Material" placeholder="Material" value={materialFilter} onChange={(e) => { setMaterialFilter(e.target.value); setCurrentPage(1); }} className="w-full sm:w-36 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20" />
           <button type="button" onClick={() => retryInventoryLoad()} className="rounded-lg border border-red-300 bg-white px-3 py-2 font-medium text-red-700 hover:bg-red-100">Retry</button>
         </div>
       )}

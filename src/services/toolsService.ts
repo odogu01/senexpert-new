@@ -129,6 +129,8 @@ export async function getTools(filters?: {
   category?: string;
   status?: string;
   location?: string;
+  size_thread?: string;
+  material?: string;
   search?: string;
   lowStock?: boolean;
   created_by?: string;
@@ -147,6 +149,8 @@ export async function getToolsPaginated(filters?: {
   category?: string;
   status?: string;
   location?: string;
+  size_thread?: string;
+  material?: string;
   search?: string;
   page?: number;
   limit?: number;

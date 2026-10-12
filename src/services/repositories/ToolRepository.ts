@@ -13,6 +13,8 @@ export class ToolRepository extends BaseRepository<any> {
     category?: string;
     status?: string;
     location?: string;
+    size_thread?: string;
+    material?: string;
     search?: string;
     lowStock?: boolean;
     created_by?: string;
@@ -23,6 +25,8 @@ export class ToolRepository extends BaseRepository<any> {
     if (filters?.category) query.category = filters.category;
     if (filters?.status) query.status = filters.status;
     if (filters?.location) query.location = filters.location;
+    if (filters?.size_thread) query.size_thread = { $regex: filters.size_thread, $options: 'i' };
+    if (filters?.material) query.material = { $regex: filters.material, $options: 'i' };
     if (filters?.created_by) query.created_by = filters.created_by;
     if (filters?.created_after) {
       query.created_at = { $gte: new Date(filters.created_after) };
@@ -50,6 +54,8 @@ export class ToolRepository extends BaseRepository<any> {
     category?: string;
     status?: string;
     location?: string;
+    size_thread?: string;
+    material?: string;
     search?: string;
     page?: number;
     limit?: number;

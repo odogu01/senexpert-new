@@ -10,6 +10,8 @@ export interface ToolFilters {
   category?: string;
   status?: string;
   location?: string;
+  size_thread?: string;
+  material?: string;
   search?: string;
   lowStock?: boolean;
 }
@@ -26,6 +28,8 @@ async function fetchTools(filters?: ToolFilters): Promise<Tool[]> {
   if (filters?.category) params.set('category', filters.category);
   if (filters?.status) params.set('status', filters.status);
   if (filters?.location) params.set('location', filters.location);
+  if (filters?.size_thread) params.set('size_thread', filters.size_thread);
+  if (filters?.material) params.set('material', filters.material);
   if (filters?.search) params.set('search', filters.search);
   if (filters?.lowStock) params.set('lowStock', 'true');
   const qs = params.toString();
@@ -53,6 +57,8 @@ async function fetchToolsPaginated(filters?: PaginatedFilters): Promise<Paginate
   if (filters?.category) params.set('category', filters.category);
   if (filters?.status) params.set('status', filters.status);
   if (filters?.location) params.set('location', filters.location);
+  if (filters?.size_thread) params.set('size_thread', filters.size_thread);
+  if (filters?.material) params.set('material', filters.material);
   if (filters?.search) params.set('search', filters.search);
   if (filters?.page) params.set('page', String(filters.page));
   if (filters?.limit) params.set('limit', String(filters.limit));

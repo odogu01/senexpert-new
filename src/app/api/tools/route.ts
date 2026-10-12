@@ -40,6 +40,8 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') || undefined;
     const search = searchParams.get('search') || undefined;
     const location = searchParams.get('location') || undefined;
+    const size_thread = searchParams.get('size_thread') || undefined;
+    const material = searchParams.get('material') || undefined;
     const id = searchParams.get('id') || undefined;
     const page = searchParams.get('page') ? Number(searchParams.get('page')) : undefined;
     const limit = searchParams.get('limit') ? Number(searchParams.get('limit')) : undefined;
@@ -77,12 +79,12 @@ export async function GET(request: NextRequest) {
 
     // Paginated mode — when page or limit is explicitly provided
     if (page !== undefined || limit !== undefined) {
-      const response = await getToolsPaginated({ category, status, location, search, page, limit, sort, lowStock, ...operatorScope });
+      const response = await getToolsPaginated({ category, status, location, size_thread, material, search, page, limit, sort, lowStock, ...operatorScope });
       return NextResponse.json(response);
     }
 
     // Get all tools with filters (backward-compatible)
-    const response = await getTools({ category, status, location, search, lowStock, ...operatorScope });
+    const response = await getTools({ category, status, location, size_thread, material, search, lowStock, ...operatorScope });
     return NextResponse.json(response);
   } catch (error) {
     console.error('Tools API error:', error);
