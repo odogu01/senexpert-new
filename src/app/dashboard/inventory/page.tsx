@@ -83,6 +83,18 @@ export default function InventoryPage() {
   // ───── Admin: categories/locations for filter dropdowns (lightweight distinct queries) ─────
   const { data: categories = [] } = useCategories();
   const { data: locations = [] } = useLocations();
+  const { data: attributeOptions } = useQuery({
+    queryKey: ['tools', 'filter-options', debouncedSearch],
+    queryFn: async () => {
+      const params = new URLSearchParams({ filterOptions: 'true', search: debouncedSearch });
+      const res = await fetch(`/api/tools?${params}`, { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message || 'Failed to load filter options');
+      return json.data as { size_threads: string[]; materials: string[] };
+    },
+    enabled: !!debouncedSearch && typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token'),
+    staleTime: 30_000,
+  });
 
   // ───── Operator: fetch their tools (runs only for non-admin roles) ─────
   const { data: operatorAllTools = [], isLoading: operatorToolsLoading, isError: operatorToolsError, error: operatorToolsErrorDetail, refetch: refetchOperatorTools } = useQuery({
@@ -104,10 +116,17 @@ export default function InventoryPage() {
     return operatorAllTools
       .filter(tool => {
         const createdAt = tool.created_at ? new Date(tool.created_at) : null;
-        return createdAt && createdAt > windowAgo && tool.created_by === currentUserId;
+        if (!createdAt || createdAt <= windowAgo || tool.created_by !== currentUserId) return false;
+        if (debouncedSearch && ![tool.name, tool.work_order_number, tool.part_number].some(value => value?.toLowerCase().includes(debouncedSearch.toLowerCase()))) return false;
+        if (statusFilter !== 'all' && tool.status !== statusFilter) return false;
+        if (categoryFilter !== 'all' && tool.category !== categoryFilter) return false;
+        if (locationFilter !== 'all' && tool.location !== locationFilter) return false;
+        if (sizeThreadFilter && tool.size_thread !== sizeThreadFilter) return false;
+        if (materialFilter && tool.material !== materialFilter) return false;
+        return true;
       })
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  }, [operatorAllTools, canViewAllInventory, currentUserId]);
+  }, [operatorAllTools, canViewAllInventory, currentUserId, debouncedSearch, statusFilter, categoryFilter, locationFilter, sizeThreadFilter, materialFilter]);
 
   // ───── Admin: server-paginated data for main table ─────
   const paginatedFilters = useMemo(() => {
@@ -326,10 +345,18 @@ export default function InventoryPage() {
               type="text"
               placeholder="Search tools..."
               value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => { setSearchQuery(e.target.value); setSizeThreadFilter(''); setMaterialFilter(''); setCurrentPage(1); }}
               className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20"
             />
           </div>
+          <select aria-label="Filter by Size/Thread" value={sizeThreadFilter} disabled={!debouncedSearch} onChange={(e) => { setSizeThreadFilter(e.target.value); setCurrentPage(1); }} className="w-full sm:w-40 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20 disabled:opacity-50">
+            <option value="">{debouncedSearch ? 'All Sizes/Threads' : 'Search a tool first'}</option>
+            {(attributeOptions?.size_threads ?? []).map(value => <option key={value} value={value}>{value}</option>)}
+          </select>
+          <select aria-label="Filter by Material" value={materialFilter} disabled={!debouncedSearch} onChange={(e) => { setMaterialFilter(e.target.value); setCurrentPage(1); }} className="w-full sm:w-40 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20 disabled:opacity-50">
+            <option value="">{debouncedSearch ? 'All Materials' : 'Search a tool first'}</option>
+            {(attributeOptions?.materials ?? []).map(value => <option key={value} value={value}>{value}</option>)}
+          </select>
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value as ToolStatus | 'all'); setCurrentPage(1); }}
@@ -416,8 +443,6 @@ export default function InventoryPage() {
             <p className="font-medium">Inventory could not be loaded.</p>
             <p className="mt-1 text-red-700">{inventoryErrorDetail instanceof Error ? inventoryErrorDetail.message : 'Please check the database connection and try again.'}</p>
           </div>
-          <input type="text" aria-label="Filter by Size/Thread" placeholder="Size/Thread" value={sizeThreadFilter} onChange={(e) => { setSizeThreadFilter(e.target.value); setCurrentPage(1); }} className="w-full sm:w-36 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20" />
-          <input type="text" aria-label="Filter by Material" placeholder="Material" value={materialFilter} onChange={(e) => { setMaterialFilter(e.target.value); setCurrentPage(1); }} className="w-full sm:w-36 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20" />
           <button type="button" onClick={() => retryInventoryLoad()} className="rounded-lg border border-red-300 bg-white px-3 py-2 font-medium text-red-700 hover:bg-red-100">Retry</button>
         </div>
       )}

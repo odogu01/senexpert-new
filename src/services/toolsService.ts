@@ -599,6 +599,15 @@ export async function updateToolRequestStatus(
   }
 }
 
+export async function getToolAttributeOptions(search?: string, scope?: { created_by?: string; created_after?: string }) {
+  try {
+    return { success: true, data: await toolRepo.getAttributeOptions(search, scope) };
+  } catch (error) {
+    console.error('Get tool attribute options error:', error);
+    return { success: false, error: 'Failed to fetch tool filter options' };
+  }
+}
+
 /** Allow an approver to correct a pending request before its stock is committed. */
 export async function editPendingToolRequest(
   id: string,

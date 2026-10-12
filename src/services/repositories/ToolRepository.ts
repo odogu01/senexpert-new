@@ -25,8 +25,8 @@ export class ToolRepository extends BaseRepository<any> {
     if (filters?.category) query.category = filters.category;
     if (filters?.status) query.status = filters.status;
     if (filters?.location) query.location = filters.location;
-    if (filters?.size_thread) query.size_thread = { $regex: filters.size_thread, $options: 'i' };
-    if (filters?.material) query.material = { $regex: filters.material, $options: 'i' };
+    if (filters?.size_thread) query.size_thread = filters.size_thread;
+    if (filters?.material) query.material = filters.material;
     if (filters?.created_by) query.created_by = filters.created_by;
     if (filters?.created_after) {
       query.created_at = { $gte: new Date(filters.created_after) };
@@ -101,6 +101,18 @@ export class ToolRepository extends BaseRepository<any> {
 
   async getLocations(filters?: { created_by?: string; created_after?: string }): Promise<string[]> {
     return this.distinct('location', this._buildFilterQuery(filters));
+  }
+
+  async getAttributeOptions(search?: string, scope?: { created_by?: string; created_after?: string }) {
+    const query = this._buildFilterQuery({ ...scope, search });
+    const [sizeThreads, materials] = await Promise.all([
+      this.distinct('size_thread', query),
+      this.distinct('material', query),
+    ]);
+    return {
+      size_threads: sizeThreads.filter((value) => typeof value === 'string' && value.trim()).sort(),
+      materials: materials.filter((value) => typeof value === 'string' && value.trim()).sort(),
+    };
   }
 
   /**

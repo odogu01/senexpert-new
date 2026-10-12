@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTools, getToolsPaginated, createTool, updateTool, deleteTool, getToolById, getCategories, getLocations } from '@/services/toolsService';
+import { getTools, getToolsPaginated, createTool, updateTool, deleteTool, getToolById, getCategories, getLocations, getToolAttributeOptions } from '@/services/toolsService';
 import { validate, createToolSchema, updateToolSchema } from '@/lib/validation';
 import { applyRateLimit } from '@/lib/rateLimit';
 import { OPERATOR_VISIBILITY_WINDOW_HOURS } from '@/lib/constants';
@@ -74,6 +74,11 @@ export async function GET(request: NextRequest) {
     // Get distinct locations
     if (searchParams.get('locations') === 'true') {
       const response = await getLocations(operatorScope);
+      return NextResponse.json(response);
+    }
+
+    if (searchParams.get('filterOptions') === 'true') {
+      const response = await getToolAttributeOptions(search, operatorScope);
       return NextResponse.json(response);
     }
 
