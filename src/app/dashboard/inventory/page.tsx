@@ -338,29 +338,29 @@ export default function InventoryPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-xl p-3 lg:p-4 shadow-sm border border-gray-100">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 lg:gap-4">
-          <div className="relative w-full sm:flex-1 min-w-[200px]">
+        <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 lg:gap-4">
+          <div className="relative min-w-0 sm:col-span-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search tools..."
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setSizeThreadFilter(''); setMaterialFilter(''); setCurrentPage(1); }}
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20"
+              className="w-full min-w-0 pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20"
             />
           </div>
-          <select aria-label="Filter by Size/Thread" value={sizeThreadFilter} disabled={!debouncedSearch} onChange={(e) => { setSizeThreadFilter(e.target.value); setCurrentPage(1); }} className="w-full sm:w-40 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20 disabled:opacity-50">
+          <select aria-label="Filter by Size/Thread" value={sizeThreadFilter} disabled={!debouncedSearch} onChange={(e) => { setSizeThreadFilter(e.target.value); setCurrentPage(1); }} className="w-full min-w-0 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20 disabled:opacity-50">
             <option value="">{debouncedSearch ? 'All Sizes/Threads' : 'Search a tool first'}</option>
             {(attributeOptions?.size_threads ?? []).map(value => <option key={value} value={value}>{value}</option>)}
           </select>
-          <select aria-label="Filter by Material" value={materialFilter} disabled={!debouncedSearch} onChange={(e) => { setMaterialFilter(e.target.value); setCurrentPage(1); }} className="w-full sm:w-40 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20 disabled:opacity-50">
+          <select aria-label="Filter by Material" value={materialFilter} disabled={!debouncedSearch} onChange={(e) => { setMaterialFilter(e.target.value); setCurrentPage(1); }} className="w-full min-w-0 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20 disabled:opacity-50">
             <option value="">{debouncedSearch ? 'All Materials' : 'Search a tool first'}</option>
             {(attributeOptions?.materials ?? []).map(value => <option key={value} value={value}>{value}</option>)}
           </select>
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value as ToolStatus | 'all'); setCurrentPage(1); }}
-            className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20"
+            className="w-full min-w-0 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20"
           >
             <option value="all">All Status</option>
             <option value="available">Available</option>
@@ -371,7 +371,7 @@ export default function InventoryPage() {
           <select
             value={categoryFilter}
             onChange={(e) => { setCategoryFilter(e.target.value); setCurrentPage(1); }}
-            className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20"
+            className="w-full min-w-0 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20"
           >
             <option value="all">All Categories</option>
             {categories.map(cat => (
@@ -381,7 +381,7 @@ export default function InventoryPage() {
           <select
             value={locationFilter}
             onChange={(e) => { setLocationFilter(e.target.value); setCurrentPage(1); }}
-            className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20"
+            className="w-full min-w-0 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20"
           >
             <option value="all">All Locations</option>
             {locations.map(loc => (
@@ -389,11 +389,11 @@ export default function InventoryPage() {
             ))}
           </select>
           {/* Sort controls */}
-          <div className="flex items-center gap-1">
+          <div className="flex min-w-0 items-center gap-1">
             <select
               value={sortBy}
               onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1); }}
-              className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20"
+              className="w-full min-w-0 flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0B3C6D]/20"
             >
               <option value="name">Name</option>
               <option value="created_at">Date Entered</option>
