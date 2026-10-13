@@ -103,6 +103,16 @@ export class ToolRepository extends BaseRepository<any> {
     return this.distinct('location', this._buildFilterQuery(filters));
   }
 
+  async getQuantityTotalsByName(scope?: { created_by?: string; created_after?: string }): Promise<Array<{ name: string; quantity: number }>> {
+    const col = await this.getCollection();
+    const totals = await col.aggregate([
+      { $match: this._buildFilterQuery(scope) },
+      { $group: { _id: '$name', quantity: { $sum: '$quantity' } } },
+      { $project: { _id: 0, name: '$_id', quantity: 1 } },
+    ]).toArray();
+    return totals;
+  }
+
   async getAttributeOptions(search?: string, scope?: { created_by?: string; created_after?: string }) {
     const query = this._buildFilterQuery({ ...scope, search });
     const [sizeThreads, materials] = await Promise.all([

@@ -83,6 +83,21 @@ export default function InventoryPage() {
   // ───── Admin: categories/locations for filter dropdowns (lightweight distinct queries) ─────
   const { data: categories = [] } = useCategories();
   const { data: locations = [] } = useLocations();
+  const { data: quantityTotals = [] } = useQuery({
+    queryKey: ['tools', 'quantity-totals-by-name'],
+    queryFn: async () => {
+      const res = await fetch('/api/tools?quantityTotals=true', { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message || 'Failed to load tool quantity totals');
+      return json.data as Array<{ name: string; quantity: number }>;
+    },
+    enabled: typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token'),
+    staleTime: 60_000,
+  });
+  const quantityTotalsByName = useMemo(
+    () => new Map(quantityTotals.map(({ name, quantity }) => [name, quantity])),
+    [quantityTotals],
+  );
   const { data: attributeOptions } = useQuery({
     queryKey: ['tools', 'filter-options', debouncedSearch],
     queryFn: async () => {
@@ -507,6 +522,7 @@ export default function InventoryPage() {
                         <div>
                           <p className="font-medium text-gray-800">{tool.name}</p>
                           <p className="text-xs text-gray-500">Qty: {tool.quantity}</p>
+                          <p className="text-xs font-medium text-[#0B3C6D]">Total for this name: {quantityTotalsByName.get(tool.name) ?? tool.quantity}</p>
                           {tool.min_quantity && tool.quantity <= tool.min_quantity && (
                             <p className="text-xs text-red-500">Min: {tool.min_quantity}</p>
                           )}
@@ -544,6 +560,7 @@ export default function InventoryPage() {
                   </td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4">
                     <div className="text-sm font-medium text-gray-800">{tool.quantity}</div>
+                    <div className="text-xs text-[#0B3C6D]">Total for this name: {quantityTotalsByName.get(tool.name) ?? tool.quantity}</div>
                     {tool.min_quantity && tool.quantity <= tool.min_quantity && (
                       <div className="text-xs text-red-500">Min: {tool.min_quantity}</div>
                     )}

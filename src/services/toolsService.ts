@@ -145,6 +145,19 @@ export async function getTools(filters?: {
   }
 }
 
+export async function getToolQuantityTotalsByName(scope?: {
+  created_by?: string;
+  created_after?: string;
+}): Promise<{ success: boolean; data?: Array<{ name: string; quantity: number }>; error?: string }> {
+  try {
+    const data = await toolRepo.getQuantityTotalsByName(scope);
+    return { success: true, data };
+  } catch (error) {
+    console.error('Get tool quantity totals error:', error);
+    return { success: false, error: 'Failed to fetch tool quantity totals' };
+  }
+}
+
 export async function getToolsPaginated(filters?: {
   category?: string;
   status?: string;

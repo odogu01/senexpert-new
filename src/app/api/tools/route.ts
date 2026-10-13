@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTools, getToolsPaginated, createTool, updateTool, deleteTool, getToolById, getCategories, getLocations, getToolAttributeOptions } from '@/services/toolsService';
+import { getTools, getToolsPaginated, getToolQuantityTotalsByName, createTool, updateTool, deleteTool, getToolById, getCategories, getLocations, getToolAttributeOptions } from '@/services/toolsService';
 import { validate, createToolSchema, updateToolSchema } from '@/lib/validation';
 import { applyRateLimit } from '@/lib/rateLimit';
 import { OPERATOR_VISIBILITY_WINDOW_HOURS } from '@/lib/constants';
@@ -79,6 +79,11 @@ export async function GET(request: NextRequest) {
 
     if (searchParams.get('filterOptions') === 'true') {
       const response = await getToolAttributeOptions(search, operatorScope);
+      return NextResponse.json(response);
+    }
+
+    if (searchParams.get('quantityTotals') === 'true') {
+      const response = await getToolQuantityTotalsByName(operatorScope);
       return NextResponse.json(response);
     }
 
