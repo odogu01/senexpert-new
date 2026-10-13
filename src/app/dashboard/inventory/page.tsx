@@ -212,7 +212,7 @@ export default function InventoryPage() {
   };
 
   const handleAddNewTool = async () => {
-    if (!editForm.name || !editForm.work_order_number || !currentUserId) return;
+    if (!editForm.name || !currentUserId) return;
     setSaving(true);
     try {
       if (canAddTool && (userRole === 'super_admin' || userRole === 'admin')) {
@@ -727,14 +727,14 @@ export default function InventoryPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       <span className="flex items-center gap-1">
-                        Work Order Number (W/O)
+                        Work Order Number (W/O) <span className="font-normal text-gray-500">(optional)</span>
                         <div className="group relative">
                           <HelpCircle className="w-3 h-3 text-gray-400 cursor-help" />
                           <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 whitespace-nowrap z-[100] pointer-events-none transition-opacity">Work Order Number</span>
                         </div>
                       </span>
                     </label>
-                    <input type="text" value={editForm.work_order_number} onChange={(e) => setEditForm({ ...editForm, work_order_number: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" required />
+                    <input type="text" value={editForm.work_order_number} onChange={(e) => setEditForm({ ...editForm, work_order_number: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Size/Thread</label>
@@ -833,8 +833,8 @@ export default function InventoryPage() {
                     <input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" required />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Work Order Number (W/O) *</label>
-                    <input type="text" value={editForm.work_order_number} onChange={(e) => setEditForm({ ...editForm, work_order_number: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" required />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Work Order Number (W/O) <span className="font-normal text-gray-500">(optional)</span></label>
+                    <input type="text" value={editForm.work_order_number} onChange={(e) => setEditForm({ ...editForm, work_order_number: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Size/Thread</label>
@@ -908,7 +908,7 @@ export default function InventoryPage() {
                 </div>
                 <div className="flex gap-3 pt-4">
                   <button type="button" onClick={() => setIsAddModalOpen(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
-                  <button onClick={handleAddNewTool} disabled={saving || !editForm.name || !editForm.work_order_number} className="flex-1 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] disabled:opacity-50 flex items-center justify-center gap-2">
+                  <button onClick={handleAddNewTool} disabled={saving || !editForm.name} className="flex-1 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] disabled:opacity-50 flex items-center justify-center gap-2">
                     {saving ? (
                       <><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>Adding...</>
                     ) : 'Add Tool'}
