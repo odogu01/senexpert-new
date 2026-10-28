@@ -55,12 +55,6 @@ const teamMembers = [
     description: 'A seasoned Petroleum Engineer with over 20 years of progressive experience in the oil and gas industry, spanning drilling, completions, and well intervention operations.'
   },
   {
-    name: 'Ubong Udofia',
-    role: 'Chief Technical Officer',
-    image: '/ubong udofia.png',
-    description: 'A seasoned Well Engineering and Project Management professional with over 18 years of multidisciplinary experience in the oil and gas industry.'
-  },
-  {
     name: 'Tony Uzuazor Oboezi',
     role: 'Operations Director',
     image: '/Tony Uzuazor Oboezi.png',
@@ -566,7 +560,7 @@ className="max-w-full max-h-full object-contain"
             </h2>
           </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {teamMembers.map((member, index) => (
               <motion.div
                 key={member.name}
