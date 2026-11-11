@@ -150,6 +150,42 @@ export default function RequestsPage() {
     quantity: string;
     maxQuantity: number | null;
   }
+  const noToolAttribute = '__none__';
+  const cartToolAttributes = [
+    { key: 'sizeThread', toolKey: 'size_thread' },
+    { key: 'material', toolKey: 'material' },
+    { key: 'model', toolKey: 'model' },
+    { key: 'workOrderNumber', toolKey: 'work_order_number' },
+    { key: 'materialNo', toolKey: 'material_no' },
+    { key: 'partNumber', toolKey: 'part_number' },
+  ] as const;
+  const getCartToolCandidates = (item: CartEntry, throughAttribute?: typeof cartToolAttributes[number]['key']) => {
+    const stopAt = throughAttribute
+      ? cartToolAttributes.findIndex(attribute => attribute.key === throughAttribute)
+      : cartToolAttributes.length;
+    return tools.filter(tool => {
+      if (tool.name !== item.toolName) return false;
+      return cartToolAttributes.slice(0, stopAt).every(attribute => {
+        const selected = item[attribute.key];
+        if (!selected) return true;
+        const toolValue = String(tool[attribute.toolKey] ?? '');
+        return selected === noToolAttribute ? toolValue === '' : toolValue === selected;
+      });
+    });
+  };
+  const hasCompleteCartToolSelection = (item: CartEntry) =>
+    !!item.toolName && cartToolAttributes.every(attribute => !!item[attribute.key]);
+  const getCartTool = (item: CartEntry) => {
+    if (!hasCompleteCartToolSelection(item)) return undefined;
+    return getCartToolCandidates(item).find(tool =>
+      (tool.size_thread || '') === (item.sizeThread === noToolAttribute ? '' : item.sizeThread) &&
+      (tool.material || '') === (item.material === noToolAttribute ? '' : item.material) &&
+      (tool.model || '') === (item.model === noToolAttribute ? '' : item.model) &&
+      (tool.work_order_number || '') === (item.workOrderNumber === noToolAttribute ? '' : item.workOrderNumber) &&
+      (tool.material_no || '') === (item.materialNo === noToolAttribute ? '' : item.materialNo) &&
+      (tool.part_number || '') === (item.partNumber === noToolAttribute ? '' : item.partNumber)
+    );
+  };
   const [cartItems, setCartItems] = useState<CartEntry[]>([]);
   const [returnSourceId, setReturnSourceId] = useState('');
   const [returnItems, setReturnItems] = useState<CartEntry[]>([]);
@@ -230,18 +266,28 @@ export default function RequestsPage() {
     setCartItems(prev => prev.map(item => item.key === key ? { ...item, ...updates } : item));
   };
 
+  const updateCartAttribute = (item: CartEntry, key: typeof cartToolAttributes[number]['key'], value: string) => {
+    const index = cartToolAttributes.findIndex(attribute => attribute.key === key);
+    const resetAttributes = Object.fromEntries(
+      cartToolAttributes.slice(index + 1).map(attribute => [attribute.key, ''])
+    ) as Partial<CartEntry>;
+    const nextItem = { ...item, [key]: value, ...resetAttributes, toolId: '', quantity: '1', maxQuantity: null };
+    const matchedTool = index === cartToolAttributes.length - 1 ? getCartTool(nextItem) : undefined;
+    updateCartItem(item.key, {
+      ...nextItem,
+      toolId: matchedTool?.id || '',
+      maxQuantity: matchedTool?.quantity ?? null,
+    });
+    setQuantityError(null);
+  };
+
   const removeCartItem = (key: string) => {
     setCartItems(prev => prev.filter(item => item.key !== key));
   };
 
   // Resolve available quantity for a specific tool selection in a cart row
   const getCartToolQty = (item: CartEntry): number => {
-    if (!item.toolName) return 0;
-    const match = tools.filter(t => t.name === item.toolName)
-      .filter(t => !item.sizeThread || t.size_thread === item.sizeThread)
-      .filter(t => !item.material || t.material === item.material)
-      .filter(t => !item.model || t.model === item.model);
-    return match[0]?.quantity ?? 0;
+    return getCartTool(item)?.quantity ?? 0;
   };
 
   // Filtered tools for cart rows (exclude rentals for outgoing)
@@ -346,12 +392,12 @@ export default function RequestsPage() {
             tool_id: item.toolId,
             tool_name: item.toolName,
             quantity: parseInt(item.quantity),
-            size_thread: item.sizeThread || undefined,
-            material: item.material || undefined,
-            model: item.model || undefined,
-            work_order_number: item.workOrderNumber || undefined,
-            material_no: item.materialNo || undefined,
-            part_number: item.partNumber || undefined,
+            size_thread: item.sizeThread && item.sizeThread !== noToolAttribute ? item.sizeThread : undefined,
+            material: item.material && item.material !== noToolAttribute ? item.material : undefined,
+            model: item.model && item.model !== noToolAttribute ? item.model : undefined,
+            work_order_number: item.workOrderNumber && item.workOrderNumber !== noToolAttribute ? item.workOrderNumber : undefined,
+            material_no: item.materialNo && item.materialNo !== noToolAttribute ? item.materialNo : undefined,
+            part_number: item.partNumber && item.partNumber !== noToolAttribute ? item.partNumber : undefined,
           }));
           requestData.tool_id = cartItems[0].toolId;
           requestData.quantity = cartItems.reduce((sum, item) => sum + parseInt(item.quantity), 1);
@@ -714,26 +760,26 @@ export default function RequestsPage() {
                               </div>
                               <div className="grid grid-cols-2 gap-2">
                                 <div className="col-span-2">
+                                  <label className="block text-xs text-gray-500 mb-1">Tool Name</label>
                                   <select
                                     value={item.toolName}
                                     onChange={(e) => {
-                                      const name = e.target.value;
-                                      const match = tools.filter(t => t.name === name);
-                                      const first = match[0];
                                       updateCartItem(item.key, {
-                                        toolName: name,
-                                        toolId: first?.id || '',
-                                        sizeThread: first?.size_thread || '',
-                                        material: first?.material || '',
-                                        model: first?.model || '',
-                                        workOrderNumber: first?.work_order_number || '',
-                                        materialNo: first?.material_no || '',
-                                        partNumber: first?.part_number || '',
+                                        toolName: e.target.value,
+                                        toolId: '',
+                                        sizeThread: '',
+                                        material: '',
+                                        model: '',
+                                        workOrderNumber: '',
+                                        materialNo: '',
+                                        partNumber: '',
                                         quantity: '1',
-                                        maxQuantity: first?.quantity ?? null,
+                                        maxQuantity: null,
                                       });
+                                      setQuantityError(null);
                                     }}
                                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                                    required
                                   >
                                     <option value="">Select tool...</option>
                                     {Array.from(new Set(tools.map(t => t.name))).map(name => (
@@ -741,244 +787,58 @@ export default function RequestsPage() {
                                     ))}
                                   </select>
                                 </div>
-                                <div>
-                                  <label className="block text-xs text-gray-500 mb-1">Size/Thread</label>
-                                  <select
-                                    value={item.sizeThread}
-                                    onChange={(e) => {
-                                      const st = e.target.value;
-                                      const match = tools.filter(t => t.name === item.toolName && t.size_thread === st);
-                                      const first = match[0];
-        updateCartItem(item.key, {
-          sizeThread: st,
-          toolId: first?.id || '',
-          material: first?.material || '',
-          model: first?.model || '',
-          workOrderNumber: first?.work_order_number || '',
-          materialNo: first?.material_no || '',
-          partNumber: first?.part_number || '',
-          maxQuantity: first?.quantity ?? null,
-        });
-                                    }}
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                                  >
-                                    <option value="">Size/Thread</option>
-                                    {Array.from(new Set(
-                                      tools.filter(t => t.name === item.toolName)
-                                        .map(t => t.size_thread || '')
-                                        .filter(v => v !== '')
-                                    )).map(v => (
-                                      <option key={v} value={v}>{v}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-xs text-gray-500 mb-1">Material</label>
-                                  <select
-                                    value={item.material}
-                                    onChange={(e) => {
-                                      const mat = e.target.value;
-                                      const match = tools.filter(t =>
-                                        t.name === item.toolName &&
-                                        t.size_thread === item.sizeThread &&
-                                        t.material === mat
-                                      );
-                                      const first = match[0];
-        updateCartItem(item.key, {
-          material: mat,
-          toolId: first?.id || '',
-          model: first?.model || '',
-          workOrderNumber: first?.work_order_number || '',
-          materialNo: first?.material_no || '',
-          partNumber: first?.part_number || '',
-          maxQuantity: first?.quantity ?? null,
-        });
-                                    }}
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                                  >
-                                    <option value="">Material</option>
-                                    {Array.from(new Set(
-                                      tools.filter(t =>
-                                        t.name === item.toolName &&
-                                        t.size_thread === item.sizeThread
-                                      )
-                                        .map(t => t.material || '')
-                                        .filter(v => v !== '')
-                                    )).map(v => (
-                                      <option key={v} value={v}>{v}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-xs text-gray-500 mb-1">Model</label>
-                                  <select
-                                    value={item.model}
-                                    onChange={(e) => {
-                                      const mod = e.target.value;
-                                      const match = tools.filter(t =>
-                                        t.name === item.toolName &&
-                                        t.size_thread === item.sizeThread &&
-                                        t.material === item.material &&
-                                        t.model === mod
-                                      );
-                                      const first = match[0];
-        updateCartItem(item.key, {
-          model: mod,
-          toolId: first?.id || '',
-          workOrderNumber: first?.work_order_number || '',
-          materialNo: first?.material_no || '',
-          partNumber: first?.part_number || '',
-          maxQuantity: first?.quantity ?? null,
-        });
-                                    }}
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                                  >
-                                    <option value="">Model</option>
-                                    {Array.from(new Set(
-                                      tools.filter(t =>
-                                        t.name === item.toolName &&
-                                        t.size_thread === item.sizeThread &&
-                                        t.material === item.material
-                                      )
-                                        .map(t => t.model || '')
-                                        .filter(v => v !== '')
-                                    )).map(v => (
-                                      <option key={v} value={v}>{v}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-xs text-gray-500 mb-1">Qty (Avail: {getCartToolQty(item)})</label>
+                                {cartToolAttributes.map((attribute, attributeIndex) => {
+                                  const labels: Record<typeof attribute.key, string> = {
+                                    sizeThread: 'Size/Thread',
+                                    material: 'Material',
+                                    model: 'Model',
+                                    workOrderNumber: 'W/O',
+                                    materialNo: 'Material No',
+                                    partNumber: 'Part Number',
+                                  };
+                                  const candidates = getCartToolCandidates(item, attribute.key);
+                                  const optionValues = Array.from(new Set(candidates.map(tool => String(tool[attribute.toolKey] ?? ''))));
+                                  const previousAttribute = cartToolAttributes[attributeIndex - 1];
+                                  const enabled = !!item.toolName && (!previousAttribute || !!item[previousAttribute.key]);
+                                  return (
+                                    <div key={attribute.key}>
+                                      <label className="block text-xs text-gray-500 mb-1">{labels[attribute.key]}</label>
+                                      <select
+                                        value={item[attribute.key]}
+                                        onChange={(e) => updateCartAttribute(item, attribute.key, e.target.value)}
+                                        disabled={!enabled}
+                                        required
+                                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg disabled:bg-gray-50 disabled:text-gray-400"
+                                      >
+                                        <option value="">Select {labels[attribute.key]}...</option>
+                                        {optionValues.map(value => (
+                                          <option key={value || noToolAttribute} value={value || noToolAttribute}>
+                                            {value || 'Not specified'}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  );
+                                })}
+                                <div className="col-span-2">
+                                  <label className="block text-xs text-gray-500 mb-1">
+                                    Quantity{getCartTool(item) ? ` (Available: ${getCartToolQty(item)})` : ' (complete tool details first)'}
+                                  </label>
                                   <input
                                     type="number"
                                     min="1"
-                                    max={getCartToolQty(item) || 999}
+                                    max={getCartTool(item)?.quantity ?? undefined}
                                     value={item.quantity}
-                                    onChange={(e) => updateCartItem(item.key, { quantity: e.target.value })}
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+                                    disabled={!getCartTool(item)}
+                                    onChange={(e) => {
+                                      const quantity = e.target.value;
+                                      updateCartItem(item.key, { quantity });
+                                      const available = getCartToolQty(item);
+                                      setQuantityError(Number(quantity) > available ? `Only ${available} available for this tool.` : null);
+                                    }}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg disabled:bg-gray-50 disabled:text-gray-400"
+                                    required
                                   />
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-3 gap-2">
-                                <div>
-                                  <label className="block text-xs text-gray-500 mb-1">W/O</label>
-                                  <select
-                                    value={item.workOrderNumber}
-                                    onChange={(e) => {
-                                      const won = e.target.value;
-                                      const match = tools.filter(t =>
-                                        t.name === item.toolName &&
-                                        t.size_thread === item.sizeThread &&
-                                        t.material === item.material &&
-                                        t.model === item.model &&
-                                        t.work_order_number === won
-                                      );
-                                      const first = match[0];
-                                      updateCartItem(item.key, {
-                                        workOrderNumber: won,
-                                        materialNo: first?.material_no || '',
-                                        partNumber: first?.part_number || '',
-                                        toolId: first?.id || '',
-                                        maxQuantity: first?.quantity ?? null,
-                                      });
-                                    }}
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                                  >
-                                    <option value="">W/O</option>
-                                    {Array.from(new Set(
-                                      tools.filter(t =>
-                                        t.name === item.toolName &&
-                                        t.size_thread === item.sizeThread &&
-                                        t.material === item.material &&
-                                        t.model === item.model
-                                      )
-                                        .map(t => t.work_order_number || '')
-                                        .filter(v => v !== '')
-                                    )).map(v => (
-                                      <option key={v} value={v}>{v}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-xs text-gray-500 mb-1">Material No</label>
-                                  <select
-                                    value={item.materialNo}
-                                    onChange={(e) => {
-                                      const mn = e.target.value;
-                                      const match = tools.filter(t =>
-                                        t.name === item.toolName &&
-                                        t.size_thread === item.sizeThread &&
-                                        t.material === item.material &&
-                                        t.model === item.model &&
-                                        t.work_order_number === item.workOrderNumber &&
-                                        t.material_no === mn
-                                      );
-                                      const first = match[0];
-                                      updateCartItem(item.key, {
-                                        materialNo: mn,
-                                        partNumber: first?.part_number || '',
-                                        toolId: first?.id || '',
-                                        maxQuantity: first?.quantity ?? null,
-                                      });
-                                    }}
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                                  >
-                                    <option value="">Material No</option>
-                                    {Array.from(new Set(
-                                      tools.filter(t =>
-                                        t.name === item.toolName &&
-                                        t.size_thread === item.sizeThread &&
-                                        t.material === item.material &&
-                                        t.model === item.model &&
-                                        t.work_order_number === item.workOrderNumber
-                                      )
-                                        .map(t => t.material_no || '')
-                                        .filter(v => v !== '')
-                                    )).map(v => (
-                                      <option key={v} value={v}>{v}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-xs text-gray-500 mb-1">Part Number</label>
-                                  <select
-                                    value={item.partNumber}
-                                    onChange={(e) => {
-                                      const pn = e.target.value;
-                                      const match = tools.filter(t =>
-                                        t.name === item.toolName &&
-                                        t.size_thread === item.sizeThread &&
-                                        t.material === item.material &&
-                                        t.model === item.model &&
-                                        t.work_order_number === item.workOrderNumber &&
-                                        t.material_no === item.materialNo &&
-                                        t.part_number === pn
-                                      );
-                                      const first = match[0];
-                                      updateCartItem(item.key, {
-                                        partNumber: pn,
-                                        toolId: first?.id || '',
-                                        maxQuantity: first?.quantity ?? null,
-                                      });
-                                    }}
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-                                  >
-                                    <option value="">Part Number</option>
-                                    {Array.from(new Set(
-                                      tools.filter(t =>
-                                        t.name === item.toolName &&
-                                        t.size_thread === item.sizeThread &&
-                                        t.material === item.material &&
-                                        t.model === item.model &&
-                                        t.work_order_number === item.workOrderNumber &&
-                                        t.material_no === item.materialNo
-                                      )
-                                        .map(t => t.part_number || '')
-                                        .filter(v => v !== '')
-                                    )).map(v => (
-                                      <option key={v} value={v}>{v}</option>
-                                    ))}
-                                  </select>
                                 </div>
                               </div>
                             </div>
@@ -986,6 +846,7 @@ export default function RequestsPage() {
                         </div>
                       )}
                     </div>
+                    {quantityError && <p className="text-sm text-red-600">{quantityError}</p>}
                     <div><label className="block text-sm font-medium text-gray-700 mb-1">Vehicle No</label><input type="text" value={formData.vehicleNo} onChange={(e) => setFormData({ ...formData, vehicleNo: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter vehicle number" /></div>
                     <div><label className="block text-sm font-medium text-gray-700 mb-1">Delivered To</label><input type="text" value={formData.deliveredTo} onChange={(e) => setFormData({ ...formData, deliveredTo: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter recipient location/company" /></div>
                     <div><label className="block text-sm font-medium text-gray-700 mb-1">Delivered By</label><input type="text" value={formData.deliveredBy} onChange={(e) => setFormData({ ...formData, deliveredBy: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter deliverer's name" /></div>
