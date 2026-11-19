@@ -12,6 +12,18 @@ import PaginationBar from '@/components/dashboard/PaginationBar';
 import type { Tool, ToolStatus, ToolInsert } from '@/lib/database.types';
 import { OPERATOR_VISIBILITY_WINDOW_HOURS } from '@/lib/constants';
 
+const createEmptyToolForm = (): ToolInsert => ({
+  name: '',
+  work_order_number: '',
+  category: 'Saleable',
+  quantity: 1,
+  status: 'available',
+  material_no: '',
+  received_from: '',
+  received_by: '',
+  vehicle_number: '',
+});
+
 export default function InventoryPage() {
   const searchParams = useSearchParams();
   const { data: profile, isLoading: profileLoading } = useProfile();
@@ -34,17 +46,9 @@ export default function InventoryPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingTool, setEditingTool] = useState<Tool | null>(null);
-  const [editForm, setEditForm] = useState<ToolInsert>({
-    name: '',
-    work_order_number: '',
-    category: 'Saleable',
-    quantity: 1,
-    status: 'available',
-    material_no: '',
-    received_from: '',
-    received_by: '',
-    vehicle_number: '',
-  });
+  const [editForm, setEditForm] = useState<ToolInsert>(createEmptyToolForm);
+  const [queuedTools, setQueuedTools] = useState<ToolInsert[]>([]);
+  const [addToolError, setAddToolError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [saving, setSaving] = useState(false);
   const [sortBy, setSortBy] = useState<string>('name');
@@ -99,15 +103,15 @@ export default function InventoryPage() {
     [quantityTotals],
   );
   const { data: attributeOptions } = useQuery({
-    queryKey: ['tools', 'filter-options', debouncedSearch],
+    queryKey: ['tools', 'filter-options', 'all'],
     queryFn: async () => {
-      const params = new URLSearchParams({ filterOptions: 'true', search: debouncedSearch });
+      const params = new URLSearchParams({ filterOptions: 'true' });
       const res = await fetch(`/api/tools?${params}`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (!json.success) throw new Error(json.error?.message || 'Failed to load filter options');
       return json.data as { size_threads: string[]; materials: string[] };
     },
-    enabled: !!debouncedSearch && typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token'),
+    enabled: typeof window !== 'undefined' && !!localStorage.getItem('senexpert_token'),
     staleTime: 30_000,
   });
 
@@ -211,73 +215,58 @@ export default function InventoryPage() {
     setIsEditModalOpen(true);
   };
 
+  const queueCurrentTool = () => {
+    const name = editForm.name.trim();
+    if (!name) {
+      setAddToolError('Enter a tool name before adding it to the list.');
+      return;
+    }
+    setQueuedTools(items => [...items, { ...editForm, name }]);
+    setEditForm(createEmptyToolForm());
+    setAddToolError(null);
+  };
+
   const handleAddNewTool = async () => {
-    if (!editForm.name || !currentUserId) return;
+    const currentTool = editForm.name.trim() ? { ...editForm, name: editForm.name.trim() } : null;
+    if ((!queuedTools.length && !currentTool) || !currentUserId) return;
     setSaving(true);
-    try {
-      if (canAddTool && (userRole === 'super_admin' || userRole === 'admin')) {
-        // Admins/super_admins add tools directly
+    setAddToolError(null);
+    const addTool = async (tool: ToolInsert) => {
+      if (userRole === 'super_admin' || userRole === 'admin' || userRole === 'dev') {
         await createTool({
-          name: editForm.name,
-          work_order_number: editForm.work_order_number,
-          size_thread: editForm.size_thread,
-          material: editForm.material,
-          model: editForm.model,
-          part_number: editForm.part_number,
-          material_no: editForm.material_no,
-          category: editForm.category || 'Saleable',
-          quantity: editForm.quantity || 1,
-          min_quantity: editForm.min_quantity,
-          status: editForm.status || 'available',
-          location: editForm.location,
-          description: editForm.description,
-          received_from: editForm.received_from,
-          received_by: editForm.received_by,
-          vehicle_number: editForm.vehicle_number,
+          ...tool,
+          category: tool.category || 'Saleable',
+          quantity: tool.quantity || 1,
+          status: tool.status || 'available',
         });
       } else {
-        // Operators create an incoming receipt request (requires approval)
         await createToolRequest({
           movement_type: 'incoming',
-          quantity: editForm.quantity || 1,
-          location: editForm.location || '',
-          notes: `New tool receipt: ${editForm.name}`,
+          quantity: tool.quantity || 1,
+          location: tool.location || '',
+          notes: `New tool receipt: ${tool.name}`,
           requested_by: currentUserId,
           new_tool_data: {
-            name: editForm.name,
-            work_order_number: editForm.work_order_number,
-            size_thread: editForm.size_thread,
-            material: editForm.material,
-            model: editForm.model,
-            part_number: editForm.part_number,
-            material_no: editForm.material_no,
-            category: editForm.category || 'General',
-            quantity: editForm.quantity,
-            min_quantity: editForm.min_quantity,
-            status: editForm.status,
-            location: editForm.location,
-            description: editForm.description,
+            ...tool,
+            category: tool.category || 'General',
             created_by: currentUserId,
-            received_from: editForm.received_from,
-            received_by: editForm.received_by,
-            vehicle_number: editForm.vehicle_number,
           },
         });
       }
+    };
+
+    try {
+      for (const tool of queuedTools) {
+        await addTool(tool);
+        setQueuedTools(items => items.slice(1));
+      }
+      if (currentTool) await addTool(currentTool);
       setIsAddModalOpen(false);
-      setEditForm({
-        name: '',
-        work_order_number: '',
-        category: 'Saleable',
-        quantity: 1,
-        status: 'available',
-        material_no: '',
-        received_from: '',
-        received_by: '',
-        vehicle_number: '',
-      });
+      setQueuedTools([]);
+      setEditForm(createEmptyToolForm());
     } catch (err) {
       console.error('Failed to add tool:', err);
+      setAddToolError(err instanceof Error ? err.message : 'Unable to add the remaining tools. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -341,7 +330,12 @@ export default function InventoryPage() {
           </button>
           {canAddTool && (
             <button
-              onClick={() => setIsAddModalOpen(true)}
+              onClick={() => {
+                setQueuedTools([]);
+                setAddToolError(null);
+                setEditForm(createEmptyToolForm());
+                setIsAddModalOpen(true);
+              }}
               className="flex items-center gap-2 px-3 lg:px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] transition-colors text-sm lg:text-base"
             >
               <Plus className="w-4 h-4" />
@@ -719,6 +713,21 @@ export default function InventoryPage() {
                 </div>
               </div>
               <div className="p-6 space-y-4">
+                {queuedTools.length > 0 && (
+                  <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 space-y-2">
+                    <p className="text-sm font-medium text-blue-900">Tools ready to add ({queuedTools.length})</p>
+                    {queuedTools.map((tool, index) => (
+                      <div key={`${tool.name}-${index}`} className="flex items-center justify-between gap-3 rounded-md bg-white px-3 py-2 text-sm">
+                        <span className="min-w-0 truncate text-gray-700">
+                          {tool.name}{tool.size_thread ? ` · ${tool.size_thread}` : ''}{tool.material ? ` · ${tool.material}` : ''} · Qty {tool.quantity}
+                        </span>
+                        <button type="button" onClick={() => setQueuedTools(items => items.filter((_, itemIndex) => itemIndex !== index))} className="shrink-0 text-gray-400 hover:text-red-600" aria-label={`Remove ${tool.name} from the add list`}>
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Tool Name *</label>
@@ -843,7 +852,10 @@ export default function InventoryPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Material</label>
-                    <input type="text" value={editForm.material || ''} onChange={(e) => setEditForm({ ...editForm, material: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
+                    <select value={editForm.material || ''} onChange={(e) => setEditForm({ ...editForm, material: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20">
+                      <option value="">Select material...</option>
+                      {(attributeOptions?.materials ?? []).map(material => <option key={material} value={material}>{material}</option>)}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
@@ -908,12 +920,16 @@ export default function InventoryPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                   <textarea value={editForm.description || ''} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={3} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                 </div>
-                <div className="flex gap-3 pt-4">
+                {addToolError && <p role="alert" className="text-sm text-red-600">{addToolError}</p>}
+                <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
                   <button type="button" onClick={() => setIsAddModalOpen(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancel</button>
-                  <button onClick={handleAddNewTool} disabled={saving || !editForm.name} className="flex-1 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] disabled:opacity-50 flex items-center justify-center gap-2">
+                  <button type="button" onClick={queueCurrentTool} disabled={saving} className="flex-1 px-4 py-2 border border-[#0B3C6D] text-[#0B3C6D] rounded-lg hover:bg-blue-50 disabled:opacity-50">
+                    Add Another Tool
+                  </button>
+                  <button type="button" onClick={handleAddNewTool} disabled={saving || (!editForm.name.trim() && queuedTools.length === 0)} className="flex-1 px-4 py-2 bg-[#0B3C6D] text-white rounded-lg hover:bg-[#0a325a] disabled:opacity-50 flex items-center justify-center gap-2">
                     {saving ? (
                       <><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>Adding...</>
-                    ) : 'Add Tool'}
+                    ) : queuedTools.length > 0 ? `Add ${queuedTools.length + (editForm.name.trim() ? 1 : 0)} Tool${queuedTools.length + (editForm.name.trim() ? 1 : 0) === 1 ? '' : 's'}` : 'Add Tool'}
                   </button>
                 </div>
               </div>
