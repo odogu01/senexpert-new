@@ -761,6 +761,7 @@ export default function InventoryPage() {
                     <select value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20">
                       <option value="Saleable">Saleable</option>
                       <option value="Rental">Rental</option>
+                      <option value="Both">Both</option>
                     </select>
                   </div>
                   <div>
@@ -861,6 +862,7 @@ export default function InventoryPage() {
                     <select value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20">
                       <option value="Saleable">Saleable</option>
                       <option value="Rental">Rental</option>
+                      <option value="Both">Both</option>
                     </select>
                   </div>
                   <div>
