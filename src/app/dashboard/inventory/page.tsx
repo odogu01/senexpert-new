@@ -713,21 +713,6 @@ export default function InventoryPage() {
                 </div>
               </div>
               <div className="p-6 space-y-4">
-                {queuedTools.length > 0 && (
-                  <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 space-y-2">
-                    <p className="text-sm font-medium text-blue-900">Tools ready to add ({queuedTools.length})</p>
-                    {queuedTools.map((tool, index) => (
-                      <div key={`${tool.name}-${index}`} className="flex items-center justify-between gap-3 rounded-md bg-white px-3 py-2 text-sm">
-                        <span className="min-w-0 truncate text-gray-700">
-                          {tool.name}{tool.size_thread ? ` · ${tool.size_thread}` : ''}{tool.material ? ` · ${tool.material}` : ''} · Qty {tool.quantity}
-                        </span>
-                        <button type="button" onClick={() => setQueuedTools(items => items.filter((_, itemIndex) => itemIndex !== index))} className="shrink-0 text-gray-400 hover:text-red-600" aria-label={`Remove ${tool.name} from the add list`}>
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Tool Name *</label>
@@ -837,6 +822,34 @@ export default function InventoryPage() {
                 </div>
               </div>
               <div className="p-6 space-y-4">
+                {queuedTools.length > 0 && (
+                  <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 space-y-2">
+                    <p className="text-sm font-semibold text-blue-900">Preview tools to add ({queuedTools.length})</p>
+                    {queuedTools.map((tool, index) => (
+                      <div key={`${tool.name}-${index}`} className="flex items-start justify-between gap-3 rounded-md bg-white px-3 py-2 text-sm">
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900">{tool.name}</p>
+                          <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                            {[
+                              tool.size_thread && `Size/Thread: ${tool.size_thread}`,
+                              tool.material && `Material: ${tool.material}`,
+                              tool.model && `Model: ${tool.model}`,
+                              tool.work_order_number && `W/O: ${tool.work_order_number}`,
+                              tool.material_no && `Material No: ${tool.material_no}`,
+                              tool.part_number && `Part No: ${tool.part_number}`,
+                              tool.category && `Category: ${tool.category}`,
+                              tool.location && `Location: ${tool.location}`,
+                              `Quantity: ${tool.quantity}`,
+                            ].filter(Boolean).join(' · ')}
+                          </p>
+                        </div>
+                        <button type="button" onClick={() => setQueuedTools(items => items.filter((_, itemIndex) => itemIndex !== index))} className="shrink-0 text-gray-400 hover:text-red-600" aria-label={`Remove ${tool.name} from the add list`}>
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Tool Name *</label>
