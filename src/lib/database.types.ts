@@ -102,6 +102,7 @@ export interface Tool {
   id: string;
   name: string;
   work_order_number: string;
+  work_order_numbers?: string[];
   size_thread?: string;
   material?: string;
   model?: string;
@@ -129,6 +130,7 @@ export interface Tool {
 export interface ToolInsert {
   name: string;
   work_order_number: string;
+  work_order_numbers?: string[];
   size_thread?: string;
   material?: string;
   model?: string;
@@ -155,6 +157,7 @@ export interface ToolInsert {
 export interface ToolUpdate {
   name?: string;
   work_order_number?: string;
+  work_order_numbers?: string[];
   size_thread?: string;
   material?: string;
   model?: string;
@@ -180,8 +183,11 @@ export interface ToolRequestItem {
   material?: string;
   model?: string;
   work_order_number?: string;
+  work_order_numbers?: string[];
   material_no?: string;
   part_number?: string;
+  category?: string;
+  location?: string;
 }
 
 export interface ToolRequest {

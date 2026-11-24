@@ -195,11 +195,14 @@ export async function getToolById(id: string): Promise<{ success: boolean; data?
 export async function createTool(tool: ToolInsert, actingUserId?: string, ipAddress?: string): Promise<{ success: boolean; data?: Tool; error?: string }> {
   try {
     const qty = tool.quantity ?? 1;
+    const workOrders = (tool.work_order_numbers || (tool.work_order_number ? [tool.work_order_number] : [])).map(value => value.trim()).filter(Boolean);
+    if (workOrders.length > qty || new Set(workOrders).size !== workOrders.length) return { success: false, error: 'Enter no more than one unique work order number per unit' };
     const newTool = await toolRepo.insertOne({
       name: tool.name,
-      work_order_number: tool.work_order_number,
+      work_order_number: '',
+      work_order_numbers: workOrders,
       size_thread: tool.size_thread,
-      material: tool.material,
+      material: typeof tool.material === 'string' && tool.material.toUpperCase() === 'L-80' ? 'L80' : typeof tool.material === 'string' && tool.material.toUpperCase() === 'CR-L80' ? 'CHROME' : tool.material,
       model: tool.model,
       material_no: tool.material_no,
       part_number: tool.part_number,
@@ -242,6 +245,13 @@ export async function updateTool(id: string, updates: ToolUpdate, actingUserId?:
 
     // Never allow initial_quantity to be changed via update
     const { initial_quantity, ...safeUpdates } = updates as any;
+    if (safeUpdates.work_order_numbers) {
+      safeUpdates.work_order_numbers = safeUpdates.work_order_numbers.map((value: string) => value.trim()).filter(Boolean);
+      if (safeUpdates.quantity !== undefined && safeUpdates.work_order_numbers.length > safeUpdates.quantity) return { success: false, error: 'Work order numbers cannot exceed the tool quantity' };
+      if (new Set(safeUpdates.work_order_numbers).size !== safeUpdates.work_order_numbers.length) return { success: false, error: 'Work order numbers must be unique' };
+    }
+    if (typeof safeUpdates.material === 'string' && safeUpdates.material.toUpperCase() === 'L-80') safeUpdates.material = 'L80';
+    if (typeof safeUpdates.material === 'string' && safeUpdates.material.toUpperCase() === 'CR-L80') safeUpdates.material = 'CHROME';
     const result = await toolRepo.updateWithAutoDelete(id, safeUpdates);
 
     if (result.error) return { success: false, error: result.error };
@@ -355,6 +365,11 @@ export async function createToolRequest(request: {
     size_thread?: string;
     material?: string;
     model?: string;
+    work_order_numbers?: string[];
+    material_no?: string;
+    part_number?: string;
+    category?: string;
+    location?: string;
   }>;
   return_of_request_id?: string;
 }, actingUserId?: string, ipAddress?: string): Promise<{ success: boolean; data?: ToolRequest; error?: string }> {
@@ -390,6 +405,21 @@ export async function createToolRequest(request: {
 
     // Store multi-tool items for outgoing requests
     if (request.items && request.items.length > 0) {
+      if (request.movement_type === 'outgoing') {
+        for (const item of request.items) {
+          const selectedWos = item.work_order_numbers || [];
+          if (selectedWos.length > item.quantity || new Set(selectedWos).size !== selectedWos.length) {
+            return { success: false, error: 'Work order selections must be unique and cannot exceed the item quantity' };
+          }
+          const inventoryTool = await toolRepo.findById(item.tool_id);
+          if (!inventoryTool || inventoryTool.quantity < item.quantity) return { success: false, error: `Insufficient available inventory for ${item.tool_name || 'a selected tool'}` };
+          const availableWos: string[] = inventoryTool.work_order_numbers || (inventoryTool.work_order_number ? [inventoryTool.work_order_number] : []);
+          const requiredWos = Math.min(item.quantity, availableWos.length);
+          if (selectedWos.length !== requiredWos || selectedWos.some(value => !availableWos.includes(value))) {
+            return { success: false, error: `Select ${requiredWos} available work order number${requiredWos === 1 ? '' : 's'} for ${item.tool_name || inventoryTool.name}` };
+          }
+        }
+      }
       insertData.items = request.items;
       insertData.tool_name = request.items.map(i => i.tool_name || i.tool_id).join(', ');
       insertData.quantity = request.items.reduce((sum, i) => sum + i.quantity, 0);
@@ -425,12 +455,16 @@ export async function createToolRequest(request: {
         status: { $ne: 'rejected' },
       }).toArray();
       const alreadyReturning = new Map<string, number>();
+      const returnedWorkOrders = new Map<string, Set<string>>();
       for (const priorReturn of returns) {
         const priorItems = priorReturn.items?.length
           ? priorReturn.items
           : priorReturn.tool_id ? [{ tool_id: priorReturn.tool_id, quantity: priorReturn.quantity }] : [];
         for (const item of priorItems) {
           alreadyReturning.set(item.tool_id, (alreadyReturning.get(item.tool_id) || 0) + Number(item.quantity || 0));
+          const returnedSet = returnedWorkOrders.get(item.tool_id) || new Set<string>();
+          (item.work_order_numbers || (item.work_order_number ? [item.work_order_number] : [])).forEach((value: string) => returnedSet.add(value));
+          returnedWorkOrders.set(item.tool_id, returnedSet);
         }
       }
       for (const item of request.items) {
@@ -438,6 +472,13 @@ export async function createToolRequest(request: {
         const remaining = Number(dispatchedItem?.quantity || 0) - (alreadyReturning.get(item.tool_id) || 0);
         if (!dispatchedItem || item.quantity > remaining) {
           return { success: false, error: 'One or more return quantities exceed the outstanding rented quantity' };
+        }
+        const dispatchedWos = dispatchedItem.work_order_numbers || (dispatchedItem.work_order_number ? [dispatchedItem.work_order_number] : []);
+        const availableWos = dispatchedWos.filter((value: string) => !returnedWorkOrders.get(item.tool_id)?.has(value));
+        const selectedWos = item.work_order_numbers || [];
+        const requiredWos = Math.min(Number(item.quantity), availableWos.length);
+        if (selectedWos.length !== requiredWos || new Set(selectedWos).size !== selectedWos.length || selectedWos.some((value: string) => !availableWos.includes(value))) {
+          return { success: false, error: 'Select valid work orders for the quantity being returned' };
         }
       }
     }
@@ -538,10 +579,17 @@ export async function updateToolRequestStatus(
           for (const item of items) {
             let toolId: any;
             try { toolId = new mongodb.ObjectId(item.tool_id); } catch { throw new Error('Invalid tool in request'); }
+            const selectedWos = (item as any).work_order_numbers || ((item as any).work_order_number ? [(item as any).work_order_number] : []);
+            if (selectedWos.length > item.quantity || new Set(selectedWos).size !== selectedWos.length) throw new Error('Invalid work order selection');
+            const currentTool = await db.collection('tools').findOne({ _id: toolId }, { session });
+            if (!currentTool) throw new Error('Tool not found');
+            const currentWos: string[] = Array.isArray(currentTool.work_order_numbers) ? currentTool.work_order_numbers : (currentTool.work_order_number ? [currentTool.work_order_number] : []);
+            const requiredWos = Math.min(Number(item.quantity), currentWos.length);
+            if (selectedWos.length !== requiredWos || selectedWos.some((workOrder: string) => !currentWos.includes(workOrder))) throw new Error('Work orders changed or no longer match the requested quantity');
             // The quantity predicate makes stock checks and decrements one atomic operation.
             const deducted = await db.collection('tools').updateOne(
-              { _id: toolId, quantity: { $gte: item.quantity } },
-              { $inc: { quantity: -item.quantity }, $set: { updated_at: now } },
+              { _id: toolId, quantity: { $gte: item.quantity }, ...(selectedWos.length ? { $or: [{ work_order_numbers: { $all: selectedWos } }, { work_order_numbers: { $exists: false }, work_order_number: { $in: selectedWos } }] } : {}) },
+              { $inc: { quantity: -item.quantity }, ...(selectedWos.length ? { $pull: { work_order_numbers: { $in: selectedWos }, work_order_number: { $in: selectedWos } } } : {}), $set: { updated_at: now } },
               { session },
             );
             if (deducted.matchedCount !== 1) throw new Error('Insufficient available inventory');
@@ -554,7 +602,7 @@ export async function updateToolRequestStatus(
             try { toolId = new mongodb.ObjectId(item.tool_id); } catch { throw new Error('Invalid tool in request'); }
             const restored = await db.collection('tools').updateOne(
               { _id: toolId },
-              { $inc: { quantity: item.quantity }, $set: { status: 'available', updated_at: now } },
+              { $inc: { quantity: item.quantity }, ...(item.work_order_numbers?.length ? { $addToSet: { work_order_numbers: { $each: item.work_order_numbers } } } : {}), $set: { status: 'available', updated_at: now } },
               { session },
             );
             if (restored.matchedCount !== 1) throw new Error('Tool not found for return');
@@ -565,8 +613,8 @@ export async function updateToolRequestStatus(
           const toolData = oldRequest.new_tool_data as Record<string, unknown>;
           await db.collection('tools').insertOne({
             _id: new mongodb.ObjectId(),
-            name: toolData.name || '', work_order_number: toolData.work_order_number || '',
-            size_thread: toolData.size_thread || '', material: toolData.material || '', model: toolData.model || '',
+            name: toolData.name || '', work_order_number: '', work_order_numbers: Array.isArray(toolData.work_order_numbers) ? toolData.work_order_numbers : (toolData.work_order_number ? [toolData.work_order_number] : []),
+            size_thread: toolData.size_thread || '', material: typeof toolData.material === 'string' && toolData.material.toUpperCase() === 'L-80' ? 'L80' : typeof toolData.material === 'string' && toolData.material.toUpperCase() === 'CR-L80' ? 'CHROME' : toolData.material || '', model: toolData.model || '',
             material_no: toolData.material_no || '', part_number: toolData.part_number || '',
             category: toolData.category || 'Saleable', quantity: toolData.quantity ? Number(toolData.quantity) : 1,
             initial_quantity: toolData.quantity ? Number(toolData.quantity) : 1,
@@ -624,7 +672,7 @@ export async function getToolAttributeOptions(search?: string, scope?: { created
 /** Allow an approver to correct a pending request before its stock is committed. */
 export async function editPendingToolRequest(
   id: string,
-  changes: { items: Array<{ tool_id: string; tool_name?: string; quantity: number; size_thread?: string; material?: string; model?: string }>; notes?: string; location?: string; vehicle_no?: string; delivered_to?: string; delivered_by?: string; received_by?: string; received_from?: string },
+  changes: { items: Array<{ tool_id: string; tool_name?: string; quantity: number; size_thread?: string; material?: string; model?: string; work_order_numbers?: string[]; material_no?: string; part_number?: string; category?: string; location?: string }>; notes?: string; location?: string; vehicle_no?: string; delivered_to?: string; delivered_by?: string; received_by?: string; received_from?: string },
   actingUserId?: string,
   ipAddress?: string,
 ): Promise<{ success: boolean; data?: ToolRequest; error?: string }> {
@@ -647,6 +695,11 @@ export async function editPendingToolRequest(
       try { toolId = new mongodb.ObjectId(item.tool_id); } catch { return { success: false, error: 'Select a valid inventory tool for every item' }; }
       const tool = await db.collection('tools').findOne({ _id: toolId, quantity: { $gte: item.quantity } });
       if (!tool) return { success: false, error: `Insufficient available inventory for ${item.tool_name || 'a selected tool'}` };
+      const availableWos: string[] = Array.isArray(tool.work_order_numbers) ? tool.work_order_numbers : (tool.work_order_number ? [tool.work_order_number] : []);
+      const selectedWos = item.work_order_numbers || ((item as any).work_order_number ? [(item as any).work_order_number] : []);
+      if (selectedWos.length !== Math.min(item.quantity, availableWos.length) || new Set(selectedWos).size !== selectedWos.length || selectedWos.some(value => !availableWos.includes(value))) {
+        return { success: false, error: `Update the work order selections for ${item.tool_name || tool.name}` };
+      }
       items.push({ ...item, tool_name: item.tool_name || tool.name });
     }
 

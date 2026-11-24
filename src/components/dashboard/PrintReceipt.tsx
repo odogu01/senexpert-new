@@ -36,7 +36,7 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
       tool.name,
       isValidValue(tool.size_thread) ? `Size/Thread: ${tool.size_thread}` : null,
       tool.material,
-      isValidValue(tool.work_order_number) ? `W/O:${tool.work_order_number}` : null,
+      isValidValue((tool.work_order_numbers || []).join(', ') || tool.work_order_number) ? `W/O:${(tool.work_order_numbers || []).join(', ') || tool.work_order_number}` : null,
       isValidValue(tool.material_no) ? `Mat No:${tool.material_no}` : null,
       isValidValue(tool.part_number) ? `Part No:${tool.part_number}` : null,
     ].filter(Boolean);
@@ -44,7 +44,7 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
   } else if (request) {
     const items = (request as any).items as Array<{
       tool_name?: string; size_thread?: string; material?: string; model?: string;
-      quantity: number; work_order_number?: string; material_no?: string; part_number?: string;
+      quantity: number; work_order_number?: string; work_order_numbers?: string[]; material_no?: string; part_number?: string;
     }> | undefined;
 
     const descParts = (...vals: (string | undefined | null)[]) =>
@@ -56,7 +56,7 @@ export default function PrintReceipt({ request, tool }: PrintReceiptProps) {
         const parts = descParts(item.tool_name,
           isValidValue(item.size_thread) ? `Size/Thread: ${item.size_thread}` : null,
           item.material,
-          isValidValue(item.work_order_number) ? `W/O:${item.work_order_number}` : null,
+          isValidValue((item.work_order_numbers || []).join(', ') || item.work_order_number) ? `W/O:${(item.work_order_numbers || []).join(', ') || item.work_order_number}` : null,
           isValidValue(item.material_no) ? `Mat No:${item.material_no}` : null,
           isValidValue(item.part_number) ? `Part No:${item.part_number}` : null);
         toolRows.push({ sn: i + 1, description: parts.join('; ') || 'N/A', quantity: item.quantity, remark: notes });

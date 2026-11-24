@@ -144,9 +144,12 @@ export default function RequestsPage() {
     sizeThread: string;
     material: string;
     model: string;
-    workOrderNumber: string;
     materialNo: string;
     partNumber: string;
+    category: string;
+    location: string;
+    selectedWorkOrderNumbers: string[];
+    availableWorkOrderNumbers?: string[];
     quantity: string;
     maxQuantity: number | null;
   }
@@ -155,9 +158,10 @@ export default function RequestsPage() {
     { key: 'sizeThread', toolKey: 'size_thread' },
     { key: 'material', toolKey: 'material' },
     { key: 'model', toolKey: 'model' },
-    { key: 'workOrderNumber', toolKey: 'work_order_number' },
     { key: 'materialNo', toolKey: 'material_no' },
     { key: 'partNumber', toolKey: 'part_number' },
+    { key: 'category', toolKey: 'category' },
+    { key: 'location', toolKey: 'location' },
   ] as const;
   const getCartToolCandidates = (item: CartEntry, throughAttribute?: typeof cartToolAttributes[number]['key']) => {
     const stopAt = throughAttribute
@@ -181,7 +185,6 @@ export default function RequestsPage() {
       (tool.size_thread || '') === (item.sizeThread === noToolAttribute ? '' : item.sizeThread) &&
       (tool.material || '') === (item.material === noToolAttribute ? '' : item.material) &&
       (tool.model || '') === (item.model === noToolAttribute ? '' : item.model) &&
-      (tool.work_order_number || '') === (item.workOrderNumber === noToolAttribute ? '' : item.workOrderNumber) &&
       (tool.material_no || '') === (item.materialNo === noToolAttribute ? '' : item.materialNo) &&
       (tool.part_number || '') === (item.partNumber === noToolAttribute ? '' : item.partNumber)
     );
@@ -254,9 +257,11 @@ export default function RequestsPage() {
       sizeThread: '',
       material: '',
       model: '',
-      workOrderNumber: '',
       materialNo: '',
       partNumber: '',
+      category: '',
+      location: '',
+      selectedWorkOrderNumbers: [],
       quantity: '1',
       maxQuantity: null,
     }]);
@@ -328,16 +333,23 @@ export default function RequestsPage() {
     const source = rentalReturnSources.find(request => request.id === sourceId);
     if (!source) { setReturnItems([]); return; }
     const previouslyReturned = new Map<string, number>();
+    const returnedWorkOrders = new Map<string, Set<string>>();
     for (const request of requests) {
       if (request.return_of_request_id !== sourceId || request.status === 'rejected') continue;
       const items = request.items?.length ? request.items : request.tool_id ? [{ tool_id: request.tool_id, quantity: request.quantity }] : [];
-      for (const item of items) previouslyReturned.set(item.tool_id, (previouslyReturned.get(item.tool_id) || 0) + item.quantity);
+      for (const item of items) {
+        previouslyReturned.set(item.tool_id, (previouslyReturned.get(item.tool_id) || 0) + item.quantity);
+        const returnedSet = returnedWorkOrders.get(item.tool_id) || new Set<string>();
+        (item.work_order_numbers || (item.work_order_number ? [item.work_order_number] : [])).forEach(value => returnedSet.add(value));
+        returnedWorkOrders.set(item.tool_id, returnedSet);
+      }
     }
     const sourceItems = source.items?.length ? source.items : source.tool_id ? [{ tool_id: source.tool_id, tool_name: source.tool_name, quantity: source.quantity }] : [];
     setReturnItems(sourceItems.map((item, index) => ({
       key: `return-${index}-${item.tool_id}`, toolId: item.tool_id, toolName: item.tool_name || 'Tool',
       sizeThread: item.size_thread || '', material: item.material || '', model: item.model || '',
-      workOrderNumber: item.work_order_number || '', materialNo: item.material_no || '', partNumber: item.part_number || '',
+      materialNo: item.material_no || '', partNumber: item.part_number || '', selectedWorkOrderNumbers: [], availableWorkOrderNumbers: (item.work_order_numbers || (item.work_order_number ? [item.work_order_number] : [])).filter(value => !returnedWorkOrders.get(item.tool_id)?.has(value)),
+      category: '', location: '',
       quantity: '0', maxQuantity: item.quantity - (previouslyReturned.get(item.tool_id) || 0),
     })).filter(item => (item.maxQuantity || 0) > 0));
   };
@@ -386,6 +398,13 @@ export default function RequestsPage() {
               setQuantityError(`"${item.toolName}" max available quantity is ${avail}. You requested ${qty}.`);
               return;
             }
+            const selectedTool = getCartTool(item)!;
+            const availableWorkOrders = selectedTool.work_order_numbers || (selectedTool.work_order_number ? [selectedTool.work_order_number] : []);
+            const requiredWorkOrders = Math.min(qty, availableWorkOrders.length);
+            if (item.selectedWorkOrderNumbers.length !== requiredWorkOrders || new Set(item.selectedWorkOrderNumbers).size !== item.selectedWorkOrderNumbers.length) {
+              setQuantityError(`Select ${requiredWorkOrders} distinct work order number${requiredWorkOrders === 1 ? '' : 's'} for "${item.toolName}".`);
+              return;
+            }
           }
 
           requestData.items = cartItems.map(item => ({
@@ -395,9 +414,11 @@ export default function RequestsPage() {
             size_thread: item.sizeThread && item.sizeThread !== noToolAttribute ? item.sizeThread : undefined,
             material: item.material && item.material !== noToolAttribute ? item.material : undefined,
             model: item.model && item.model !== noToolAttribute ? item.model : undefined,
-            work_order_number: item.workOrderNumber && item.workOrderNumber !== noToolAttribute ? item.workOrderNumber : undefined,
+            work_order_numbers: item.selectedWorkOrderNumbers,
             material_no: item.materialNo && item.materialNo !== noToolAttribute ? item.materialNo : undefined,
             part_number: item.partNumber && item.partNumber !== noToolAttribute ? item.partNumber : undefined,
+            category: item.category && item.category !== noToolAttribute ? item.category : undefined,
+            location: item.location && item.location !== noToolAttribute ? item.location : undefined,
           }));
           requestData.tool_id = cartItems[0].toolId;
           requestData.quantity = cartItems.reduce((sum, item) => sum + parseInt(item.quantity), 1);
@@ -423,9 +444,14 @@ export default function RequestsPage() {
             setQuantityError(`"${item.toolName}" has only ${item.maxQuantity || 0} outstanding for return.`);
             return;
           }
+          const requiredWorkOrders = Math.min(parseInt(item.quantity), item.availableWorkOrderNumbers?.length || 0);
+          if (item.selectedWorkOrderNumbers.length !== requiredWorkOrders) {
+            setQuantityError(`Select ${requiredWorkOrders} work order number${requiredWorkOrders === 1 ? '' : 's'} to return for "${item.toolName}".`);
+            return;
+          }
         }
         requestData.return_of_request_id = returnSourceId;
-        requestData.items = itemsToReturn.map(item => ({ tool_id: item.toolId, tool_name: item.toolName, quantity: parseInt(item.quantity), size_thread: item.sizeThread || undefined, material: item.material || undefined, model: item.model || undefined }));
+        requestData.items = itemsToReturn.map(item => ({ tool_id: item.toolId, tool_name: item.toolName, quantity: parseInt(item.quantity), size_thread: item.sizeThread || undefined, material: item.material || undefined, model: item.model || undefined, work_order_numbers: item.selectedWorkOrderNumbers }));
         requestData.tool_id = itemsToReturn[0].toolId;
         requestData.quantity = itemsToReturn.reduce((sum, item) => sum + parseInt(item.quantity), 0);
         requestData.vehicle_no = formData.vehicleNo;
@@ -770,9 +796,11 @@ export default function RequestsPage() {
                                         sizeThread: '',
                                         material: '',
                                         model: '',
-                                        workOrderNumber: '',
                                         materialNo: '',
                                         partNumber: '',
+                                        category: '',
+                                        location: '',
+                                        selectedWorkOrderNumbers: [],
                                         quantity: '1',
                                         maxQuantity: null,
                                       });
@@ -792,9 +820,10 @@ export default function RequestsPage() {
                                     sizeThread: 'Size/Thread',
                                     material: 'Material',
                                     model: 'Model',
-                                    workOrderNumber: 'W/O',
                                     materialNo: 'Material No',
                                     partNumber: 'Part Number',
+                                    category: 'Category',
+                                    location: 'Location',
                                   };
                                   const candidates = getCartToolCandidates(item, attribute.key);
                                   const optionValues = Array.from(new Set(candidates.map(tool => String(tool[attribute.toolKey] ?? ''))));
@@ -832,7 +861,7 @@ export default function RequestsPage() {
                                     disabled={!getCartTool(item)}
                                     onChange={(e) => {
                                       const quantity = e.target.value;
-                                      updateCartItem(item.key, { quantity });
+                                      updateCartItem(item.key, { quantity, selectedWorkOrderNumbers: [] });
                                       const available = getCartToolQty(item);
                                       setQuantityError(Number(quantity) > available ? `Only ${available} available for this tool.` : null);
                                     }}
@@ -840,6 +869,18 @@ export default function RequestsPage() {
                                     required
                                   />
                                 </div>
+                                {getCartTool(item) && (() => {
+                                  const selectedTool = getCartTool(item)!;
+                                  const workOrders = Array.from(new Set(selectedTool.work_order_numbers || (selectedTool.work_order_number ? [selectedTool.work_order_number] : []))).filter(Boolean);
+                                  const requiredCount = Math.min(Number(item.quantity) || 0, workOrders.length);
+                                  return workOrders.length > 0 ? <div className="col-span-2">
+                                    <label className="block text-xs text-gray-500 mb-1">Work orders ({requiredCount} required for this quantity; available: {workOrders.length})</label>
+                                    <select multiple value={item.selectedWorkOrderNumbers} onChange={e => updateCartItem(item.key, { selectedWorkOrderNumbers: Array.from(e.target.selectedOptions, option => option.value) })} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg min-h-24">
+                                      {workOrders.map(workOrder => <option key={workOrder} value={workOrder}>{workOrder}</option>)}
+                                    </select>
+                                    <p className="mt-1 text-xs text-gray-500">Hold Ctrl (Windows) or Command (Mac) to select multiple work orders.</p>
+                                  </div> : null;
+                                })()}
                               </div>
                             </div>
                           ))}
@@ -870,14 +911,20 @@ export default function RequestsPage() {
                         <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 text-sm font-medium text-gray-700">Tools to return</div>
                         <div className="divide-y divide-gray-100">
                           {returnItems.map(item => (
-                            <div key={item.key} className="p-3 flex items-center gap-3">
+                            <div key={item.key} className="p-3 grid grid-cols-[minmax(0,1fr)_5rem] gap-3 items-start">
                               <div className="min-w-0 flex-1">
                                 <p className="text-sm font-medium text-gray-800 truncate">{item.toolName}</p>
                                 <p className="text-xs text-gray-500">Outstanding: {item.maxQuantity}</p>
                               </div>
                               <input type="number" min="0" max={item.maxQuantity || 0} value={item.quantity}
-                                onChange={(e) => { const quantity = e.target.value; setReturnItems(items => items.map(entry => entry.key === item.key ? { ...entry, quantity } : entry)); setQuantityError(null); }}
+                                onChange={(e) => { const quantity = e.target.value; setReturnItems(items => items.map(entry => entry.key === item.key ? { ...entry, quantity, selectedWorkOrderNumbers: [] } : entry)); setQuantityError(null); }}
                                 className="w-20 px-2 py-1.5 text-sm border border-gray-300 rounded-lg" aria-label={`Quantity to return for ${item.toolName}`} />
+                              {!!item.availableWorkOrderNumbers?.length && Number(item.quantity) > 0 && <div className="col-span-2">
+                                <label className="block text-xs text-gray-500 mb-1">Select {Math.min(Number(item.quantity), item.availableWorkOrderNumbers.length)} work order(s) to return</label>
+                                <select multiple value={item.selectedWorkOrderNumbers} onChange={e => setReturnItems(items => items.map(entry => entry.key === item.key ? { ...entry, selectedWorkOrderNumbers: Array.from(e.target.selectedOptions, option => option.value) } : entry))} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg min-h-20">
+                                  {item.availableWorkOrderNumbers.map(workOrder => <option key={workOrder} value={workOrder}>{workOrder}</option>)}
+                                </select>
+                              </div>}
                             </div>
                           ))}
                         </div>

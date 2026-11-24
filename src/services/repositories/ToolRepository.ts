@@ -6,6 +6,13 @@ export class ToolRepository extends BaseRepository<any> {
     super('tools');
   }
 
+  protected toApp(doc: any) {
+    const app = super.toApp(doc);
+    const numbers = Array.isArray(doc.work_order_numbers) ? doc.work_order_numbers : (doc.work_order_number ? [doc.work_order_number] : []);
+    const material = typeof doc.material === 'string' && doc.material.toUpperCase() === 'L-80' ? 'L80' : typeof doc.material === 'string' && doc.material.toUpperCase() === 'CR-L80' ? 'CHROME' : doc.material;
+    return { ...app, material, work_order_numbers: numbers.filter((value: unknown) => typeof value === 'string' && value.trim()), work_order_number: '' };
+  }
+
   /**
    * Build the common filter query (excludes zero-quantity tools).
    */
@@ -34,6 +41,7 @@ export class ToolRepository extends BaseRepository<any> {
     if (filters?.search) {
       query.$or = [
         { name: { $regex: filters.search, $options: 'i' } },
+        { work_order_numbers: { $regex: filters.search, $options: 'i' } },
         { work_order_number: { $regex: filters.search, $options: 'i' } },
         { part_number: { $regex: filters.search, $options: 'i' } },
       ];

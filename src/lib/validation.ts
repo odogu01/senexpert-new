@@ -29,6 +29,7 @@ export const loginSchema = z.object({
 export const createToolSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200),
   work_order_number: z.string().max(100).optional().default(''),
+  work_order_numbers: z.array(z.string().max(100)).optional(),
   size_thread: z.string().max(50).optional(),
   material: z.string().max(100).optional(),
   model: z.string().max(100).optional(),
@@ -54,6 +55,7 @@ export type CreateToolInput = z.infer<typeof createToolSchema>;
 export const updateToolSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   work_order_number: z.string().max(100).optional(),
+  work_order_numbers: z.array(z.string().max(100)).optional(),
   size_thread: z.string().max(50).optional(),
   material: z.string().max(100).optional(),
   model: z.string().max(100).optional(),
@@ -83,6 +85,12 @@ const toolRequestItemSchema = z.object({
   size_thread: z.string().optional(),
   material: z.string().optional(),
   model: z.string().optional(),
+  work_order_number: z.string().max(100).optional(),
+  work_order_numbers: z.array(z.string().max(100)).optional(),
+  material_no: z.string().optional(),
+  part_number: z.string().optional(),
+  category: z.string().optional(),
+  location: z.string().optional(),
 });
 
 export const createToolRequestSchema = z.object({

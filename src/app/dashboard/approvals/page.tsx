@@ -28,7 +28,7 @@ export default function ApprovalsPage() {
   const [activeTab, setActiveTab] = useState<'tools' | 'financial'>('tools');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [reviewRequest, setReviewRequest] = useState<ToolRequest | null>(null);
-  const [reviewItems, setReviewItems] = useState<Array<{ tool_id: string; tool_name?: string; quantity: number }>>([]);
+  const [reviewItems, setReviewItems] = useState<Array<{ tool_id: string; tool_name?: string; quantity: number; work_order_numbers?: string[]; material_no?: string; part_number?: string; size_thread?: string; material?: string; model?: string; category?: string; location?: string }>>([]);
   const [reviewFields, setReviewFields] = useState({ notes: '', location: '', vehicle_no: '', delivered_to: '', delivered_by: '', received_by: '', received_from: '' });
   const [reviewError, setReviewError] = useState('');
 
@@ -48,7 +48,7 @@ export default function ApprovalsPage() {
 
   const openReview = (request: ToolRequest) => {
     const items = request.items?.length
-      ? request.items.map(item => ({ tool_id: item.tool_id, tool_name: item.tool_name, quantity: item.quantity }))
+      ? request.items.map(item => ({ tool_id: item.tool_id, tool_name: item.tool_name, quantity: item.quantity, work_order_numbers: item.work_order_numbers || (item.work_order_number ? [item.work_order_number] : []), material_no: item.material_no, part_number: item.part_number, size_thread: item.size_thread, material: item.material, model: item.model, category: item.category, location: item.location }))
       : [{ tool_id: request.tool_id || '', tool_name: request.tool_name || '', quantity: request.quantity || 1 }];
     setReviewRequest(request);
     setReviewItems(items);
@@ -202,7 +202,7 @@ export default function ApprovalsPage() {
                     <div><dt className="font-medium text-gray-500">Size / Thread</dt><dd className="font-semibold text-gray-900">{selectedTool.size_thread || '—'}</dd></div>
                     <div><dt className="font-medium text-gray-500">Material</dt><dd className="font-semibold text-gray-900">{selectedTool.material || '—'}</dd></div>
                     <div><dt className="font-medium text-gray-500">Model</dt><dd className="font-semibold text-gray-900">{selectedTool.model || '—'}</dd></div>
-                    <div><dt className="font-medium text-gray-500">Work order</dt><dd className="font-semibold text-gray-900">{selectedTool.work_order_number || '—'}</dd></div>
+                    <div><dt className="font-medium text-gray-500">Selected work orders</dt><dd className="font-semibold text-gray-900">{item.work_order_numbers?.join(', ') || 'Unnumbered units'}</dd></div>
                     <div><dt className="font-medium text-gray-500">Material no.</dt><dd className="font-semibold text-gray-900">{selectedTool.material_no || '—'}</dd></div>
                     <div><dt className="font-medium text-gray-500">Part no.</dt><dd className="font-semibold text-gray-900">{selectedTool.part_number || '—'}</dd></div>
                   </dl>}

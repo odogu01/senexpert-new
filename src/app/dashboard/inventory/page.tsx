@@ -15,6 +15,7 @@ import { OPERATOR_VISIBILITY_WINDOW_HOURS } from '@/lib/constants';
 const createEmptyToolForm = (): ToolInsert => ({
   name: '',
   work_order_number: '',
+  work_order_numbers: [],
   category: 'Saleable',
   quantity: 1,
   status: 'available',
@@ -136,7 +137,7 @@ export default function InventoryPage() {
       .filter(tool => {
         const createdAt = tool.created_at ? new Date(tool.created_at) : null;
         if (!createdAt || createdAt <= windowAgo || tool.created_by !== currentUserId) return false;
-        if (debouncedSearch && ![tool.name, tool.work_order_number, tool.part_number].some(value => value?.toLowerCase().includes(debouncedSearch.toLowerCase()))) return false;
+        if (debouncedSearch && ![tool.name, ...(tool.work_order_numbers || []), tool.part_number].some(value => value?.toLowerCase().includes(debouncedSearch.toLowerCase()))) return false;
         if (statusFilter !== 'all' && tool.status !== statusFilter) return false;
         if (categoryFilter !== 'all' && tool.category !== categoryFilter) return false;
         if (locationFilter !== 'all' && tool.location !== locationFilter) return false;
@@ -200,6 +201,7 @@ export default function InventoryPage() {
     setEditForm({
       name: tool.name,
       work_order_number: tool.work_order_number,
+      work_order_numbers: tool.work_order_numbers || (tool.work_order_number ? [tool.work_order_number] : []),
       size_thread: tool.size_thread || '',
       material: tool.material || '',
       model: tool.model || '',
@@ -280,7 +282,8 @@ export default function InventoryPage() {
         id: editingTool.id,
         data: {
           name: editForm.name,
-          work_order_number: editForm.work_order_number,
+      work_order_number: '',
+      work_order_numbers: editForm.work_order_numbers || [],
           size_thread: editForm.size_thread,
           material: editForm.material,
           model: editForm.model,
@@ -467,17 +470,6 @@ export default function InventoryPage() {
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Size/Thread</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Material</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Model</th>
-                <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap">
-                  <span className="flex items-center gap-1">
-                    W/O
-                    <div className="group relative">
-                      <HelpCircle className="w-4 h-4 text-gray-400 cursor-help" />
-                      <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 whitespace-nowrap z-[100] pointer-events-none transition-opacity">
-                        Work Order Number
-                      </span>
-                    </div>
-                  </span>
-                </th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Material No</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Part Number</th>
                 <th className="px-4 lg:px-6 py-3 lg:py-4 text-left text-xs font-semibold text-gray-500 uppercase">Category</th>
@@ -562,7 +554,6 @@ export default function InventoryPage() {
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.size_thread || '-'}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.material || '-'}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.model || '-'}</td>
-                  <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.work_order_number}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.material_no || '-'}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4 text-sm text-gray-600">{tool.part_number || '-'}</td>
                   <td className="hidden lg:table-cell px-4 lg:px-6 py-3 lg:py-4">
@@ -639,8 +630,8 @@ export default function InventoryPage() {
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs text-gray-500 uppercase">Work Order Number</p>
-                    <p className="text-sm font-medium text-gray-800">{selectedTool.work_order_number}</p>
+                    <p className="text-xs text-gray-500 uppercase">Work Order Numbers</p>
+                    <p className="text-sm font-medium text-gray-800">{(selectedTool.work_order_numbers || (selectedTool.work_order_number ? [selectedTool.work_order_number] : [])).join(', ') || 'None recorded'}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 uppercase">Part Number</p>
@@ -719,18 +710,6 @@ export default function InventoryPage() {
                     <input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" required />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      <span className="flex items-center gap-1">
-                        Work Order Number (W/O) <span className="font-normal text-gray-500">(optional)</span>
-                        <div className="group relative">
-                          <HelpCircle className="w-3 h-3 text-gray-400 cursor-help" />
-                          <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 whitespace-nowrap z-[100] pointer-events-none transition-opacity">Work Order Number</span>
-                        </div>
-                      </span>
-                    </label>
-                    <input type="text" value={editForm.work_order_number} onChange={(e) => setEditForm({ ...editForm, work_order_number: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
-                  </div>
-                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Size/Thread</label>
                     <input type="text" value={editForm.size_thread} onChange={(e) => setEditForm({ ...editForm, size_thread: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                   </div>
@@ -760,7 +739,17 @@ export default function InventoryPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                    <input type="number" min="0" value={editForm.quantity} onChange={(e) => setEditForm({ ...editForm, quantity: parseInt(e.target.value) || 0 })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
+                    <input type="number" min="0" value={editForm.quantity} onChange={(e) => { const quantity = parseInt(e.target.value) || 0; setEditForm({ ...editForm, quantity, work_order_numbers: (editForm.work_order_numbers || []).slice(0, quantity) }); }} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Work Order Numbers <span className="font-normal text-gray-500">(optional, one per unit)</span></label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {Array.from({ length: Number(editForm.quantity) || 0 }, (_, index) => <input key={index} type="text" value={editForm.work_order_numbers?.[index] || ''} onChange={e => {
+                        const work_order_numbers = Array.from({ length: Number(editForm.quantity) || 0 }, (_, i) => editForm.work_order_numbers?.[i] || '');
+                        work_order_numbers[index] = e.target.value;
+                        setEditForm({ ...editForm, work_order_numbers, work_order_number: '' });
+                      }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder={`Unit ${index + 1} W/O (optional)`} />)}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Min Quantity</label>
@@ -834,7 +823,7 @@ export default function InventoryPage() {
                               tool.size_thread && `Size/Thread: ${tool.size_thread}`,
                               tool.material && `Material: ${tool.material}`,
                               tool.model && `Model: ${tool.model}`,
-                              tool.work_order_number && `W/O: ${tool.work_order_number}`,
+                              tool.work_order_numbers?.filter(Boolean).length ? `W/O: ${tool.work_order_numbers.filter(Boolean).join(', ')}` : (tool.work_order_number && `W/O: ${tool.work_order_number}`),
                               tool.material_no && `Material No: ${tool.material_no}`,
                               tool.part_number && `Part No: ${tool.part_number}`,
                               tool.category && `Category: ${tool.category}`,
@@ -856,10 +845,6 @@ export default function InventoryPage() {
                     <input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" required />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Work Order Number (W/O) <span className="font-normal text-gray-500">(optional)</span></label>
-                    <input type="text" value={editForm.work_order_number} onChange={(e) => setEditForm({ ...editForm, work_order_number: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
-                  </div>
-                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Size/Thread</label>
                     <input type="text" value={editForm.size_thread || ''} onChange={(e) => setEditForm({ ...editForm, size_thread: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" />
                   </div>
@@ -867,7 +852,7 @@ export default function InventoryPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Material</label>
                     <select value={editForm.material || ''} onChange={(e) => setEditForm({ ...editForm, material: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20">
                       <option value="">Select material...</option>
-                      {(attributeOptions?.materials ?? []).map(material => <option key={material} value={material}>{material}</option>)}
+                      {['CHROME', 'L80', 'NBR 90 DURO', 'NITRILE', 'STEEL', 'TEFLON'].map(material => <option key={material} value={material}>{material}</option>)}
                     </select>
                   </div>
                   <div>
@@ -892,7 +877,19 @@ export default function InventoryPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
-                    <input type="number" min="1" value={editForm.quantity} onChange={(e) => setEditForm({ ...editForm, quantity: parseInt(e.target.value) || 0 })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" required />
+                    <input type="number" min="1" value={editForm.quantity} onChange={(e) => { const quantity = parseInt(e.target.value) || 0; setEditForm({ ...editForm, quantity, work_order_numbers: (editForm.work_order_numbers || []).slice(0, quantity) }); }} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20" required />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Work Order Numbers <span className="font-normal text-gray-500">(optional, one per unit)</span></label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {Array.from({ length: Number(editForm.quantity) || 0 }, (_, index) => (
+                        <input key={index} type="text" value={editForm.work_order_numbers?.[index] || ''} onChange={e => {
+                          const work_order_numbers = Array.from({ length: Number(editForm.quantity) || 0 }, (_, i) => editForm.work_order_numbers?.[i] || '');
+                          work_order_numbers[index] = e.target.value;
+                          setEditForm({ ...editForm, work_order_numbers, work_order_number: '' });
+                        }} className="w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder={`Unit ${index + 1} W/O (optional)`} />
+                      ))}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Min Quantity</label>
