@@ -852,7 +852,7 @@ export default function InventoryPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Material</label>
                     <select value={editForm.material || ''} onChange={(e) => setEditForm({ ...editForm, material: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0B3C6D]/20">
                       <option value="">Select material...</option>
-                      {['CHROME', 'L80', 'NBR 90 DURO', 'NITRILE', 'STEEL', 'TEFLON'].map(material => <option key={material} value={material}>{material}</option>)}
+                      {['CHROME', 'HCHC', 'L80', 'NBR 90 DURO', 'NITRILE', 'STEEL', 'TEFLON'].map(material => <option key={material} value={material}>{material}</option>)}
                     </select>
                   </div>
                   <div>
